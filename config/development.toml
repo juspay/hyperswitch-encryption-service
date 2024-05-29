@@ -1,0 +1,31 @@
+[server]
+host = "127.0.0.1"
+port = 5000
+
+[database]
+user = "db_user"
+password = "db_pass"
+host = "localhost"
+port = 5432
+dbname = "encryption_db"
+pool_size = 5
+min_idle = 2
+
+[log.file]
+enabled = true
+path = "logs"
+file_name = "log.txt"
+level = "Debug"
+
+[log.console]
+enabled = true
+level = "DEBUG"
+log_format = "default"
+
+[log.telemetry]
+traces_enabled = false
+metrics_enabled = false
+use_xray_generator = false
+[secrets]
+master_key = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"
+
