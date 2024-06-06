@@ -1,10 +1,11 @@
-use crate::crypto::aes256::GcmAes256;
+use crate::crypto::{aes256::GcmAes256, EncryptionClient};
 use config::File;
 use router_env::config::Log;
 use serde::Deserialize;
+use std::sync::Arc;
 
 #[cfg(feature = "aws")]
-use crate::services::aws::AwsKmsConfig;
+use crate::services::aws::{AwsKmsClient, AwsKmsConfig};
 
 use std::path::PathBuf;
 
@@ -27,8 +28,6 @@ pub struct Config {
     pub database: Database,
     pub log: Log,
     pub secrets: Secrets,
-    #[cfg(feature = "aws")]
-    pub kms_config: AwsKmsConfig,
 }
 
 #[derive(Deserialize, Debug)]
@@ -42,9 +41,11 @@ pub struct Database {
     pub min_idle: Option<u32>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Secrets {
     pub master_key: GcmAes256,
+    #[cfg(feature = "aws")]
+    pub kms_config: AwsKmsConfig,
 }
 
 #[derive(Deserialize, Debug)]
@@ -71,6 +72,11 @@ impl Config {
     pub fn with_config_path(environment: Environment, config_path: Option<PathBuf>) -> Self {
         let config = config::Config::builder()
             .add_source(File::from(Self::config_path(environment, config_path)))
+            .add_source(
+                config::Environment::with_prefix("CRIPTA")
+                    .try_parsing(true)
+                    .separator("__"),
+            )
             .build()
             .expect("Unable to find configuration");
 
@@ -79,5 +85,15 @@ impl Config {
                 eprintln!("Unable to deserialize application configuration: {error}");
             })
             .unwrap()
+    }
+}
+
+impl Secrets {
+    pub async fn get_encryption_client(self) -> Arc<dyn EncryptionClient> {
+        #[cfg(feature = "aws")]
+        return Arc::new(AwsKmsClient::new(&self.kms_config).await);
+
+        #[cfg(not(feature = "aws"))]
+        return Arc::new(self.master_key);
     }
 }

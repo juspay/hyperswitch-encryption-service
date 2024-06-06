@@ -6,9 +6,6 @@ use crate::{
     types::{key::Version, requests::CreateDataKeyRequest, response::DataKeyCreateResponse, Key},
 };
 
-#[cfg(not(feature = "aws"))]
-use crate::crypto::aes256::GcmAes256;
-
 pub async fn generate_and_create_data_key(
     state: AppState,
     req: CreateDataKeyRequest,
@@ -16,11 +13,7 @@ pub async fn generate_and_create_data_key(
     let db = &state.db_pool;
     let version = Version::get_latest(&req.identifier, &state).await;
 
-    #[cfg(not(feature = "aws"))]
-    let aes_key = GcmAes256::generate_key().switch()?;
-
-    #[cfg(feature = "aws")]
-    let aes_key = state.aws_client.generate_key().await.switch()?;
+    let aes_key = state.encryption_client.generate_key().await.switch()?;
 
     let key = Key {
         version,

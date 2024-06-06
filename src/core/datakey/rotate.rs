@@ -6,9 +6,6 @@ use crate::{
     types::{key::Version, requests::RotateDataKeyRequest, response::DataKeyCreateResponse, Key},
 };
 
-#[cfg(not(feature = "aws"))]
-use crate::crypto::aes256::GcmAes256;
-
 pub async fn generate_and_rotate_data_key(
     state: AppState,
     req: RotateDataKeyRequest,
@@ -19,11 +16,7 @@ pub async fn generate_and_rotate_data_key(
         .increment()
         .switch()?;
 
-    #[cfg(not(feature = "aws"))]
-    let aes_key = GcmAes256::generate_key().switch()?;
-
-    #[cfg(feature = "aws")]
-    let aes_key = state.aws_client.generate_key().await.switch()?;
+    let aes_key = state.encryption_client.generate_key().await.switch()?;
 
     let key = Key {
         version,

@@ -16,8 +16,14 @@ RUN apt-get update \
 
 EXPOSE 5000
 
+ARG BINARY=cripta
+
 RUN mkdir -p ${BIN_DIR}
 
+ENV CONFIG_DIR=${CONFIG_DIR} \
+    BINARY=${BINARY}
+
+COPY --from=builder /cripta/config/development.toml ${CONFIG_DIR}/development.toml
 COPY --from=builder /cripta/target/release/${BINARY} ${BIN_DIR}/${BINARY}
 
 WORKDIR ${BIN_DIR}
