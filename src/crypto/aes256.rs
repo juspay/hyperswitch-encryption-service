@@ -15,7 +15,7 @@ use ring::aead::{self, BoundKey, OpeningKey, SealingKey, UnboundKey};
 
 use masking::StrongSecret;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GcmAes256 {
     key: StrongSecret<[u8; 32]>,
 }
@@ -145,6 +145,15 @@ impl<'de> Deserialize<'de> for GcmAes256 {
 
 #[async_trait::async_trait]
 impl Crypto for GcmAes256 {
+    async fn generate_key(&self) -> CustomResult<StrongSecret<[u8; 32]>, errors::CryptoError> {
+        use ring::rand::SecureRandom;
+
+        let rng = ring::rand::SystemRandom::new();
+        let mut key: [u8; 32] = [0_u8; 32];
+        rng.fill(&mut key).switch()?;
+        Ok(key.into())
+    }
+
     async fn encrypt(
         &self,
         input: StrongSecret<Vec<u8>>,
@@ -195,3 +204,5 @@ impl Crypto for GcmAes256 {
         Ok(result.to_vec().into())
     }
 }
+
+impl super::EncryptionClient for GcmAes256 {}

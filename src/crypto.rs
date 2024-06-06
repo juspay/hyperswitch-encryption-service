@@ -8,7 +8,8 @@ pub(crate) mod aes256;
 pub(crate) mod kms;
 
 #[async_trait::async_trait]
-pub(crate) trait Crypto {
+pub trait Crypto {
+    async fn generate_key(&self) -> CustomResult<StrongSecret<[u8; 32]>, errors::CryptoError>;
     async fn encrypt(
         &self,
         input: StrongSecret<Vec<u8>>,
@@ -18,3 +19,5 @@ pub(crate) trait Crypto {
         input: StrongSecret<Vec<u8>>,
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError>;
 }
+
+pub trait EncryptionClient: Crypto + Send + Sync {}

@@ -10,6 +10,28 @@ use masking::{PeekInterface, StrongSecret};
 
 #[async_trait::async_trait]
 impl Crypto for AwsKmsClient {
+    async fn generate_key(
+        &self,
+    ) -> errors::CustomResult<StrongSecret<[u8; 32]>, errors::CryptoError> {
+        let resp = self
+            .inner_client()
+            .generate_data_key()
+            .key_id(self.key_id())
+            .key_spec(aws_sdk_kms::types::DataKeySpec::Aes256)
+            .send()
+            .await
+            .switch()?;
+
+        let plaintext_blob = <[u8; 32]>::try_from(
+            resp.plaintext
+                .ok_or(error_stack::report!(errors::CryptoError::KeyGeneration))?
+                .into_inner(),
+        )
+        .map_err(|_| error_stack::report!(errors::CryptoError::KeyGeneration))?;
+
+        Ok(plaintext_blob.into())
+    }
+
     async fn encrypt(
         &self,
         input: StrongSecret<Vec<u8>>,
@@ -54,26 +76,4 @@ impl Crypto for AwsKmsClient {
     }
 }
 
-impl AwsKmsClient {
-    pub async fn generate_key(
-        &self,
-    ) -> errors::CustomResult<StrongSecret<[u8; 32]>, errors::CryptoError> {
-        let resp = self
-            .inner_client()
-            .generate_data_key()
-            .key_id(self.key_id())
-            .key_spec(aws_sdk_kms::types::DataKeySpec::Aes256)
-            .send()
-            .await
-            .switch()?;
-
-        let plaintext_blob = <[u8; 32]>::try_from(
-            resp.plaintext
-                .ok_or(error_stack::report!(errors::CryptoError::KeyGeneration))?
-                .into_inner(),
-        )
-        .map_err(|_| error_stack::report!(errors::CryptoError::KeyGeneration))?;
-
-        Ok(plaintext_blob.into())
-    }
-}
+impl super::EncryptionClient for AwsKmsClient {}

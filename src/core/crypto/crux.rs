@@ -24,17 +24,8 @@ impl KeyEncrypt<DataKeyNew> for Key {
         self,
         state: &AppState,
     ) -> errors::CustomResult<DataKeyNew, errors::CryptoError> {
-        #[cfg(feature = "aws")]
         let encryption_key = state
-            .aws_client
-            .encrypt(self.key.peek().to_vec().into())
-            .await?;
-
-        #[cfg(not(feature = "aws"))]
-        let encryption_key = state
-            .conf
-            .secrets
-            .master_key
+            .encryption_client
             .encrypt(self.key.peek().to_vec().into())
             .await?;
 
@@ -55,16 +46,7 @@ impl KeyEncrypt<DataKeyNew> for Key {
 #[async_trait::async_trait]
 impl KeyDecrypt<Key> for DataKey {
     async fn decrypt(self, state: &AppState) -> errors::CustomResult<Key, errors::CryptoError> {
-        #[cfg(feature = "aws")]
-        let decrypted_key = state.aws_client.decrypt(self.encryption_key).await?;
-
-        #[cfg(not(feature = "aws"))]
-        let decrypted_key = state
-            .conf
-            .secrets
-            .master_key
-            .decrypt(self.encryption_key)
-            .await?;
+        let decrypted_key = state.encryption_client.decrypt(self.encryption_key).await?;
 
         let decrypted_key = <[u8; 32]>::try_from(decrypted_key.peek().to_vec())
             .map_err(|_| error_stack::report!(errors::CryptoError::DecryptionFailed("KMS")))?;
