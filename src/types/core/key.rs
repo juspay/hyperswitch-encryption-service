@@ -171,3 +171,28 @@ where
         Ok(Self::from(row))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_version_deserialize() {
+        #[derive(Debug, serde::Serialize, Deserialize, PartialEq, Eq)]
+        struct Data {
+            version: Version,
+        }
+
+        let version = serde_json::json!({
+            "version": "v1"
+        });
+
+        let actual: Data = serde_json::from_value(version).expect("Failed to deserialize version");
+
+        let expected = Data {
+            version: Version(1),
+        };
+
+        assert_eq!(actual, expected)
+    }
+}
