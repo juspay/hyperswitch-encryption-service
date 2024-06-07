@@ -11,8 +11,7 @@ pub async fn generate_and_rotate_data_key(
     req: RotateDataKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
     let db = &state.db_pool;
-    let version = Version::get_latest(&req.identifier, &state)
-        .await
+    let version = Version::from(db.get_latest_version(&req.identifier).await.switch()?)
         .increment()
         .switch()?;
 
