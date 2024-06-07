@@ -17,6 +17,7 @@ mod tests {
 
     use super::*;
 
+    #[allow(clippy::panic, clippy::unwrap_used)]
     #[test]
     fn test_enc_request_deserialize() {
         let test_data = serde_json::json!({

@@ -69,6 +69,10 @@ impl Config {
         config_path
     }
 
+    /// # Panics
+    ///
+    /// Panics for an invalid configuration
+    #[allow(clippy::panic, clippy::expect_used)]
     pub fn with_config_path(environment: Environment, config_path: Option<PathBuf>) -> Self {
         let config = config::Config::builder()
             .add_source(File::from(Self::config_path(environment, config_path)).required(false))
@@ -81,10 +85,7 @@ impl Config {
             .expect("Unable to find configuration");
 
         serde_path_to_error::deserialize(config)
-            .map_err(|error| {
-                eprintln!("Unable to deserialize application configuration: {error}");
-            })
-            .unwrap()
+            .expect("Unable to deserialize application configuration")
     }
 }
 

@@ -1,3 +1,5 @@
+#![allow(clippy::panic, clippy::expect_used)]
+
 use axum::Router;
 use cripta::{app::AppState, config, routes::*};
 use router_env::logger;

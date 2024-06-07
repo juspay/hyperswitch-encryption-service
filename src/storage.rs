@@ -23,6 +23,10 @@ pub struct DbState {
 type Connection<'a> = PooledConnection<'a, AsyncPgConnection>;
 
 impl DbState {
+    /// # Panics
+    ///
+    /// Panics if unable to connect to Database
+    #[allow(clippy::expect_used)]
     pub async fn from_config(config: &Arc<Config>) -> Self {
         let database = &config.database;
 

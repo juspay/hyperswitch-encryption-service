@@ -119,7 +119,7 @@ impl Version {
     }
 
     pub fn increment(self) -> errors::CustomResult<Self, errors::ParsingError> {
-        Ok(Version(self.0 + 1))
+        Ok(Self(self.0 + 1))
     }
     pub fn inner(self) -> i32 {
         self.0
@@ -176,6 +176,7 @@ where
 mod tests {
     use super::*;
 
+    #[allow(clippy::panic, clippy::expect_used)]
     #[test]
     fn test_version_deserialize() {
         #[derive(Debug, serde::Serialize, Deserialize, PartialEq, Eq)]

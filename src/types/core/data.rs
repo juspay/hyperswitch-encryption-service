@@ -140,6 +140,8 @@ mod tests {
     use crate::types::core::key::Version;
 
     use super::*;
+
+    #[allow(clippy::panic, clippy::unwrap_used)]
     #[test]
     fn test_data_deserialize() {
         #[derive(PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
