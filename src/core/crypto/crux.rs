@@ -34,7 +34,7 @@ impl KeyEncrypt<DataKeyNew> for Key {
             data_identifier,
             key_identifier,
             encryption_key,
-            version: self.version.inner(),
+            version: self.version,
             created_at: time::PrimitiveDateTime::new(
                 time::OffsetDateTime::now_utc().date(),
                 time::OffsetDateTime::now_utc().time(),
@@ -55,7 +55,7 @@ impl KeyDecrypt<Key> for DataKey {
             (self.data_identifier, self.key_identifier).try_into();
         Ok(Key {
             identifier: identifier.switch()?,
-            version: self.version.into(),
+            version: self.version,
             key: decrypted_key.into(),
         })
     }
@@ -106,7 +106,7 @@ impl DataDecrypt<DecryptedData> for EncryptedData {
         state: &AppState,
         identifier: &Identifier,
     ) -> errors::CustomResult<DecryptedData, errors::CryptoError> {
-        let version = self.version.clone();
+        let version = self.version;
         let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
         let key = GcmAes256::new(decrypted_key.key).await?;
 

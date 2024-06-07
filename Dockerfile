@@ -1,4 +1,8 @@
-FROM rust:bookworm as builder
+FROM rust:slim-bookworm as builder
+
+
+RUN apt-get update \
+    && apt-get install -y libpq-dev libssl-dev pkg-config
 
 WORKDIR /cripta
 
@@ -6,7 +10,7 @@ COPY . .
 RUN cargo build --release --features release
 
 
-FROM debian:bookworm
+FROM debian:bookworm-slim
 
 ARG CONFIG_DIR=/local/config
 ARG BIN_DIR=/local/bin
@@ -23,7 +27,6 @@ RUN mkdir -p ${BIN_DIR}
 ENV CONFIG_DIR=${CONFIG_DIR} \
     BINARY=${BINARY}
 
-COPY --from=builder /cripta/config/development.toml ${CONFIG_DIR}/development.toml
 COPY --from=builder /cripta/target/release/${BINARY} ${BIN_DIR}/${BINARY}
 
 WORKDIR ${BIN_DIR}

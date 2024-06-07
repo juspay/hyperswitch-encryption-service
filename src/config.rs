@@ -71,7 +71,7 @@ impl Config {
 
     pub fn with_config_path(environment: Environment, config_path: Option<PathBuf>) -> Self {
         let config = config::Config::builder()
-            .add_source(File::from(Self::config_path(environment, config_path)))
+            .add_source(File::from(Self::config_path(environment, config_path)).required(false))
             .add_source(
                 config::Environment::with_prefix("CRIPTA")
                     .try_parsing(true)

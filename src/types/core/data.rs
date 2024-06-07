@@ -113,8 +113,19 @@ impl<'de> Deserialize<'de> for EncryptedData {
                     E::invalid_value(Unexpected::Str(data), &err.as_str())
                 })?;
 
+                let (_, version) = version.split_once('v').ok_or_else(|| {
+                    E::invalid_value(
+                        Unexpected::Str(version),
+                        &"Version should be in the format of v{version_num}",
+                    )
+                })?;
+
+                let version = version.parse::<i32>().map_err(|_| {
+                    E::invalid_value(Unexpected::Str(version), &"Unexpted version number")
+                })?;
+
                 Ok(EncryptedData {
-                    version: Version::from(version.to_string()),
+                    version: Version::from(version),
                     data: masking::StrongSecret::new(dec_data),
                 })
             }
@@ -141,7 +152,7 @@ mod tests {
         });
         let actual_data: ExtractedEncryptedData = serde_json::from_value(data).unwrap();
         let expected_data = EncryptedData {
-            version: Version::from("v1".to_string()),
+            version: Version::from(1),
             data: masking::StrongSecret::new(String::from("Omgit'sworking").as_bytes().to_vec()),
         };
 

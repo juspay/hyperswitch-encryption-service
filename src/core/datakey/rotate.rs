@@ -3,7 +3,7 @@ use crate::{
     core::crypto::KeyEncrypt,
     errors::{self, SwitchError},
     storage::dek::DataKeyStorageInterface,
-    types::{key::Version, requests::RotateDataKeyRequest, response::DataKeyCreateResponse, Key},
+    types::{requests::RotateDataKeyRequest, response::DataKeyCreateResponse, Key},
 };
 
 pub async fn generate_and_rotate_data_key(
@@ -11,7 +11,10 @@ pub async fn generate_and_rotate_data_key(
     req: RotateDataKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
     let db = &state.db_pool;
-    let version = Version::from(db.get_latest_version(&req.identifier).await.switch()?)
+    let version = db
+        .get_latest_version(&req.identifier)
+        .await
+        .switch()?
         .increment()
         .switch()?;
 
