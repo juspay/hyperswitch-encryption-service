@@ -11,6 +11,7 @@ pub struct DataKeyNew {
     pub encryption_key: StrongSecret<Vec<u8>>,
     pub version: Version,
     pub created_at: PrimitiveDateTime,
+    pub source: String,
 }
 
 #[derive(Queryable, Identifiable)]
@@ -22,4 +23,5 @@ pub struct DataKey {
     pub encryption_key: StrongSecret<Vec<u8>>,
     pub version: Version,
     pub created_at: PrimitiveDateTime,
+    pub source: String,
 }

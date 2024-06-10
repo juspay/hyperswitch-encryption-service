@@ -3,7 +3,7 @@ use error_stack::ResultExt;
 use core::fmt;
 
 use crate::{
-    crypto::Crypto,
+    crypto::{Crypto, Source},
     errors::{self, CustomResult, SwitchError},
 };
 
@@ -145,13 +145,15 @@ impl<'de> Deserialize<'de> for GcmAes256 {
 
 #[async_trait::async_trait]
 impl Crypto for GcmAes256 {
-    async fn generate_key(&self) -> CustomResult<StrongSecret<[u8; 32]>, errors::CryptoError> {
+    async fn generate_key(
+        &self,
+    ) -> CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError> {
         use ring::rand::SecureRandom;
 
         let rng = ring::rand::SystemRandom::new();
         let mut key: [u8; 32] = [0_u8; 32];
         rng.fill(&mut key).switch()?;
-        Ok(key.into())
+        Ok((Source::AESLocal, key.into()))
     }
 
     async fn encrypt(

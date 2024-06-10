@@ -12,5 +12,7 @@ diesel::table! {
         encryption_key -> Bytea,
         version -> Int4,
         created_at -> Timestamp,
+        #[max_length = 30]
+        source -> Varchar,
     }
 }

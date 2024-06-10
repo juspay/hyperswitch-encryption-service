@@ -1,6 +1,7 @@
 use crate::{
     app::AppState,
     core::KeyDecrypt,
+    crypto::Source,
     errors::{self, SwitchError},
     storage::{cache, dek::DataKeyStorageInterface},
     types::Identifier,
@@ -25,6 +26,7 @@ pub struct Key {
     pub identifier: Identifier,
     pub key: StrongSecret<[u8; 32]>,
     pub version: Version,
+    pub source: Source,
 }
 
 impl Key {

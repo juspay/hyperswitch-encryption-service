@@ -1,8 +1,9 @@
 use masking::PeekInterface;
+use std::str::FromStr;
 
 use crate::{
     app::AppState,
-    crypto::{aes256::GcmAes256, Crypto},
+    crypto::{aes256::GcmAes256, Crypto, Source},
     errors::{self, SwitchError},
     storage::types::{DataKey, DataKeyNew},
     types::{key::Version, DecryptedData, EncryptedData, Identifier, Key},
@@ -35,6 +36,7 @@ impl KeyEncrypt<DataKeyNew> for Key {
             key_identifier,
             encryption_key,
             version: self.version,
+            source: self.source.to_string(),
             created_at: time::PrimitiveDateTime::new(
                 time::OffsetDateTime::now_utc().date(),
                 time::OffsetDateTime::now_utc().time(),
@@ -53,10 +55,13 @@ impl KeyDecrypt<Key> for DataKey {
 
         let identifier: errors::CustomResult<Identifier, errors::ParsingError> =
             (self.data_identifier, self.key_identifier).try_into();
+
+        let source = Source::from_str(&self.source).switch()?;
         Ok(Key {
             identifier: identifier.switch()?,
             version: self.version,
             key: decrypted_key.into(),
+            source,
         })
     }
 }

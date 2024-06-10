@@ -13,12 +13,13 @@ pub async fn generate_and_create_data_key(
     let db = &state.db_pool;
     let version = Version::get_latest(&req.identifier, &state).await;
 
-    let aes_key = state.encryption_client.generate_key().await.switch()?;
+    let (source, aes_key) = state.encryption_client.generate_key().await.switch()?;
 
     let key = Key {
         version,
         identifier: req.identifier.clone(),
         key: aes_key,
+        source,
     }
     .encrypt(&state)
     .await

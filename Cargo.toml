@@ -23,6 +23,7 @@ router_env = { git = "https://github.com/juspay/hyperswitch", rev = "ec451c0c81b
 async-trait = "0.1.80"
 hex = "0.4.3"
 ring = { version = "0.17.8", features = ["std"] }
+strum = { version = "0.26", features = ["derive"] }
 futures = "0.3.30"
 time = { version = "0.3.36", features = ["parsing"]}
 diesel = { version = "2.1.3", features = ["postgres", "serde_json", "time"] }
