@@ -30,6 +30,7 @@ impl GcmAes256 {
         Ok(Self { key })
     }
 
+    #[allow(dead_code)]
     pub async fn from_vec(
         key: StrongSecret<Vec<u8>>,
     ) -> errors::CustomResult<Self, errors::CryptoError> {
@@ -37,15 +38,6 @@ impl GcmAes256 {
             .map_err(|_| error_stack::report!(errors::CryptoError::InvalidKey))?;
 
         Ok(Self { key: key.into() })
-    }
-
-    pub fn generate_key() -> errors::CustomResult<StrongSecret<[u8; 32]>, errors::CryptoError> {
-        use ring::rand::SecureRandom;
-
-        let rng = ring::rand::SystemRandom::new();
-        let mut key: [u8; 32] = [0_u8; 32];
-        rng.fill(&mut key).switch()?;
-        Ok(key.into())
     }
 }
 

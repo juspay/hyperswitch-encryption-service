@@ -1,8 +1,11 @@
-use crate::crypto::{aes256::GcmAes256, EncryptionClient};
+use crate::crypto::EncryptionClient;
 use config::File;
 use router_env::config::Log;
 use serde::Deserialize;
 use std::sync::Arc;
+
+#[cfg(not(feature = "aws"))]
+use crate::crypto::aes256::GcmAes256;
 
 #[cfg(feature = "aws")]
 use crate::services::aws::{AwsKmsClient, AwsKmsConfig};
@@ -43,6 +46,7 @@ pub struct Database {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Secrets {
+    #[cfg(not(feature = "aws"))]
     pub master_key: GcmAes256,
     #[cfg(feature = "aws")]
     pub kms_config: AwsKmsConfig,
