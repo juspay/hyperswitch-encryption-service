@@ -1,5 +1,5 @@
 use crate::{
-    crypto::Crypto,
+    crypto::{Crypto, Source},
     errors::{self, CustomResult, SwitchError},
     services::aws::AwsKmsClient,
 };
@@ -12,7 +12,7 @@ use masking::{PeekInterface, StrongSecret};
 impl Crypto for AwsKmsClient {
     async fn generate_key(
         &self,
-    ) -> errors::CustomResult<StrongSecret<[u8; 32]>, errors::CryptoError> {
+    ) -> errors::CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError> {
         let resp = self
             .inner_client()
             .generate_data_key()
@@ -29,7 +29,7 @@ impl Crypto for AwsKmsClient {
         )
         .map_err(|_| error_stack::report!(errors::CryptoError::KeyGeneration))?;
 
-        Ok(plaintext_blob.into())
+        Ok((Source::KMS, plaintext_blob.into()))
     }
 
     async fn encrypt(

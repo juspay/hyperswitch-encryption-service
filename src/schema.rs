@@ -10,8 +10,9 @@ diesel::table! {
         #[max_length = 20]
         data_identifier -> Varchar,
         encryption_key -> Bytea,
-        #[max_length = 30]
-        version -> Varchar,
+        version -> Int4,
         created_at -> Timestamp,
+        #[max_length = 30]
+        source -> Varchar,
     }
 }

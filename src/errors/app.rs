@@ -57,10 +57,10 @@ impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, supe
 impl IntoResponse for ApplicationErrorResponse {
     fn into_response(self) -> Response {
         let body = match self {
-            ApplicationErrorResponse::InternalServerError => "Something went wrong".to_string(),
-            ApplicationErrorResponse::NotFound(s) => format!("The resource {s} was not found"),
-            ApplicationErrorResponse::ParsingFailed(s) => s,
-            ApplicationErrorResponse::Other(s) => s,
+            Self::InternalServerError => "Something went wrong".to_string(),
+            Self::NotFound(s) => format!("The resource {s} was not found"),
+            Self::ParsingFailed(s) => s,
+            Self::Other(s) => s,
         };
 
         (StatusCode::INTERNAL_SERVER_ERROR, body).into_response()

@@ -12,7 +12,7 @@ where
     if let Some(val) = cache.get(&key).await {
         Ok(val)
     } else {
-        let val = f.await.unwrap();
+        let val = f.await?;
         cache.push(key, val.clone()).await;
         Ok(val)
     }

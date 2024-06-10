@@ -1,8 +1,9 @@
 use masking::PeekInterface;
+use std::str::FromStr;
 
 use crate::{
     app::AppState,
-    crypto::{aes256::GcmAes256, Crypto},
+    crypto::{aes256::GcmAes256, Crypto, Source},
     errors::{self, SwitchError},
     storage::types::{DataKey, DataKeyNew},
     types::{key::Version, DecryptedData, EncryptedData, Identifier, Key},
@@ -34,7 +35,8 @@ impl KeyEncrypt<DataKeyNew> for Key {
             data_identifier,
             key_identifier,
             encryption_key,
-            version: self.version.inner(),
+            version: self.version,
+            source: self.source.to_string(),
             created_at: time::PrimitiveDateTime::new(
                 time::OffsetDateTime::now_utc().date(),
                 time::OffsetDateTime::now_utc().time(),
@@ -53,10 +55,13 @@ impl KeyDecrypt<Key> for DataKey {
 
         let identifier: errors::CustomResult<Identifier, errors::ParsingError> =
             (self.data_identifier, self.key_identifier).try_into();
+
+        let source = Source::from_str(&self.source).switch()?;
         Ok(Key {
             identifier: identifier.switch()?,
-            version: self.version.into(),
+            version: self.version,
             key: decrypted_key.into(),
+            source,
         })
     }
 }
@@ -106,7 +111,7 @@ impl DataDecrypt<DecryptedData> for EncryptedData {
         state: &AppState,
         identifier: &Identifier,
     ) -> errors::CustomResult<DecryptedData, errors::CryptoError> {
-        let version = self.version.clone();
+        let version = self.version;
         let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
         let key = GcmAes256::new(decrypted_key.key).await?;
 

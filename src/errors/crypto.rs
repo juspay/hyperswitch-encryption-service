@@ -12,6 +12,8 @@ pub enum CryptoError {
     EncryptionFailed(&'static str),
     #[error("Failed decrypt the data using {0}")]
     DecryptionFailed(&'static str),
+    #[error("Unable to parse the stored Key {0}")]
+    ParseError(String),
     #[error("Invalid value")]
     InvalidValue,
 }
@@ -31,6 +33,12 @@ impl<T> super::SwitchError<T, CryptoError> for super::CustomResult<T, super::Par
 impl<T> super::SwitchError<T, CryptoError> for super::CustomResult<T, super::DatabaseError> {
     fn switch(self) -> super::CustomResult<T, CryptoError> {
         self.map_err(|_| report!(CryptoError::KeyGetFailed))
+    }
+}
+
+impl<T> super::SwitchError<T, CryptoError> for Result<T, strum::ParseError> {
+    fn switch(self) -> super::CustomResult<T, CryptoError> {
+        self.map_err(|err| report!(CryptoError::ParseError(err.to_string())))
     }
 }
 
