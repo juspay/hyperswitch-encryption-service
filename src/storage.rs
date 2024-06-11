@@ -30,10 +30,18 @@ impl DbState {
     pub async fn from_config(config: &Arc<Config>) -> Self {
         let database = &config.database;
 
+        let password = database
+            .password
+            .expose(
+                #[cfg(feature = "aws")]
+                config,
+            )
+            .await;
+
         let database_url = format!(
             "postgres://{}:{}@{}:{}/{}",
             database.user.peek(),
-            database.password.peek(),
+            password.peek(),
             database.host,
             database.port,
             database.dbname.peek()

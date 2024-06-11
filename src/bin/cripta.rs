@@ -8,7 +8,7 @@ use std::sync::Arc;
 #[tokio::main]
 async fn main() {
     let config = Arc::new(config::Config::with_config_path(
-        config::Environment::Dev,
+        config::Environment::which(),
         None,
     ));
 
