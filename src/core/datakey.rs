@@ -3,7 +3,7 @@ mod rotate;
 
 use crate::{
     app::AppState,
-    errors,
+    errors::{self, ToContainerError},
     types::{
         requests::{CreateDataKeyRequest, RotateDataKeyRequest},
         response::DataKeyCreateResponse,
@@ -17,20 +17,20 @@ use rotate::*;
 pub async fn create_data_key(
     State(state): State<AppState>,
     Json(req): Json<CreateDataKeyRequest>,
-) -> Result<Json<DataKeyCreateResponse>, errors::ApplicationErrorResponse> {
+) -> errors::ApiResponseResult<Json<DataKeyCreateResponse>> {
     generate_and_create_data_key(state, req)
         .await
         .map(Json)
-        .map_err(|err| errors::ApplicationErrorResponse::Other(err.to_string()))
+        .to_container_error()
 }
 
 #[axum::debug_handler]
 pub async fn rotate_data_key(
     State(state): State<AppState>,
     Json(req): Json<RotateDataKeyRequest>,
-) -> Result<Json<DataKeyCreateResponse>, errors::ApplicationErrorResponse> {
+) -> errors::ApiResponseResult<Json<DataKeyCreateResponse>> {
     generate_and_rotate_data_key(state, req)
         .await
         .map(Json)
-        .map_err(|err| errors::ApplicationErrorResponse::Other(err.to_string()))
+        .to_container_error()
 }

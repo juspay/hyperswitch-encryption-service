@@ -14,7 +14,7 @@ pub enum DatabaseError {
     ConnectionError(error_stack::Report<ConnectionError>),
     #[error("Failed to get the value from the database")]
     NotFound,
-    #[error("Unique Violation")]
+    #[error("Unique Violation occured")]
     UniqueViolation,
     #[error("Not null violation")]
     NotNullViolation,

@@ -1,5 +1,8 @@
 use error_stack::report;
 
+#[cfg(feature = "aws")]
+use router_env::logger;
+
 #[derive(Debug, thiserror::Error)]
 pub enum CryptoError {
     #[error("Provided Key is invalid")]
@@ -20,48 +23,54 @@ pub enum CryptoError {
 
 impl super::SwitchError<(), CryptoError> for Result<(), ring::error::Unspecified> {
     fn switch(self) -> super::CustomResult<(), CryptoError> {
-        self.map_err(|_| report!(CryptoError::KeyGeneration))
+        self.map_err(|err| report!(err).change_context(CryptoError::KeyGeneration))
     }
 }
 
 impl<T> super::SwitchError<T, CryptoError> for super::CustomResult<T, super::ParsingError> {
     fn switch(self) -> super::CustomResult<T, CryptoError> {
-        self.map_err(|_| report!(CryptoError::InvalidValue))
+        self.map_err(|err| err.change_context(CryptoError::InvalidValue))
     }
 }
 
 impl<T> super::SwitchError<T, CryptoError> for super::CustomResult<T, super::DatabaseError> {
     fn switch(self) -> super::CustomResult<T, CryptoError> {
-        self.map_err(|_| report!(CryptoError::KeyGetFailed))
+        self.map_err(|err| err.change_context(CryptoError::KeyGetFailed))
     }
 }
 
 impl<T> super::SwitchError<T, CryptoError> for Result<T, strum::ParseError> {
     fn switch(self) -> super::CustomResult<T, CryptoError> {
-        self.map_err(|err| report!(CryptoError::ParseError(err.to_string())))
+        self.map_err(|err| report!(err).change_context(CryptoError::ParseError(err.to_string())))
     }
 }
 
 #[cfg(feature = "aws")]
-impl<T, U> super::SwitchError<T, CryptoError>
+impl<T, U: core::fmt::Debug> super::SwitchError<T, CryptoError>
     for Result<T, aws_sdk_kms::error::SdkError<aws_sdk_kms::operation::encrypt::EncryptError, U>>
 {
     fn switch(self) -> super::CustomResult<T, CryptoError> {
-        self.map_err(|_| report!(CryptoError::EncryptionFailed("KMS")))
+        self.map_err(|err| {
+            logger::error!(aws_kms_err=?err);
+            report!(CryptoError::EncryptionFailed("KMS"))
+        })
     }
 }
 
 #[cfg(feature = "aws")]
-impl<T, U> super::SwitchError<T, CryptoError>
+impl<T, U: core::fmt::Debug> super::SwitchError<T, CryptoError>
     for Result<T, aws_sdk_kms::error::SdkError<aws_sdk_kms::operation::decrypt::DecryptError, U>>
 {
     fn switch(self) -> super::CustomResult<T, CryptoError> {
-        self.map_err(|_| report!(CryptoError::DecryptionFailed("KMS")))
+        self.map_err(|err| {
+            logger::error!(aws_kms_err=?err);
+            report!(CryptoError::DecryptionFailed("KMS"))
+        })
     }
 }
 
 #[cfg(feature = "aws")]
-impl<T, U> super::SwitchError<T, CryptoError>
+impl<T, U: core::fmt::Debug> super::SwitchError<T, CryptoError>
     for Result<
         T,
         aws_sdk_kms::error::SdkError<
@@ -71,6 +80,9 @@ impl<T, U> super::SwitchError<T, CryptoError>
     >
 {
     fn switch(self) -> super::CustomResult<T, CryptoError> {
-        self.map_err(|_| report!(CryptoError::KeyGeneration))
+        self.map_err(|err| {
+            logger::error!(aws_kms_err=?err);
+            report!(CryptoError::KeyGeneration)
+        })
     }
 }
