@@ -1,3 +1,5 @@
+use rustc_hash::FxHashMap;
+
 use crate::{consts::base64::BASE64_ENGINE, types::key::Version};
 use base64::engine::Engine;
 use masking::PeekInterface;
@@ -6,6 +8,9 @@ use serde::{
     Serialize,
 };
 use std::fmt;
+
+#[derive(Eq, PartialEq, Debug, Serialize, serde::Deserialize)]
+pub struct DecryptedDataGroup(pub FxHashMap<String, DecryptedData>);
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct DecryptedData(masking::StrongSecret<Vec<u8>>);
@@ -60,6 +65,9 @@ impl<'de> Deserialize<'de> for DecryptedData {
         deserializer.deserialize_str(DecryptedDataVisitor)
     }
 }
+
+#[derive(Eq, PartialEq, Serialize, serde::Deserialize, Debug)]
+pub struct EncryptedDataGroup(pub FxHashMap<String, EncryptedData>);
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct EncryptedData {

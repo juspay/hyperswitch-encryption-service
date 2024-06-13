@@ -56,10 +56,7 @@ impl SecretContainer {
     ///
     /// Panics when secret cannot be decrypted with KMS
     #[allow(clippy::expect_used)]
-    pub async fn expose(
-        &self,
-        #[cfg(feature = "aws")] config: &Arc<Config>,
-    ) -> masking::Secret<String> {
+    pub async fn expose(&self, #[cfg(feature = "aws")] config: &Config) -> masking::Secret<String> {
         #[cfg(feature = "aws")]
         {
             use base64::Engine;
@@ -161,11 +158,17 @@ impl Config {
 }
 
 impl Secrets {
-    pub async fn get_encryption_client(self) -> Arc<dyn EncryptionClient> {
+    pub async fn create_encryption_client(self) -> EncryptionClient {
         #[cfg(feature = "aws")]
-        return Arc::new(AwsKmsClient::new(&self.kms_config).await);
+        {
+            let client = Arc::new(AwsKmsClient::new(&self.kms_config).await);
+            EncryptionClient::Aws(client)
+        }
 
         #[cfg(not(feature = "aws"))]
-        return Arc::new(self.master_key);
+        {
+            let client = Arc::new(self.master_key);
+            EncryptionClient::Aes(client)
+        }
     }
 }

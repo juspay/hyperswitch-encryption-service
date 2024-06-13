@@ -14,6 +14,7 @@ use diesel::{
     serialize::ToSql,
     sql_types, Queryable,
 };
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use core::fmt;
 
@@ -48,9 +49,37 @@ impl Key {
         )
         .await
     }
+
+    pub async fn get_multiple_keys(
+        state: &AppState,
+        identifier: &Identifier,
+        version: FxHashSet<Version>,
+    ) -> errors::CustomResult<FxHashMap<Version, Self>, errors::DatabaseError> {
+        let db = &state.db_pool;
+        let get_and_decrypt_key = |v: Version| async move {
+            let key = db.get_key(v, identifier).await?;
+            key.decrypt(state).await.switch()
+        };
+
+        let futures = version.into_iter().map(|v| async move {
+            Ok::<_, error_stack::Report<errors::DatabaseError>>((
+                v,
+                cache::get_or_populate_cache(
+                    format!("key_{}:{}", identifier, v),
+                    &cache::KEY_CACHE,
+                    get_and_decrypt_key(v),
+                )
+                .await?,
+            ))
+        });
+
+        Ok(FxHashMap::from_iter(
+            futures::future::try_join_all(futures).await?,
+        ))
+    }
 }
 
-#[derive(AsExpression, Eq, PartialEq, Debug, Clone, Copy)]
+#[derive(AsExpression, Eq, PartialEq, Debug, Clone, Copy, Hash)]
 #[diesel(sql_type = diesel::sql_types::Integer)]
 pub struct Version(i32);
 

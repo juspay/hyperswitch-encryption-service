@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use crate::types::core::{DecryptedData, Identifier};
+use crate::types::core::{DecryptedDataGroup, Identifier};
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct EncryptDataRequest {
     #[serde(flatten)]
     pub identifier: Identifier,
-    pub data: DecryptedData,
+    pub data: DecryptedDataGroup,
 }
 
 #[cfg(test)]

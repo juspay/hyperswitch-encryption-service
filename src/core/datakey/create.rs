@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     app::AppState,
     core::crypto::KeyEncrypt,
@@ -7,7 +9,7 @@ use crate::{
 };
 
 pub async fn generate_and_create_data_key(
-    state: AppState,
+    state: Arc<AppState>,
     req: CreateDataKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
     let db = &state.db_pool;

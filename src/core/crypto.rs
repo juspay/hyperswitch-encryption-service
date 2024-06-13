@@ -13,9 +13,10 @@ use crate::{
     },
 };
 use axum::extract::{Json, State};
+use std::sync::Arc;
 
 pub async fn encrypt_data(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<EncryptDataRequest>,
 ) -> Result<Json<EncryptionResponse>, errors::ApplicationErrorResponse> {
     encryption::encryption(state, req)
@@ -25,7 +26,7 @@ pub async fn encrypt_data(
 }
 
 pub async fn decrypt_data(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<DecryptionRequest>,
 ) -> Result<Json<DecryptionResponse>, errors::ApplicationErrorResponse> {
     decryption::decryption(state, req)

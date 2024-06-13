@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     app::AppState,
     core::crypto::DataDecrypt,
@@ -6,7 +8,7 @@ use crate::{
 };
 
 pub(super) async fn decryption(
-    state: AppState,
+    state: Arc<AppState>,
     req: DecryptionRequest,
 ) -> errors::CustomResult<DecryptionResponse, errors::ApplicationErrorResponse> {
     let identifier = req.identifier.clone();
