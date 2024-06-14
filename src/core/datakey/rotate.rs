@@ -21,7 +21,7 @@ pub async fn generate_and_rotate_data_key(
         .increment()
         .switch()?;
 
-    let (source, aes_key) = state.encryption_client.generate_key().await.switch()?;
+    let (source, aes_key) = state.keymanager_client.generate_key().await.switch()?;
 
     let key = Key {
         version,

@@ -1,4 +1,4 @@
-use crate::crypto::{EncryptionClient, EC};
+use crate::crypto::{EncryptionClient, KeyManagerClient};
 use config::File;
 use router_env::config::Log;
 use serde::Deserialize;
@@ -157,7 +157,7 @@ impl Config {
 }
 
 impl Secrets {
-    pub async fn create_encryption_client(self) -> EC {
+    pub async fn create_keymanager_client(self) -> KeyManagerClient {
         #[cfg(feature = "aws")]
         {
             let client = AwsKmsClient::new(&self.kms_config).await;

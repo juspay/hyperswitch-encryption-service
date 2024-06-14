@@ -32,7 +32,7 @@ impl KeyEncrypt<DataKeyNew> for Key {
         state: &AppState,
     ) -> errors::CustomResult<DataKeyNew, errors::CryptoError> {
         let encryption_key = state
-            .encryption_client
+            .keymanager_client
             .encrypt_key(self.key.peek().to_vec().into())
             .await?;
 
@@ -55,7 +55,7 @@ impl KeyEncrypt<DataKeyNew> for Key {
 impl KeyDecrypt<Key> for DataKey {
     async fn decrypt(self, state: &AppState) -> errors::CustomResult<Key, errors::CryptoError> {
         let decrypted_key = state
-            .encryption_client
+            .keymanager_client
             .decrypt_key(self.encryption_key)
             .await?;
 

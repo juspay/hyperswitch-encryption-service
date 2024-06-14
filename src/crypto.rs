@@ -106,10 +106,10 @@ impl<T: KeyManagement> EncryptionClient<T> {
     }
 }
 #[cfg(feature = "aws")]
-pub type EC = EncryptionClient<AwsKmsClient>;
+pub type KeyManagerClient = EncryptionClient<AwsKmsClient>;
 
 #[cfg(not(feature = "aws"))]
-pub type EC = EncryptionClient<GcmAes256>;
+pub type KeyManagerClient = EncryptionClient<GcmAes256>;
 
 impl<T: KeyManagement> EncryptionClient<T> {
     pub fn client(&self) -> &T {

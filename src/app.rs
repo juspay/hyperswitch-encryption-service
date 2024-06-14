@@ -1,9 +1,9 @@
-use crate::{config::Config, crypto::EC, storage::DbState};
+use crate::{config::Config, crypto::KeyManagerClient, storage::DbState};
 
 pub struct AppState {
     pub conf: Config,
     pub db_pool: DbState,
-    pub encryption_client: EC,
+    pub keymanager_client: KeyManagerClient,
 }
 
 impl AppState {
@@ -12,7 +12,7 @@ impl AppState {
         let db_pool = DbState::from_config(&config).await;
         Self {
             conf: config,
-            encryption_client: secrets.create_encryption_client().await,
+            keymanager_client: secrets.create_keymanager_client().await,
             db_pool,
         }
     }
