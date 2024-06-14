@@ -1,7 +1,7 @@
 use masking::StrongSecret;
 use strum::{Display, EnumString};
 
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 use crate::errors::{self, CustomResult};
 
@@ -35,46 +35,91 @@ pub trait Crypto {
     fn decrypt(&self, input: StrongSecret<Vec<u8>>) -> Self::DataReturn<'_>;
 }
 
-pub enum EncryptionClient {
-    #[cfg(feature = "aws")]
-    Aws(Arc<AwsKmsClient>),
-    #[cfg(not(feature = "aws"))]
-    Aes(Arc<GcmAes256>),
+#[async_trait::async_trait]
+pub trait KeyManagement {
+    async fn generate_key(
+        &self,
+    ) -> CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError>;
+    async fn encrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError>;
+    async fn decrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError>;
 }
 
-impl EncryptionClient {
-    pub async fn encrypt(
-        &self,
-        input: StrongSecret<Vec<u8>>,
-    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
-        match self {
-            #[cfg(feature = "aws")]
-            Self::Aws(client) => client.encrypt(input).await,
-            #[cfg(not(feature = "aws"))]
-            Self::Aes(client) => client.encrypt(input),
-        }
-    }
-
-    pub async fn decrypt(
-        &self,
-        input: StrongSecret<Vec<u8>>,
-    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
-        match self {
-            #[cfg(feature = "aws")]
-            Self::Aws(client) => client.decrypt(input).await,
-            #[cfg(not(feature = "aws"))]
-            Self::Aes(client) => client.decrypt(input),
-        }
-    }
-
-    pub async fn generate_key(
+#[cfg(feature = "aws")]
+#[async_trait::async_trait]
+impl KeyManagement for AwsKmsClient {
+    async fn generate_key(
         &self,
     ) -> CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError> {
-        match self {
-            #[cfg(feature = "aws")]
-            Self::Aws(client) => client.generate_key().await,
-            #[cfg(not(feature = "aws"))]
-            Self::Aes(client) => client.generate_key().await,
+        <Self as Crypto>::generate_key(self).await
+    }
+    async fn encrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+        <Self as Crypto>::encrypt(self, input).await
+    }
+    async fn decrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+        <Self as Crypto>::decrypt(self, input).await
+    }
+}
+
+#[cfg(not(feature = "aws"))]
+#[async_trait::async_trait]
+impl KeyManagement for GcmAes256 {
+    async fn generate_key(
+        &self,
+    ) -> CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError> {
+        <Self as Crypto>::generate_key(self).await
+    }
+    async fn encrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+        <Self as Crypto>::encrypt(self, input)
+    }
+    async fn decrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+        <Self as Crypto>::decrypt(self, input)
+    }
+}
+
+pub struct EncryptionClient<T: KeyManagement> {
+    client: Arc<T>,
+}
+
+impl<T: KeyManagement> EncryptionClient<T> {
+    pub fn new(client: T) -> Self {
+        Self {
+            client: Arc::new(client),
         }
+    }
+}
+#[cfg(feature = "aws")]
+pub type EC = EncryptionClient<AwsKmsClient>;
+
+#[cfg(not(feature = "aws"))]
+pub type EC = EncryptionClient<GcmAes256>;
+
+impl<T: KeyManagement> EncryptionClient<T> {
+    pub fn client(&self) -> &T {
+        &self.client
+    }
+}
+
+impl<T: KeyManagement> Deref for EncryptionClient<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        self.client()
     }
 }

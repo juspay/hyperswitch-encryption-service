@@ -1,8 +1,7 @@
-use crate::crypto::EncryptionClient;
+use crate::crypto::{EncryptionClient, EC};
 use config::File;
 use router_env::config::Log;
 use serde::Deserialize;
-use std::sync::Arc;
 
 #[cfg(not(feature = "aws"))]
 use crate::crypto::aes256::GcmAes256;
@@ -158,17 +157,17 @@ impl Config {
 }
 
 impl Secrets {
-    pub async fn create_encryption_client(self) -> EncryptionClient {
+    pub async fn create_encryption_client(self) -> EC {
         #[cfg(feature = "aws")]
         {
-            let client = Arc::new(AwsKmsClient::new(&self.kms_config).await);
-            EncryptionClient::Aws(client)
+            let client = AwsKmsClient::new(&self.kms_config).await;
+            EncryptionClient::new(client)
         }
 
         #[cfg(not(feature = "aws"))]
         {
-            let client = Arc::new(self.master_key);
-            EncryptionClient::Aes(client)
+            let client = self.master_key;
+            EncryptionClient::new(client)
         }
     }
 }

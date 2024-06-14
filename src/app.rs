@@ -1,9 +1,9 @@
-use crate::{config::Config, crypto::EncryptionClient, storage::DbState};
+use crate::{config::Config, crypto::EC, storage::DbState};
 
 pub struct AppState {
     pub conf: Config,
     pub db_pool: DbState,
-    pub encryption_client: EncryptionClient,
+    pub encryption_client: EC,
 }
 
 impl AppState {

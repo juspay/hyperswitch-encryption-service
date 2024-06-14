@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::{
     app::AppState,
     core::crypto::KeyEncrypt,
+    crypto::KeyManagement,
     errors::{self, SwitchError},
     storage::dek::DataKeyStorageInterface,
     types::{requests::RotateDataKeyRequest, response::DataKeyCreateResponse, Key},

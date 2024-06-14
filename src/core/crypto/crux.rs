@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use crate::{
     app::AppState,
-    crypto::{aes256::GcmAes256, Crypto, Source},
+    crypto::{aes256::GcmAes256, Crypto, KeyManagement, Source},
     errors::{self, SwitchError},
     storage::types::{DataKey, DataKeyNew},
     types::{
@@ -33,7 +33,7 @@ impl KeyEncrypt<DataKeyNew> for Key {
     ) -> errors::CustomResult<DataKeyNew, errors::CryptoError> {
         let encryption_key = state
             .encryption_client
-            .encrypt(self.key.peek().to_vec().into())
+            .encrypt_key(self.key.peek().to_vec().into())
             .await?;
 
         let (data_identifier, key_identifier) = self.identifier.get_identifier();
@@ -54,7 +54,10 @@ impl KeyEncrypt<DataKeyNew> for Key {
 #[async_trait::async_trait]
 impl KeyDecrypt<Key> for DataKey {
     async fn decrypt(self, state: &AppState) -> errors::CustomResult<Key, errors::CryptoError> {
-        let decrypted_key = state.encryption_client.decrypt(self.encryption_key).await?;
+        let decrypted_key = state
+            .encryption_client
+            .decrypt_key(self.encryption_key)
+            .await?;
 
         let decrypted_key = <[u8; 32]>::try_from(decrypted_key.peek().to_vec())
             .map_err(|_| error_stack::report!(errors::CryptoError::DecryptionFailed("KMS")))?;
