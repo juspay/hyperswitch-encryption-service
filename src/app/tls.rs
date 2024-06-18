@@ -1,24 +1,29 @@
-use crate::config::Certs;
+use crate::config::Config;
 use masking::PeekInterface;
 
 use rustls::{pki_types::CertificateDer, server::WebPkiClientVerifier, ServerConfig};
 use std::io;
 use std::sync::Arc;
 
-pub fn from_config(certs: Certs) -> io::Result<ServerConfig> {
-    let cert = rustls_pemfile::certs(&mut certs.tls_cert.peek().as_ref())
+pub async fn from_config(config: &Config) -> io::Result<ServerConfig> {
+    let certs = config.certs.clone();
+
+    let cert = rustls_pemfile::certs(&mut certs.tls_cert.expose(config).await.peek().as_ref())
         .map(|it| it.map(|it| it.to_vec()))
         .collect::<Result<Vec<_>, _>>()?;
 
-    let priv_key = rustls_pemfile::private_key(&mut certs.tls_key.peek().as_ref())?.ok_or(
-        io::Error::new(io::ErrorKind::Other, "Could not parse pem file"),
-    )?;
+    let priv_key =
+        rustls_pemfile::private_key(&mut certs.tls_key.expose(config).await.peek().as_ref())?
+            .ok_or(io::Error::new(
+                io::ErrorKind::Other,
+                "Could not parse pem file",
+            ))?;
 
     let cert = cert.into_iter().map(CertificateDer::from).collect();
 
     let mut roots = rustls::RootCertStore::empty();
 
-    for ca in rustls_pemfile::certs(&mut certs.root_ca.peek().as_ref()) {
+    for ca in rustls_pemfile::certs(&mut certs.root_ca.expose(config).await.peek().as_ref()) {
         roots
             .add(ca.map_err(|err| io::Error::new(io::ErrorKind::Other, err))?)
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
