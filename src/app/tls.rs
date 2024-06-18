@@ -1,0 +1,39 @@
+use crate::config::Certs;
+use masking::PeekInterface;
+
+use rustls::{pki_types::CertificateDer, server::WebPkiClientVerifier, ServerConfig};
+use std::io;
+use std::sync::Arc;
+
+pub fn from_config(certs: Certs) -> io::Result<ServerConfig> {
+    let cert = rustls_pemfile::certs(&mut certs.tls_cert.peek().as_ref())
+        .map(|it| it.map(|it| it.to_vec()))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let priv_key = rustls_pemfile::private_key(&mut certs.tls_key.peek().as_ref())?.ok_or(
+        io::Error::new(io::ErrorKind::Other, "Could not parse pem file"),
+    )?;
+
+    let cert = cert.into_iter().map(CertificateDer::from).collect();
+
+    let mut roots = rustls::RootCertStore::empty();
+
+    for ca in rustls_pemfile::certs(&mut certs.root_ca.peek().as_ref()) {
+        roots
+            .add(ca.map_err(|err| io::Error::new(io::ErrorKind::Other, err))?)
+            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+    }
+
+    let auth = WebPkiClientVerifier::builder(Arc::new(roots))
+        .build()
+        .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+
+    let mut config = ServerConfig::builder()
+        .with_client_cert_verifier(auth)
+        .with_single_cert(cert, priv_key)
+        .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+
+    config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+
+    Ok(config)
+}

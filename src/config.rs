@@ -93,6 +93,8 @@ pub struct Config {
     pub database: Database,
     pub log: Log,
     pub secrets: Secrets,
+    #[cfg(feature = "mtls")]
+    pub certs: Certs,
 }
 
 #[derive(Deserialize, Debug)]
@@ -105,6 +107,13 @@ pub struct Database {
     pub dbname: masking::Secret<String>,
     pub pool_size: Option<u32>,
     pub min_idle: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Certs {
+    pub tls_cert: masking::Secret<String>,
+    pub tls_key: masking::Secret<String>,
+    pub root_ca: masking::Secret<String>,
 }
 
 #[derive(Deserialize, Debug, Clone)]

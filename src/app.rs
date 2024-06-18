@@ -1,3 +1,6 @@
+#[cfg(feature = "mtls")]
+pub mod tls;
+
 use crate::{config::Config, crypto::KeyManagerClient, storage::DbState};
 
 pub struct AppState {

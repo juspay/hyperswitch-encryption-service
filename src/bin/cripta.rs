@@ -31,11 +31,25 @@ async fn main() {
         .nest("/data", Crypto::server(state.clone()))
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind(&host)
-        .await
-        .unwrap_or_else(|_| panic!("Unable to bind the {}", &host));
+    #[cfg(feature = "mtls")]
+    {
+        use axum_server::tls_rustls::RustlsConfig;
+        use cripta::app::tls;
 
-    axum::serve(listener, app)
-        .await
-        .expect("Unable to start the server");
+        let tls = tls::from_config(config.certs.clone())
+            .unwrap_or_else(|err| panic!("unable to read the certificates. got err:{err:?}"));
+
+        axum_server::bind_rustls(host, RustlsConfig::from_config(arc::new(tls)))
+            .serve(app.into_make_service())
+            .await
+            .expect("unable to start the server")
+    }
+
+    #[cfg(not(feature = "mtls"))]
+    {
+        axum_server::bind(host)
+            .serve(app.into_make_service())
+            .await
+            .expect("unable to start the server")
+    }
 }
