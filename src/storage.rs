@@ -10,7 +10,6 @@ use crate::{
 use error_stack::ResultExt;
 
 use diesel_async::{pooled_connection::bb8::PooledConnection, AsyncPgConnection};
-use std::sync::Arc;
 
 use diesel_async::pooled_connection::{bb8::Pool, AsyncDieselConnectionManager, ManagerConfig};
 use masking::PeekInterface;
@@ -27,7 +26,7 @@ impl DbState {
     ///
     /// Panics if unable to connect to Database
     #[allow(clippy::expect_used)]
-    pub async fn from_config(config: &Arc<Config>) -> Self {
+    pub async fn from_config(config: &Config) -> Self {
         let database = &config.database;
 
         let password = database

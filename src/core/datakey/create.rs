@@ -1,19 +1,22 @@
+use std::sync::Arc;
+
 use crate::{
     app::AppState,
     core::crypto::KeyEncrypt,
+    crypto::KeyManagement,
     errors::{self, SwitchError},
     storage::dek::DataKeyStorageInterface,
     types::{key::Version, requests::CreateDataKeyRequest, response::DataKeyCreateResponse, Key},
 };
 
 pub async fn generate_and_create_data_key(
-    state: AppState,
+    state: Arc<AppState>,
     req: CreateDataKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
     let db = &state.db_pool;
     let version = Version::get_latest(&req.identifier, &state).await;
 
-    let (source, aes_key) = state.encryption_client.generate_key().await.switch()?;
+    let (source, aes_key) = state.keymanager_client.generate_key().await.switch()?;
 
     let key = Key {
         version,

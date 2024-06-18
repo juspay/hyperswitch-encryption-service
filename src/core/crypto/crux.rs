@@ -1,12 +1,18 @@
 use masking::PeekInterface;
+use rayon::prelude::*;
+
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::str::FromStr;
 
 use crate::{
     app::AppState,
-    crypto::{aes256::GcmAes256, Crypto, Source},
+    crypto::{aes256::GcmAes256, Crypto, KeyManagement, Source},
     errors::{self, SwitchError},
     storage::types::{DataKey, DataKeyNew},
-    types::{key::Version, DecryptedData, EncryptedData, Identifier, Key},
+    types::{
+        key::Version, DecryptedData, DecryptedDataGroup, EncryptedData, EncryptedDataGroup,
+        Identifier, Key,
+    },
 };
 
 #[async_trait::async_trait]
@@ -26,8 +32,8 @@ impl KeyEncrypt<DataKeyNew> for Key {
         state: &AppState,
     ) -> errors::CustomResult<DataKeyNew, errors::CryptoError> {
         let encryption_key = state
-            .encryption_client
-            .encrypt(self.key.peek().to_vec().into())
+            .keymanager_client
+            .encrypt_key(self.key.peek().to_vec().into())
             .await?;
 
         let (data_identifier, key_identifier) = self.identifier.get_identifier();
@@ -48,7 +54,10 @@ impl KeyEncrypt<DataKeyNew> for Key {
 #[async_trait::async_trait]
 impl KeyDecrypt<Key> for DataKey {
     async fn decrypt(self, state: &AppState) -> errors::CustomResult<Key, errors::CryptoError> {
-        let decrypted_key = state.encryption_client.decrypt(self.encryption_key).await?;
+        let decrypted_key = state
+            .keymanager_client
+            .decrypt_key(self.encryption_key)
+            .await?;
 
         let decrypted_key = <[u8; 32]>::try_from(decrypted_key.peek().to_vec())
             .map_err(|_| error_stack::report!(errors::CryptoError::DecryptionFailed("KMS")))?;
@@ -85,38 +94,60 @@ pub trait DataDecrypt<ToType> {
 }
 
 #[async_trait::async_trait]
-impl DataEncrypt<EncryptedData> for DecryptedData {
+impl DataEncrypt<EncryptedDataGroup> for DecryptedDataGroup {
     async fn encrypt(
         self,
         state: &AppState,
         identifier: &Identifier,
-    ) -> errors::CustomResult<EncryptedData, errors::CryptoError> {
+    ) -> errors::CustomResult<EncryptedDataGroup, errors::CryptoError> {
         let version = Version::get_latest(identifier, state).await;
         let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
-        let key = GcmAes256::new(decrypted_key.key).await?;
+        let key = GcmAes256::new(decrypted_key.key)?;
 
-        let encrypted_data = key.encrypt(self.inner()).await?;
-
-        Ok(EncryptedData {
-            version: decrypted_key.version,
-            data: encrypted_data,
-        })
+        Ok(EncryptedDataGroup(
+            self.0
+                .into_par_iter()
+                .map(|(hash_key, data)| {
+                    let encrypted_data = key.encrypt(data.inner())?;
+                    Ok::<_, error_stack::Report<errors::CryptoError>>((hash_key,EncryptedData {
+                        version: decrypted_key.version,
+                        data: encrypted_data,
+                    }))
+                })
+                .collect::<errors::CustomResult<FxHashMap<String, EncryptedData>,errors::CryptoError>>()?,
+        ))
     }
 }
 
 #[async_trait::async_trait]
-impl DataDecrypt<DecryptedData> for EncryptedData {
+impl DataDecrypt<DecryptedDataGroup> for EncryptedDataGroup {
     async fn decrypt(
         self,
         state: &AppState,
         identifier: &Identifier,
-    ) -> errors::CustomResult<DecryptedData, errors::CryptoError> {
-        let version = self.version;
-        let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
-        let key = GcmAes256::new(decrypted_key.key).await?;
+    ) -> errors::CustomResult<DecryptedDataGroup, errors::CryptoError> {
+        let version = FxHashSet::from_iter(self.0.values().map(|d| d.version));
+        let decrypted_keys = Key::get_multiple_keys(state, identifier, version)
+            .await
+            .switch()?;
 
-        let decrypted_data = key.decrypt(self.inner()).await?;
+        Ok(DecryptedDataGroup(self
+            .0
+            .into_par_iter()
+            .map(|(hash_key, data)| {
+                let version = data.version;
+                let decrypted_key = decrypted_keys
+                    .get(&version)
+                    .ok_or(error_stack::report!(errors::CryptoError::DecryptionFailed("AES")))?.clone();
 
-        Ok(DecryptedData::from_data(decrypted_data))
+                let key = GcmAes256::new(decrypted_key.key)?;
+                let decrypted_data = key.decrypt(data.inner())?;
+                Ok::<_, error_stack::Report<errors::CryptoError>>((
+                    hash_key,
+                    DecryptedData::from_data(decrypted_data),
+                ))
+            })
+            .collect::<errors::CustomResult<FxHashMap<String, DecryptedData>, errors::CryptoError>>(
+            )?))
     }
 }

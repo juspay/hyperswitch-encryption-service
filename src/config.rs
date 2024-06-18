@@ -1,8 +1,7 @@
-use crate::crypto::EncryptionClient;
+use crate::crypto::{EncryptionClient, KeyManagerClient};
 use config::File;
 use router_env::config::Log;
 use serde::Deserialize;
-use std::sync::Arc;
 
 #[cfg(not(feature = "aws"))]
 use crate::crypto::aes256::GcmAes256;
@@ -56,10 +55,7 @@ impl SecretContainer {
     ///
     /// Panics when secret cannot be decrypted with KMS
     #[allow(clippy::expect_used)]
-    pub async fn expose(
-        &self,
-        #[cfg(feature = "aws")] config: &Arc<Config>,
-    ) -> masking::Secret<String> {
+    pub async fn expose(&self, #[cfg(feature = "aws")] config: &Config) -> masking::Secret<String> {
         #[cfg(feature = "aws")]
         {
             use base64::Engine;
@@ -161,11 +157,17 @@ impl Config {
 }
 
 impl Secrets {
-    pub async fn get_encryption_client(self) -> Arc<dyn EncryptionClient> {
+    pub async fn create_keymanager_client(self) -> KeyManagerClient {
         #[cfg(feature = "aws")]
-        return Arc::new(AwsKmsClient::new(&self.kms_config).await);
+        {
+            let client = AwsKmsClient::new(&self.kms_config).await;
+            EncryptionClient::new(client)
+        }
 
         #[cfg(not(feature = "aws"))]
-        return Arc::new(self.master_key);
+        {
+            let client = self.master_key;
+            EncryptionClient::new(client)
+        }
     }
 }

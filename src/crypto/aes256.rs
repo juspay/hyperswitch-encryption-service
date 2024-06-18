@@ -24,9 +24,7 @@ impl GcmAes256 {
     fn key(&self) -> &[u8] {
         self.key.peek()
     }
-    pub async fn new(
-        key: StrongSecret<[u8; 32]>,
-    ) -> errors::CustomResult<Self, errors::CryptoError> {
+    pub fn new(key: StrongSecret<[u8; 32]>) -> errors::CustomResult<Self, errors::CryptoError> {
         Ok(Self { key })
     }
 
@@ -137,6 +135,7 @@ impl<'de> Deserialize<'de> for GcmAes256 {
 
 #[async_trait::async_trait]
 impl Crypto for GcmAes256 {
+    type DataReturn<'a> = CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError>;
     async fn generate_key(
         &self,
     ) -> CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError> {
@@ -148,10 +147,7 @@ impl Crypto for GcmAes256 {
         Ok((Source::AESLocal, key.into()))
     }
 
-    async fn encrypt(
-        &self,
-        input: StrongSecret<Vec<u8>>,
-    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+    fn encrypt(&self, input: StrongSecret<Vec<u8>>) -> Self::DataReturn<'_> {
         let secret = self.key();
 
         let nonce_sequence =
@@ -168,10 +164,7 @@ impl Crypto for GcmAes256 {
 
         Ok(in_out.into())
     }
-    async fn decrypt(
-        &self,
-        input: StrongSecret<Vec<u8>>,
-    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+    fn decrypt(&self, input: StrongSecret<Vec<u8>>) -> Self::DataReturn<'_> {
         let secret = self.key();
 
         let msg = input.peek().to_vec();
@@ -198,5 +191,3 @@ impl Crypto for GcmAes256 {
         Ok(result.to_vec().into())
     }
 }
-
-impl super::EncryptionClient for GcmAes256 {}

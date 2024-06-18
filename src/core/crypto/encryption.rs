@@ -4,9 +4,10 @@ use crate::{
     errors::{self, SwitchError},
     types::{requests::EncryptDataRequest, response::EncryptionResponse},
 };
+use std::sync::Arc;
 
 pub(super) async fn encryption(
-    state: AppState,
+    state: Arc<AppState>,
     req: EncryptDataRequest,
 ) -> errors::CustomResult<EncryptionResponse, errors::ApplicationErrorResponse> {
     let identifier = req.identifier.clone();

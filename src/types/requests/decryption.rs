@@ -1,4 +1,4 @@
-use crate::types::core::EncryptedData;
+use crate::types::core::EncryptedDataGroup;
 use crate::types::core::Identifier;
 use serde::{Deserialize, Serialize};
 
@@ -6,5 +6,5 @@ use serde::{Deserialize, Serialize};
 pub struct DecryptionRequest {
     #[serde(flatten)]
     pub identifier: Identifier,
-    pub data: EncryptedData,
+    pub data: EncryptedDataGroup,
 }

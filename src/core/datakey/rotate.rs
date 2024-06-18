@@ -1,13 +1,16 @@
+use std::sync::Arc;
+
 use crate::{
     app::AppState,
     core::crypto::KeyEncrypt,
+    crypto::KeyManagement,
     errors::{self, SwitchError},
     storage::dek::DataKeyStorageInterface,
     types::{requests::RotateDataKeyRequest, response::DataKeyCreateResponse, Key},
 };
 
 pub async fn generate_and_rotate_data_key(
-    state: AppState,
+    state: Arc<AppState>,
     req: RotateDataKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
     let db = &state.db_pool;
@@ -18,7 +21,7 @@ pub async fn generate_and_rotate_data_key(
         .increment()
         .switch()?;
 
-    let (source, aes_key) = state.encryption_client.generate_key().await.switch()?;
+    let (source, aes_key) = state.keymanager_client.generate_key().await.switch()?;
 
     let key = Key {
         version,
