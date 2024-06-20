@@ -8,8 +8,8 @@ rust-version = "1.74"
 tokio-rustls = { git = "https://github.com/rustls/tokio-rustls", rev = "3a153acec6c4d189eb5de501b2155b4484b8651b" } # main
 
 [features]
-mtls = ["dep:rustls", "dep:rustls-pemfile"]
-aws = ["dep:aws-config", "dep:aws-sdk-kms", "axum-server/tls-rustls"]
+mtls = ["dep:rustls", "dep:rustls-pemfile","axum-server/tls-rustls"]
+aws = ["dep:aws-config", "dep:aws-sdk-kms"]
 release = ["aws","mtls"]
 
 [dependencies]
@@ -36,7 +36,7 @@ diesel-async = { version = "0.4.1", features = ["postgres", "bb8"] }
 config = { version = "0.14.0", features = ["toml"] }
 serde_path_to_error = "0.1.16"
 moka = { version = "0.12", default-features = false, features = ["future"]}
-rustls = { version = "0.23.10", default-features = false, optional = true}
+rustls = { version = "0.23.10", default-features = false,features = ["std"], optional = true}
 rustls-pemfile = {version = "2.1.2", default-features = false, features = ["std"], optional=true }
 rustc-hash = "1.1.0"
 rayon = "1.10.0"
