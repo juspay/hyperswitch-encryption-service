@@ -12,3 +12,10 @@ pub struct RotateDataKeyRequest {
     #[serde(flatten)]
     pub identifier: Identifier,
 }
+
+#[derive(Deserialize, Serialize)]
+pub struct TransferKeyRequest {
+    #[serde(flatten)]
+    pub identifier: Identifier,
+    pub key: String,
+}
