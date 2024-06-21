@@ -9,6 +9,7 @@ impl DataKey {
         Router::new()
             .route("/create", post(core::create_data_key))
             .route("/rotate", post(core::rotate_data_key))
+            .route("/transfer", post(core::transfer_data_key))
             .with_state(state)
     }
 }
