@@ -12,7 +12,7 @@ The encryption service mainly has following functionalities:-
 ## How does it work
 
 - Application communicates with the service to create a key for the specific entity.
-- Next time application has to encrypt/decrypt the data related to the entity, It has to send the entity identifier and the base64-encoded data, The Key Manager will encrypt/decrypt it for the application
+- Next time application has to encrypt/decrypt the data related to the entity, it has to send the entity identifier and the base64-encoded data, the Key Manager will encrypt/decrypt it for the application.
 - All the communication between application and the encryption service are authorised by Mutual TLS
 - All the Data Encryption Keys are Encrypted by either by securely generated AES-256 Key or a hosted Key Management Service (AWS KMS, Hashicorp Vault etc.)
 
