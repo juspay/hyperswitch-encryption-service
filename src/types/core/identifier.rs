@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum Identifier {
     User(String),
     Merchant(String),
+    UserAuth(String),
 }
 
 impl Identifier {
@@ -13,6 +14,7 @@ impl Identifier {
         match self {
             Self::User(id) => (String::from("User"), id.clone()),
             Self::Merchant(id) => (String::from("Merchant"), id.clone()),
+            Self::UserAuth(id) => (String::from("UserAuth"), id.clone()),
         }
     }
 }
@@ -22,6 +24,7 @@ impl core::fmt::Display for Identifier {
         match self {
             Self::User(s) => f.write_str(&format!("User_{}", s)),
             Self::Merchant(s) => f.write_str(&format!("Merchant_{}", s)),
+            Self::UserAuth(s) => f.write_str(&format!("UserAuth_{}", s)),
         }
     }
 }
@@ -35,6 +38,7 @@ impl TryFrom<(String, String)> for Identifier {
         match (did, kid) {
             ("User", kid) => Ok(Self::User(kid)),
             ("Merchant", kid) => Ok(Self::Merchant(kid)),
+            ("UserAuth", kid) => Ok(Self::UserAuth(kid)),
             (_, _) => Err(error_stack::Report::from(
                 errors::ParsingError::ParsingFailed(String::from("Failed to parse Identifier")),
             )),
