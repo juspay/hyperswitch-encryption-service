@@ -45,24 +45,22 @@ impl Environment {
     }
 }
 
-#[derive(Deserialize, Debug)]
-pub struct SecretContainer {
-    password: masking::Secret<String>,
-}
+#[derive(Deserialize, Debug, Clone)]
+pub struct SecretContainer(masking::Secret<String>);
 
 impl SecretContainer {
     /// # Panics
     ///
     /// Panics when secret cannot be decrypted with KMS
-    #[allow(clippy::expect_used)]
-    pub async fn expose(&self, #[cfg(feature = "aws")] config: &Config) -> masking::Secret<String> {
+    #[allow(clippy::expect_used, unused_variables)]
+    pub async fn expose(&self, config: &Config) -> masking::Secret<String> {
         #[cfg(feature = "aws")]
         {
             use base64::Engine;
 
             let kms = AwsKmsClient::new(&config.secrets.kms_config).await;
             let data = crate::consts::base64::BASE64_ENGINE
-                .decode(self.password.peek())
+                .decode(self.0.peek())
                 .expect("Unable to base64 decode secret");
 
             let plaintext_blob = Blob::new(data);
@@ -83,7 +81,7 @@ impl SecretContainer {
         }
 
         #[cfg(not(feature = "aws"))]
-        self.password.clone()
+        self.0.clone()
     }
 }
 
@@ -93,6 +91,8 @@ pub struct Config {
     pub database: Database,
     pub log: Log,
     pub secrets: Secrets,
+    #[cfg(feature = "mtls")]
+    pub certs: Certs,
 }
 
 #[derive(Deserialize, Debug)]
@@ -100,11 +100,17 @@ pub struct Database {
     pub port: u16,
     pub host: String,
     pub user: masking::Secret<String>,
-    #[serde(flatten)]
     pub password: SecretContainer,
     pub dbname: masking::Secret<String>,
     pub pool_size: Option<u32>,
     pub min_idle: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Certs {
+    pub tls_cert: SecretContainer,
+    pub tls_key: SecretContainer,
+    pub root_ca: SecretContainer,
 }
 
 #[derive(Deserialize, Debug, Clone)]

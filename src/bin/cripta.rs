@@ -29,13 +29,28 @@ async fn main() {
         .nest("/health", Health::server(state.clone()))
         .nest("/key", DataKey::server(state.clone()))
         .nest("/data", Crypto::server(state.clone()))
-        .with_state(state);
+        .with_state(state.clone());
 
-    let listener = tokio::net::TcpListener::bind(&host)
-        .await
-        .unwrap_or_else(|_| panic!("Unable to bind the {}", &host));
+    #[cfg(feature = "mtls")]
+    {
+        use axum_server::tls_rustls::RustlsConfig;
+        use cripta::app::tls;
 
-    axum::serve(listener, app)
-        .await
-        .expect("Unable to start the server");
+        let tls = tls::from_config(&state.conf)
+            .await
+            .unwrap_or_else(|err| panic!("unable to read the certificates. got err:{err:?}"));
+
+        axum_server::bind_rustls(host, RustlsConfig::from_config(Arc::new(tls)))
+            .serve(app.into_make_service())
+            .await
+            .expect("unable to start the server")
+    }
+
+    #[cfg(not(feature = "mtls"))]
+    {
+        axum_server::bind(host)
+            .serve(app.into_make_service())
+            .await
+            .expect("unable to start the server")
+    }
 }
