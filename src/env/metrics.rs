@@ -4,6 +4,8 @@ use prometheus::Registry;
 pub(super) struct MetricsGuard {
     _metrics_guard: SdkMeterProvider,
 }
+
+#[allow(clippy::expect_used)]
 pub(super) fn setup_metrics_pipeline() -> MetricsGuard {
     let registry = Registry::new();
 
@@ -23,6 +25,7 @@ pub(super) fn setup_metrics_pipeline() -> MetricsGuard {
     }
 }
 
+#[allow(clippy::expect_used)]
 impl Drop for MetricsGuard {
     fn drop(&mut self) {
         self._metrics_guard

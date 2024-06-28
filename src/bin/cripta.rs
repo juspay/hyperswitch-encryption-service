@@ -10,7 +10,7 @@ use std::sync::Arc;
 async fn main() {
     let config = config::Config::with_config_path(config::Environment::which(), None);
 
-    let _guard = observability::setup(&config.log, &["cripta"]);
+    let _guard = observability::setup(&config.log, []);
 
     let host: SocketAddr = format!("{}:{}", &config.server.host, config.server.port)
         .parse()
