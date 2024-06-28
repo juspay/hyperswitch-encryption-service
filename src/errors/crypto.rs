@@ -1,7 +1,7 @@
 use error_stack::report;
 
 #[cfg(feature = "aws")]
-use router_env::logger;
+use crate::env::observability as logger;
 
 #[derive(Debug, thiserror::Error)]
 pub enum CryptoError {

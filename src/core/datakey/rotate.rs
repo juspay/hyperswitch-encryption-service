@@ -4,6 +4,7 @@ use crate::{
     app::AppState,
     core::crypto::KeyEncrypt,
     crypto::KeyManagement,
+    env::observability as logger,
     errors::{self, SwitchError},
     storage::dek::DataKeyStorageInterface,
     types::{requests::RotateDataKeyRequest, response::DataKeyCreateResponse, Key},
@@ -33,7 +34,7 @@ pub async fn generate_and_rotate_data_key(
     .await
     .switch()
     .map_err(|err| {
-        router_env::logger::error!(?err);
+        logger::error!(?err);
         err
     })?;
 

@@ -7,6 +7,7 @@ use crate::{
     consts::base64::BASE64_ENGINE,
     core::crypto::KeyEncrypt,
     crypto::Source,
+    env::observability as logger,
     errors::{self, SwitchError},
     storage::dek::DataKeyStorageInterface,
     types::{key::Version, requests::TransferKeyRequest, response::DataKeyCreateResponse, Key},
@@ -33,7 +34,7 @@ pub async fn transfer_data_key(
     .await
     .switch()
     .map_err(|err| {
-        router_env::logger::error!(?err);
+        logger::error!(?err);
         err
     })?;
 
