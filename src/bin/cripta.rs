@@ -3,19 +3,14 @@
 use axum::Router;
 use std::net::SocketAddr;
 
-use cripta::{app::AppState, config, routes::*};
-use router_env::logger;
+use cripta::{app::AppState, config, env::observability, env::observability as logger, routes::*};
 use std::sync::Arc;
 
 #[tokio::main]
 async fn main() {
     let config = config::Config::with_config_path(config::Environment::which(), None);
 
-    let _guard = router_env::setup(
-        &config.log,
-        router_env::service_name!(),
-        [router_env::service_name!(), "axum"],
-    );
+    let _guard = observability::setup(&config.log, []);
 
     let host: SocketAddr = format!("{}:{}", &config.server.host, config.server.port)
         .parse()

@@ -1,6 +1,8 @@
-use crate::crypto::{EncryptionClient, KeyManagerClient};
+use crate::{
+    crypto::{EncryptionClient, KeyManagerClient},
+    env::observability::LogConfig,
+};
 use config::File;
-use router_env::config::Log;
 use serde::Deserialize;
 
 #[cfg(not(feature = "aws"))]
@@ -89,7 +91,7 @@ impl SecretContainer {
 pub struct Config {
     pub server: Server,
     pub database: Database,
-    pub log: Log,
+    pub log: LogConfig,
     pub secrets: Secrets,
     #[cfg(feature = "mtls")]
     pub certs: Certs,

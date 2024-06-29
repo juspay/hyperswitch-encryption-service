@@ -11,16 +11,9 @@ dbname = "encryption_db"
 pool_size = 5
 min_idle = 2
 
-[log.file]
-enabled = true
-path = "logs"
-file_name = "log.txt"
-level = "Debug"
-
-[log.console]
-enabled = true
-level = "DEBUG"
-log_format = "default"
+[log]
+log_level = "debug"
+log_format = "console"
 
 [log.telemetry]
 traces_enabled = false
