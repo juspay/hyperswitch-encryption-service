@@ -1,3 +1,7 @@
+[metrics_server]
+host = "127.0.0.1"
+port = 6128
+
 [server]
 host = "127.0.0.1"
 port = 5000
@@ -15,10 +19,6 @@ min_idle = 2
 log_level = "debug"
 log_format = "console"
 
-[log.telemetry]
-traces_enabled = false
-metrics_enabled = false
-use_xray_generator = false
 [secrets]
 master_key = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"
 

@@ -1,5 +1,6 @@
+use opentelemetry::global;
 use opentelemetry_sdk::{metrics::SdkMeterProvider, Resource};
-use prometheus::Registry;
+use prometheus::default_registry;
 
 pub(super) struct MetricsGuard {
     _metrics_guard: SdkMeterProvider,
@@ -7,10 +8,10 @@ pub(super) struct MetricsGuard {
 
 #[allow(clippy::expect_used)]
 pub(super) fn setup_metrics_pipeline() -> MetricsGuard {
-    let registry = Registry::new();
+    let registry = default_registry();
 
     let exporter = opentelemetry_prometheus::exporter()
-        .with_registry(registry)
+        .with_registry(registry.clone())
         .build()
         .expect("Failed to build metrics pipeline");
 
@@ -19,6 +20,8 @@ pub(super) fn setup_metrics_pipeline() -> MetricsGuard {
         .with_resource(resource)
         .with_reader(exporter)
         .build();
+
+    global::set_meter_provider(meter_provider.clone());
 
     MetricsGuard {
         _metrics_guard: meter_provider,
