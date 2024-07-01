@@ -6,7 +6,9 @@ use std::sync::Arc;
 
 use crate::{
     app::AppState,
+    env::observability as logger,
     errors::{self, ToContainerError},
+    metrics,
     types::{
         requests::{CreateDataKeyRequest, RotateDataKeyRequest, TransferKeyRequest},
         response::DataKeyCreateResponse,
@@ -24,6 +26,11 @@ pub async fn create_data_key(
     generate_and_create_data_key(state, req)
         .await
         .map(Json)
+        .map_err(|err| {
+            logger::error!(key_create_failure=?err);
+            metrics::KEY_CREATE_FAILURE.add(1, &[]);
+            err
+        })
         .to_container_error()
 }
 
@@ -35,6 +42,11 @@ pub async fn rotate_data_key(
     generate_and_rotate_data_key(state, req)
         .await
         .map(Json)
+        .map_err(|err| {
+            logger::error!(key_create_failure=?err);
+            metrics::KEY_ROTATE_FAILURE.add(1, &[]);
+            err
+        })
         .to_container_error()
 }
 
