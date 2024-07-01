@@ -16,6 +16,7 @@ use crate::{
 };
 use axum::{extract::State, Json};
 use create::*;
+use opentelemetry::KeyValue;
 use rotate::*;
 
 #[axum::debug_handler]
@@ -23,12 +24,22 @@ pub async fn create_data_key(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CreateDataKeyRequest>,
 ) -> errors::ApiResponseResult<Json<DataKeyCreateResponse>> {
+    let identifier = req.identifier.clone();
+
     generate_and_create_data_key(state, req)
         .await
         .map(Json)
         .map_err(|err| {
             logger::error!(key_create_failure=?err);
-            metrics::KEY_CREATE_FAILURE.add(1, &[]);
+
+            let (data_identifier, key_identifier) = identifier.get_identifier();
+            metrics::KEY_CREATE_FAILURE.add(
+                1,
+                &[
+                    KeyValue::new("key_identifier", key_identifier),
+                    KeyValue::new("data_identifier", data_identifier),
+                ],
+            );
             err
         })
         .to_container_error()
@@ -39,12 +50,22 @@ pub async fn rotate_data_key(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RotateDataKeyRequest>,
 ) -> errors::ApiResponseResult<Json<DataKeyCreateResponse>> {
+    let identifier = req.identifier.clone();
+
     generate_and_rotate_data_key(state, req)
         .await
         .map(Json)
         .map_err(|err| {
             logger::error!(key_create_failure=?err);
-            metrics::KEY_ROTATE_FAILURE.add(1, &[]);
+
+            let (data_identifier, key_identifier) = identifier.get_identifier();
+            metrics::KEY_ROTATE_FAILURE.add(
+                1,
+                &[
+                    KeyValue::new("key_identifier", key_identifier),
+                    KeyValue::new("data_identifier", data_identifier),
+                ],
+            );
             err
         })
         .to_container_error()

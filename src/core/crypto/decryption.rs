@@ -8,6 +8,7 @@ use crate::{
     metrics,
     types::{requests::DecryptionRequest, response::DecryptionResponse},
 };
+use opentelemetry::KeyValue;
 
 pub(super) async fn decryption(
     state: Arc<AppState>,
@@ -20,7 +21,15 @@ pub(super) async fn decryption(
         .await
         .map_err(|err| {
             logger::error!(encryption_error=?err);
-            metrics::DECRYPTION_FAILURE.add(1, &[]);
+
+            let (data_identifier, key_identifier) = identifier.get_identifier();
+            metrics::DECRYPTION_FAILURE.add(
+                1,
+                &[
+                    KeyValue::new("key_identifier", key_identifier),
+                    KeyValue::new("data_identifier", data_identifier),
+                ],
+            );
             err
         })
         .switch()?;

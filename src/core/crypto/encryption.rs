@@ -6,6 +6,7 @@ use crate::{
     metrics,
     types::{requests::EncryptDataRequest, response::EncryptionResponse},
 };
+use opentelemetry::KeyValue;
 use std::sync::Arc;
 
 pub(super) async fn encryption(
@@ -19,7 +20,15 @@ pub(super) async fn encryption(
         .await
         .map_err(|err| {
             logger::error!(encryption_error=?err);
-            metrics::ENCRYPTION_FAILURE.add(1, &[]);
+
+            let (data_identifier, key_identifier) = identifier.get_identifier();
+            metrics::ENCRYPTION_FAILURE.add(
+                1,
+                &[
+                    KeyValue::new("key_identifier", key_identifier),
+                    KeyValue::new("data_identifier", data_identifier),
+                ],
+            );
             err
         })
         .switch()?;
