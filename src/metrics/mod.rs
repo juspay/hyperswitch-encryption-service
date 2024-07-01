@@ -3,6 +3,9 @@ use opentelemetry::metrics::{Counter, Histogram, Meter};
 
 pub(crate) static METER: Lazy<Meter> = Lazy::new(|| opentelemetry::global::meter("cripta"));
 
+pub(crate) static HEALTH_METRIC: Lazy<Counter<u64>> =
+    Lazy::new(|| METER.u64_counter("HEALTH_METRIC").init());
+
 pub(crate) static ENCRYPTION_FAILURE: Lazy<Counter<u64>> =
     Lazy::new(|| METER.u64_counter("ENCRYPTION_FAILURE").init());
 
