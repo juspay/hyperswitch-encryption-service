@@ -27,7 +27,7 @@ async fn main() {
         .with_state(state.clone());
 
     // Spawn metrics server without mtls in a seperate port
-    spawn_metrics_server(state.clone()).await;
+    tokio::task::spawn(spawn_metrics_server(state.clone()));
 
     #[cfg(feature = "mtls")]
     {
