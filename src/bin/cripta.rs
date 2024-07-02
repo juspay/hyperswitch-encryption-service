@@ -26,6 +26,9 @@ async fn main() {
         .nest("/data", Crypto::server(state.clone()))
         .with_state(state.clone());
 
+    // Spawn metrics server without mtls in a seperate port
+    tokio::task::spawn(spawn_metrics_server(state.clone()));
+
     #[cfg(feature = "mtls")]
     {
         use axum_server::tls_rustls::RustlsConfig;
@@ -48,4 +51,27 @@ async fn main() {
             .await
             .expect("unable to start the server")
     }
+}
+
+async fn spawn_metrics_server(state: Arc<AppState>) {
+    let host: SocketAddr = format!(
+        "{}:{}",
+        &state.conf.metrics_server.host, &state.conf.metrics_server.port
+    )
+    .parse()
+    .expect("Unable to parse metrics server");
+
+    logger::info!(
+        "Metrics Server started at [{:?}]",
+        &state.conf.metrics_server
+    );
+
+    let app = Router::new()
+        .nest("/metrics", Metrics::server(state.clone()))
+        .with_state(state);
+
+    axum_server::bind(host)
+        .serve(app.into_make_service())
+        .await
+        .expect("Unable to start the metrics server")
 }

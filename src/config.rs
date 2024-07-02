@@ -90,6 +90,7 @@ impl SecretContainer {
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub server: Server,
+    pub metrics_server: Server,
     pub database: Database,
     pub log: LogConfig,
     pub secrets: Secrets,
