@@ -1,9 +1,16 @@
 #![allow(clippy::panic, clippy::expect_used)]
 
-use axum::Router;
+use axum::{body::Body, Router};
+use hyper::Request;
 use std::net::SocketAddr;
 
-use cripta::{app::AppState, config, env::observability, env::observability as logger, routes::*};
+use tower::ServiceBuilder;
+use tower_http::{trace::TraceLayer, ServiceBuilderExt};
+
+use cripta::{
+    app::AppState, config, env::observability, env::observability as logger, request_id::MakeUlid,
+    routes::*,
+};
 use std::sync::Arc;
 
 #[tokio::main]
@@ -20,10 +27,22 @@ async fn main() {
 
     let state = Arc::new(AppState::from_config(config).await);
 
+    let middleware = ServiceBuilder::new()
+        .set_x_request_id(MakeUlid)
+        .propagate_x_request_id()
+        .layer(
+            TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
+                let request_id = request.headers().get("x-request-id").and_then(|r| r.to_str().ok()).unwrap_or("unknown_id");
+
+                tracing::debug_span!("request",request_id = %request_id,method = %request.method(), uri=%request.uri())
+            }),
+        );
+
     let app = Router::new()
         .nest("/health", Health::server(state.clone()))
         .nest("/key", DataKey::server(state.clone()))
         .nest("/data", Crypto::server(state.clone()))
+        .layer(middleware)
         .with_state(state.clone());
 
     // Spawn metrics server without mtls in a seperate port

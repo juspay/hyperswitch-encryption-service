@@ -6,6 +6,7 @@ pub mod crypto;
 pub mod env;
 pub mod errors;
 pub mod metrics;
+pub mod request_id;
 pub mod routes;
 pub mod schema;
 pub mod services;
