@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use crate::types::core::{DecryptedDataGroup, Identifier};
+use crate::types::{core::Identifier, method::EncryptionType};
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct EncryptDataRequest {
     #[serde(flatten)]
     pub identifier: Identifier,
-    pub data: DecryptedDataGroup,
+    pub data: EncryptionType,
 }
 
 #[cfg(test)]
@@ -17,7 +17,10 @@ mod tests {
 
     use crate::{
         consts::base64::BASE64_ENGINE,
-        types::core::{DecryptedData, DecryptedDataGroup},
+        types::{
+            core::{DecryptedData, DecryptedDataGroup},
+            method::EncryptionType,
+        },
     };
 
     use super::*;
@@ -39,7 +42,7 @@ mod tests {
 
         let expected_data = EncryptDataRequest {
             identifier: Identifier::User(String::from("123")),
-            data: DecryptedDataGroup(hash),
+            data: EncryptionType::Batch(DecryptedDataGroup(hash)),
         };
 
         assert_eq!(actual_data, expected_data);

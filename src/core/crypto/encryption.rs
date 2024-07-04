@@ -1,6 +1,5 @@
 use crate::{
     app::AppState,
-    core::crypto::DataEncrypt,
     env::observability as logger,
     errors::{self, SwitchError},
     metrics,

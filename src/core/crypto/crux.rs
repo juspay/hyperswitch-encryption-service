@@ -151,3 +151,40 @@ impl DataDecrypt<DecryptedDataGroup> for EncryptedDataGroup {
             )?))
     }
 }
+
+#[async_trait::async_trait]
+impl DataEncrypt<EncryptedData> for DecryptedData {
+    async fn encrypt(
+        self,
+        state: &AppState,
+        identifier: &Identifier,
+    ) -> errors::CustomResult<EncryptedData, errors::CryptoError> {
+        let version = Version::get_latest(identifier, state).await;
+        let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
+        let key = GcmAes256::new(decrypted_key.key)?;
+
+        let encrypted_data = key.encrypt(self.inner())?;
+
+        Ok(EncryptedData {
+            version: decrypted_key.version,
+            data: encrypted_data,
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl DataDecrypt<DecryptedData> for EncryptedData {
+    async fn decrypt(
+        self,
+        state: &AppState,
+        identifier: &Identifier,
+    ) -> errors::CustomResult<DecryptedData, errors::CryptoError> {
+        let version = self.version;
+        let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
+        let key = GcmAes256::new(decrypted_key.key)?;
+
+        let decrypted_data = key.decrypt(self.inner())?;
+
+        Ok(DecryptedData::from_data(decrypted_data))
+    }
+}
