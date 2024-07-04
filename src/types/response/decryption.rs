@@ -1,7 +1,7 @@
-use crate::types::DecryptedDataGroup;
+use crate::types::method::EncryptionType;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DecryptionResponse {
-    pub data: DecryptedDataGroup,
+    pub data: EncryptionType,
 }

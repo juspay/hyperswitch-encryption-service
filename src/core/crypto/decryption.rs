@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use crate::{
     app::AppState,
-    core::crypto::DataDecrypt,
     env::observability as logger,
     errors::{self, SwitchError},
     metrics,

@@ -16,17 +16,17 @@ use crate::{
 };
 
 #[async_trait::async_trait]
-pub trait KeyEncrypt<ToType> {
+pub trait KeyEncrypter<ToType> {
     async fn encrypt(self, state: &AppState) -> errors::CustomResult<ToType, errors::CryptoError>;
 }
 
 #[async_trait::async_trait]
-pub trait KeyDecrypt<ToType> {
+pub trait KeyDecrypter<ToType> {
     async fn decrypt(self, state: &AppState) -> errors::CustomResult<ToType, errors::CryptoError>;
 }
 
 #[async_trait::async_trait]
-impl KeyEncrypt<DataKeyNew> for Key {
+impl KeyEncrypter<DataKeyNew> for Key {
     async fn encrypt(
         self,
         state: &AppState,
@@ -52,7 +52,7 @@ impl KeyEncrypt<DataKeyNew> for Key {
 }
 
 #[async_trait::async_trait]
-impl KeyDecrypt<Key> for DataKey {
+impl KeyDecrypter<Key> for DataKey {
     async fn decrypt(self, state: &AppState) -> errors::CustomResult<Key, errors::CryptoError> {
         let decrypted_key = state
             .keymanager_client
@@ -76,7 +76,7 @@ impl KeyDecrypt<Key> for DataKey {
 }
 
 #[async_trait::async_trait]
-pub trait DataEncrypt<ToType> {
+pub trait DataEncrypter<ToType> {
     async fn encrypt(
         self,
         state: &AppState,
@@ -85,7 +85,7 @@ pub trait DataEncrypt<ToType> {
 }
 
 #[async_trait::async_trait]
-pub trait DataDecrypt<ToType> {
+pub trait DataDecrypter<ToType> {
     async fn decrypt(
         self,
         state: &AppState,
@@ -94,7 +94,7 @@ pub trait DataDecrypt<ToType> {
 }
 
 #[async_trait::async_trait]
-impl DataEncrypt<EncryptedDataGroup> for DecryptedDataGroup {
+impl DataEncrypter<EncryptedDataGroup> for DecryptedDataGroup {
     async fn encrypt(
         self,
         state: &AppState,
@@ -120,7 +120,7 @@ impl DataEncrypt<EncryptedDataGroup> for DecryptedDataGroup {
 }
 
 #[async_trait::async_trait]
-impl DataDecrypt<DecryptedDataGroup> for EncryptedDataGroup {
+impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
     async fn decrypt(
         self,
         state: &AppState,
@@ -149,5 +149,42 @@ impl DataDecrypt<DecryptedDataGroup> for EncryptedDataGroup {
             })
             .collect::<errors::CustomResult<FxHashMap<String, DecryptedData>, errors::CryptoError>>(
             )?))
+    }
+}
+
+#[async_trait::async_trait]
+impl DataEncrypter<EncryptedData> for DecryptedData {
+    async fn encrypt(
+        self,
+        state: &AppState,
+        identifier: &Identifier,
+    ) -> errors::CustomResult<EncryptedData, errors::CryptoError> {
+        let version = Version::get_latest(identifier, state).await;
+        let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
+        let key = GcmAes256::new(decrypted_key.key)?;
+
+        let encrypted_data = key.encrypt(self.inner())?;
+
+        Ok(EncryptedData {
+            version: decrypted_key.version,
+            data: encrypted_data,
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl DataDecrypter<DecryptedData> for EncryptedData {
+    async fn decrypt(
+        self,
+        state: &AppState,
+        identifier: &Identifier,
+    ) -> errors::CustomResult<DecryptedData, errors::CryptoError> {
+        let version = self.version;
+        let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
+        let key = GcmAes256::new(decrypted_key.key)?;
+
+        let decrypted_data = key.decrypt(self.inner())?;
+
+        Ok(DecryptedData::from_data(decrypted_data))
     }
 }

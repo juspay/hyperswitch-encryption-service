@@ -5,7 +5,7 @@ use error_stack::ResultExt;
 use crate::{
     app::AppState,
     consts::base64::BASE64_ENGINE,
-    core::crypto::KeyEncrypt,
+    core::crypto::KeyEncrypter,
     crypto::Source,
     env::observability as logger,
     errors::{self, SwitchError},
