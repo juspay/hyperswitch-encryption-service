@@ -16,17 +16,17 @@ use crate::{
 };
 
 #[async_trait::async_trait]
-pub trait KeyEncrypt<ToType> {
+pub trait KeyEncrypter<ToType> {
     async fn encrypt(self, state: &AppState) -> errors::CustomResult<ToType, errors::CryptoError>;
 }
 
 #[async_trait::async_trait]
-pub trait KeyDecrypt<ToType> {
+pub trait KeyDecrypter<ToType> {
     async fn decrypt(self, state: &AppState) -> errors::CustomResult<ToType, errors::CryptoError>;
 }
 
 #[async_trait::async_trait]
-impl KeyEncrypt<DataKeyNew> for Key {
+impl KeyEncrypter<DataKeyNew> for Key {
     async fn encrypt(
         self,
         state: &AppState,
@@ -52,7 +52,7 @@ impl KeyEncrypt<DataKeyNew> for Key {
 }
 
 #[async_trait::async_trait]
-impl KeyDecrypt<Key> for DataKey {
+impl KeyDecrypter<Key> for DataKey {
     async fn decrypt(self, state: &AppState) -> errors::CustomResult<Key, errors::CryptoError> {
         let decrypted_key = state
             .keymanager_client
@@ -76,7 +76,7 @@ impl KeyDecrypt<Key> for DataKey {
 }
 
 #[async_trait::async_trait]
-pub trait DataEncrypt<ToType> {
+pub trait DataEncrypter<ToType> {
     async fn encrypt(
         self,
         state: &AppState,
@@ -85,7 +85,7 @@ pub trait DataEncrypt<ToType> {
 }
 
 #[async_trait::async_trait]
-pub trait DataDecrypt<ToType> {
+pub trait DataDecrypter<ToType> {
     async fn decrypt(
         self,
         state: &AppState,
@@ -94,7 +94,7 @@ pub trait DataDecrypt<ToType> {
 }
 
 #[async_trait::async_trait]
-impl DataEncrypt<EncryptedDataGroup> for DecryptedDataGroup {
+impl DataEncrypter<EncryptedDataGroup> for DecryptedDataGroup {
     async fn encrypt(
         self,
         state: &AppState,
@@ -120,7 +120,7 @@ impl DataEncrypt<EncryptedDataGroup> for DecryptedDataGroup {
 }
 
 #[async_trait::async_trait]
-impl DataDecrypt<DecryptedDataGroup> for EncryptedDataGroup {
+impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
     async fn decrypt(
         self,
         state: &AppState,
@@ -153,7 +153,7 @@ impl DataDecrypt<DecryptedDataGroup> for EncryptedDataGroup {
 }
 
 #[async_trait::async_trait]
-impl DataEncrypt<EncryptedData> for DecryptedData {
+impl DataEncrypter<EncryptedData> for DecryptedData {
     async fn encrypt(
         self,
         state: &AppState,
@@ -173,7 +173,7 @@ impl DataEncrypt<EncryptedData> for DecryptedData {
 }
 
 #[async_trait::async_trait]
-impl DataDecrypt<DecryptedData> for EncryptedData {
+impl DataDecrypter<DecryptedData> for EncryptedData {
     async fn decrypt(
         self,
         state: &AppState,

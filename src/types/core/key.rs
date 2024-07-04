@@ -1,6 +1,6 @@
 use crate::{
     app::AppState,
-    core::KeyDecrypt,
+    core::KeyDecrypter,
     crypto::Source,
     errors::{self, SwitchError},
     storage::{cache, dek::DataKeyStorageInterface},

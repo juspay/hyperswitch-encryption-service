@@ -1,6 +1,6 @@
 use crate::{
     app::AppState,
-    core::{DataDecrypt, DataEncrypt},
+    core::{DataDecrypter, DataEncrypter},
     errors,
     types::Identifier,
 };
