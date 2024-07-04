@@ -33,5 +33,7 @@ pub(super) async fn decryption(
         })
         .switch()?;
 
-    Ok(decrypted_data.into())
+    Ok(DecryptionResponse {
+        data: decrypted_data,
+    })
 }

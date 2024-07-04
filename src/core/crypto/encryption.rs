@@ -31,5 +31,7 @@ pub(super) async fn encryption(
             err
         })
         .switch()?;
-    Ok(encrypted_data.into())
+    Ok(EncryptionResponse {
+        data: encrypted_data,
+    })
 }
