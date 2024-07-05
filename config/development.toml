@@ -2,6 +2,9 @@
 host = "127.0.0.1"
 port = 6128
 
+[pool_config]
+pool = 2
+
 [server]
 host = "127.0.0.1"
 port = 5000
