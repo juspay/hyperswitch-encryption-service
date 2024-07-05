@@ -38,7 +38,7 @@ pub async fn transfer_data_key(
         err
     })?;
 
-    let data_key = db.insert_data_key(key).await.switch()?;
+    let data_key = db.get_or_insert_data_key(key).await.switch()?;
 
     Ok(DataKeyCreateResponse {
         identifier: req.identifier,
