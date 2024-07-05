@@ -104,7 +104,7 @@ impl DataEncrypter<EncryptedDataGroup> for DecryptedDataGroup {
         let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
         let key = GcmAes256::new(decrypted_key.key)?;
 
-        let data= state.thread_pool.install(|| {
+        state.thread_pool.install(|| {
             self.0
                 .into_par_iter()
                 .map(|(hash_key, data)| {
@@ -115,9 +115,7 @@ impl DataEncrypter<EncryptedDataGroup> for DecryptedDataGroup {
                     }))
                 })
                 .collect::<errors::CustomResult<FxHashMap<String, EncryptedData>,errors::CryptoError>>()
-        })?;
-
-        Ok(EncryptedDataGroup(data))
+        }).map(EncryptedDataGroup)
     }
 }
 
@@ -133,7 +131,7 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
             .await
             .switch()?;
 
-        let data = state.thread_pool.install(|| {
+        state.thread_pool.install(|| {
             self
             .0
             .into_par_iter()
@@ -152,9 +150,7 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
             })
             .collect::<errors::CustomResult<FxHashMap<String, DecryptedData>, errors::CryptoError>>(
             )
-        })?;
-
-        Ok(DecryptedDataGroup(data))
+        }).map(DecryptedDataGroup)
     }
 }
 
