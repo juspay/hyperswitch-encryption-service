@@ -87,6 +87,11 @@ impl SecretContainer {
     }
 }
 
+#[derive(Deserialize, Debug, Clone, Copy)]
+pub struct PoolConfig {
+    pub pool: usize,
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub server: Server,
@@ -94,6 +99,7 @@ pub struct Config {
     pub database: Database,
     pub log: LogConfig,
     pub secrets: Secrets,
+    pub pool_config: PoolConfig,
     #[cfg(feature = "mtls")]
     pub certs: Certs,
 }
