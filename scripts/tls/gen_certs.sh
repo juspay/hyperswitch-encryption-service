@@ -34,7 +34,7 @@ else
 fi
 
 function gen_ca() {
-  openssl genrsa -out ca_key.pem 4096
+  openssl genrsa -out ca_key.pem 2048
   openssl req -new -x509 -days 3650 -key ca_key.pem \
     -subj "${CA_SUBJECT}" -out ca_cert.pem
 }
@@ -50,7 +50,7 @@ function gen_client_key() {
 function gen_rsa_sha256() {
   gen_ca_if_non_existent
 
-  openssl req -newkey rsa:4096 -nodes -sha256 -keyout rsa_sha256_key.pem \
+  openssl req -newkey rsa:2048 -nodes -sha256 -keyout rsa_sha256_key.pem \
     -subj "${SUBJECT}" -out server.csr
 
   openssl x509 -req -sha256 -extfile <(printf "subjectAltName=${ALT}") -days 3650 \
