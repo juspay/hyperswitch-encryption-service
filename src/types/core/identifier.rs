@@ -7,6 +7,7 @@ pub enum Identifier {
     User(String),
     Merchant(String),
     UserAuth(String),
+    Entity(String),
 }
 
 impl Identifier {
@@ -15,6 +16,7 @@ impl Identifier {
             Self::User(id) => (String::from("User"), id.clone()),
             Self::Merchant(id) => (String::from("Merchant"), id.clone()),
             Self::UserAuth(id) => (String::from("UserAuth"), id.clone()),
+            Self::Entity(id) => (String::from("Entity"), id.clone()),
         }
     }
 }
@@ -25,6 +27,7 @@ impl core::fmt::Display for Identifier {
             Self::User(s) => f.write_str(&format!("User_{}", s)),
             Self::Merchant(s) => f.write_str(&format!("Merchant_{}", s)),
             Self::UserAuth(s) => f.write_str(&format!("UserAuth_{}", s)),
+            Self::Entity(s) => f.write_str(&format!("Entity_{}", s)),
         }
     }
 }
@@ -39,6 +42,7 @@ impl TryFrom<(String, String)> for Identifier {
             ("User", kid) => Ok(Self::User(kid)),
             ("Merchant", kid) => Ok(Self::Merchant(kid)),
             ("UserAuth", kid) => Ok(Self::UserAuth(kid)),
+            ("Entity", kid) => Ok(Self::Entity(kid)),
             (_, _) => Err(error_stack::Report::from(
                 errors::ParsingError::ParsingFailed(String::from("Failed to parse Identifier")),
             )),
