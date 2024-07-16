@@ -24,9 +24,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ "$PROD" == "true" ]; then
-    ALT=$(printf "DNS:%s.%s.svc.cluster.local" $NAMESPACE $SERVICE)
+    ALT=$(printf "DNS:%s.%s.svc.cluster.local" $SERVICE $NAMESPACE)
     CA_SUBJECT="/C=US/ST=CA/O=Cripta CA/CN=Cripta CA"
-    SUBJECT=$(printf "/C=US/ST=CA/O=Cripta/CN=%s.%s.svc.cluster.local" $NAMESPACE $SERVICE)
+    SUBJECT=$(printf "/C=US/ST=CA/O=Cripta/CN=%s.%s.svc.cluster.local" $SERVICE $NAMESPACE)
 else
     ALT="DNS:localhost"
     CA_SUBJECT="/C=US/ST=CA/O=Cripta CA/CN=Cripta CA"
