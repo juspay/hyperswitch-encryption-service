@@ -815,6 +815,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b42b6fa04a440b495c8b04d0e71b707c585f83cb9cb28cf8cd0d976c315e31b4"
 dependencies = [
  "powerfmt",
+ "serde",
 ]
 
 [[package]]
@@ -1401,13 +1402,14 @@ checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 [[package]]
 name = "masking"
 version = "0.1.0"
-source = "git+https://github.com/juspay/hyperswitch?rev=ec451c0c81b6ebbd719a8706c019f418bd98e754#ec451c0c81b6ebbd719a8706c019f418bd98e754"
+source = "git+https://github.com/juspay/hyperswitch?tag=v1.109.0#bb436f3d613cf795f77e202e8e3a15b37bf26bad"
 dependencies = [
  "diesel",
  "erased-serde",
  "serde",
  "serde_json",
  "subtle",
+ "time",
  "zeroize",
 ]
 
