@@ -42,13 +42,15 @@ struct ApiErrorResponse<'a> {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ApplicationErrorResponse {
-    #[error("Internal Server Error Occured - {0}")]
+    #[error("Internal Server Error Occurred - {0}")]
     InternalServerError(&'static str),
     #[error("The resource was not found in the {0}")]
     NotFound(&'static str),
     #[error("Invalid request provided {0}")]
     ParsingFailed(String),
-    #[error("Unique violation occured. Please try to create the data with another key/identifier")]
+    #[error(
+        "Unique violation occurred. Please try to create the data with another key/identifier"
+    )]
     UniqueViolation,
 }
 
@@ -84,7 +86,7 @@ impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, supe
                 super::CryptoError::KeyGetFailed => {
                     ApplicationErrorResponse::InternalServerError("Failed to get the key")
                 }
-                _ => ApplicationErrorResponse::InternalServerError("Unexpted error occured"),
+                _ => ApplicationErrorResponse::InternalServerError("Unexpected error occurred"),
             };
             err.change_context(new_err)
         })
@@ -100,7 +102,7 @@ impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, supe
                 | super::DatabaseError::NotNullViolation
                 | super::DatabaseError::InvalidValue
                 | super::DatabaseError::Others => {
-                    ApplicationErrorResponse::InternalServerError("Database error occured")
+                    ApplicationErrorResponse::InternalServerError("Database error occurred")
                 }
                 super::DatabaseError::UniqueViolation => ApplicationErrorResponse::UniqueViolation,
             };
