@@ -128,6 +128,8 @@ pub struct Secrets {
     pub master_key: GcmAes256,
     #[cfg(feature = "aws")]
     pub kms_config: AwsKmsConfig,
+    pub access_token: masking::Secret<String>,
+    pub hash_context: masking::Secret<String>,
 }
 
 #[derive(Deserialize, Debug)]

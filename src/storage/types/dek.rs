@@ -12,6 +12,7 @@ pub struct DataKeyNew {
     pub version: Version,
     pub created_at: PrimitiveDateTime,
     pub source: String,
+    pub token: Option<StrongSecret<String>>,
 }
 
 #[derive(Queryable, Identifiable)]
@@ -24,4 +25,5 @@ pub struct DataKey {
     pub version: Version,
     pub created_at: PrimitiveDateTime,
     pub source: String,
+    pub token: Option<StrongSecret<String>>,
 }

@@ -1,6 +1,7 @@
 mod crux;
 mod decryption;
 mod encryption;
+pub(crate) mod custodian;
 
 pub use crux::*;
 

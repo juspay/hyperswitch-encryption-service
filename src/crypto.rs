@@ -7,6 +7,8 @@ use crate::errors::{self, CustomResult};
 
 pub(crate) mod aes256;
 
+pub(crate) mod blake3;
+
 #[cfg(feature = "aws")]
 use crate::services::aws::AwsKmsClient;
 

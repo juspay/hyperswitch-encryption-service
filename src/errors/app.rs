@@ -18,6 +18,8 @@ mod error_codes {
 pub enum ParsingError {
     #[error("Parsing failed with error {0}")]
     ParsingFailed(String),
+    #[error("Decoding failed with error {0}")]
+    DecodingFailed(String),
 }
 
 pub trait ToContainerError<T> {
@@ -59,6 +61,9 @@ impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, Pars
         self.map_err(|err| {
             let new_err = match err.current_context() {
                 ParsingError::ParsingFailed(s) => {
+                    ApplicationErrorResponse::ParsingFailed(s.to_string())
+                }
+                ParsingError::DecodingFailed(s) => {
                     ApplicationErrorResponse::ParsingFailed(s.to_string())
                 }
             };
