@@ -21,11 +21,11 @@ impl Custodian {
         Self { keys }
     }
 
-    pub fn into_access_token(self, state: Arc<AppState>) -> Option<StrongSecret<String>> {
+    pub fn into_access_token(self, state: &AppState) -> Option<StrongSecret<String>> {
         self.keys
             .map(|(x, y)| format!("{}:{}", x.peek(), y.peek()))
-            .map(|key| crate::crypto::blake3::Blake3::hash(&state, Secret::new(key)))
-            .map(|token| hex::encode(&token))
+            .map(|key| crate::crypto::blake3::Blake3::hash(state, Secret::new(key)))
+            .map(hex::encode)
             .map(StrongSecret::new)
     }
 }

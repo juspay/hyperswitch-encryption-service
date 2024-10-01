@@ -1,3 +1,4 @@
+use error_stack::ensure;
 use masking::PeekInterface;
 use rayon::prelude::*;
 
@@ -14,6 +15,8 @@ use crate::{
         Identifier, Key,
     },
 };
+
+use super::custodian::Custodian;
 
 #[async_trait::async_trait]
 pub trait KeyEncrypter<ToType> {
@@ -47,7 +50,7 @@ impl KeyEncrypter<DataKeyNew> for Key {
                 time::OffsetDateTime::now_utc().date(),
                 time::OffsetDateTime::now_utc().time(),
             ),
-            token: self.token
+            token: self.token,
         })
     }
 }
@@ -72,7 +75,7 @@ impl KeyDecrypter<Key> for DataKey {
             version: self.version,
             key: decrypted_key.into(),
             source,
-            token: self.token
+            token: self.token,
         })
     }
 }
@@ -83,6 +86,7 @@ pub trait DataEncrypter<ToType> {
         self,
         state: &AppState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<ToType, errors::CryptoError>;
 }
 
@@ -92,6 +96,7 @@ pub trait DataDecrypter<ToType> {
         self,
         state: &AppState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<ToType, errors::CryptoError>;
 }
 
@@ -101,10 +106,19 @@ impl DataEncrypter<EncryptedDataGroup> for DecryptedDataGroup {
         self,
         state: &AppState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<EncryptedDataGroup, errors::CryptoError> {
         let version = Version::get_latest(identifier, state).await;
         let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
         let key = GcmAes256::new(decrypted_key.key)?;
+
+        let stored_token = decrypted_key.token;
+        let provided_token = custodian.into_access_token(state);
+
+        ensure!(
+            stored_token.is_none() || (stored_token.eq(&provided_token)),
+            errors::CryptoError::AuthenticationFailed
+        );
 
         state.thread_pool.install(|| {
             self.0
@@ -127,11 +141,20 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
         self,
         state: &AppState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<DecryptedDataGroup, errors::CryptoError> {
         let version = FxHashSet::from_iter(self.0.values().map(|d| d.version));
         let decrypted_keys = Key::get_multiple_keys(state, identifier, version)
             .await
             .switch()?;
+
+        let mut stored_tokens = decrypted_keys.values().map(|k| &k.token);
+        let provided_token = custodian.into_access_token(state);
+
+        ensure!(
+            stored_tokens.all(|t| t.is_none() || t.eq(&provided_token)),
+            errors::CryptoError::AuthenticationFailed
+        );
 
         state.thread_pool.install(|| {
             self
@@ -162,9 +185,19 @@ impl DataEncrypter<EncryptedData> for DecryptedData {
         self,
         state: &AppState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<EncryptedData, errors::CryptoError> {
         let version = Version::get_latest(identifier, state).await;
         let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
+
+        let stored_token = decrypted_key.token;
+        let provided_token = custodian.into_access_token(state);
+
+        ensure!(
+            stored_token.is_none() || (stored_token.eq(&provided_token)),
+            errors::CryptoError::AuthenticationFailed
+        );
+
         let key = GcmAes256::new(decrypted_key.key)?;
 
         let encrypted_data = key.encrypt(self.inner())?;
@@ -182,9 +215,19 @@ impl DataDecrypter<DecryptedData> for EncryptedData {
         self,
         state: &AppState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<DecryptedData, errors::CryptoError> {
         let version = self.version;
         let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
+
+        let stored_token = decrypted_key.token;
+        let provided_token = custodian.into_access_token(state);
+
+        ensure!(
+            stored_token.is_none() || (stored_token.eq(&provided_token)),
+            errors::CryptoError::AuthenticationFailed
+        );
+
         let key = GcmAes256::new(decrypted_key.key)?;
 
         let decrypted_data = key.decrypt(self.inner())?;

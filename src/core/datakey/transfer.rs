@@ -33,7 +33,7 @@ pub async fn transfer_data_key(
         identifier: req.identifier.clone(),
         key: key.into(),
         source: Source::KMS,
-        token: custodian.into_access_token(state.clone())
+        token: custodian.into_access_token(state.as_ref()),
     }
     .encrypt(&state)
     .await

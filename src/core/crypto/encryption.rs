@@ -8,14 +8,17 @@ use crate::{
 use opentelemetry::KeyValue;
 use std::sync::Arc;
 
+use super::custodian::Custodian;
+
 pub(super) async fn encryption(
     state: Arc<AppState>,
+    custodian: Custodian,
     req: EncryptDataRequest,
 ) -> errors::CustomResult<EncryptionResponse, errors::ApplicationErrorResponse> {
     let identifier = req.identifier.clone();
     let encrypted_data = req
         .data
-        .encrypt(&state, &identifier)
+        .encrypt(&state, &identifier, custodian)
         .await
         .map_err(|err| {
             logger::error!(encryption_error=?err);

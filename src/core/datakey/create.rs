@@ -25,7 +25,7 @@ pub async fn generate_and_create_data_key(
         identifier: req.identifier.clone(),
         key: aes_key,
         source,
-        token: custodian.into_access_token(state.clone()),
+        token: custodian.into_access_token(state.as_ref()),
     }
     .encrypt(&state)
     .await
