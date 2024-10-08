@@ -116,7 +116,8 @@ impl DataEncrypter<EncryptedDataGroup> for DecryptedDataGroup {
         let provided_token = custodian.into_access_token(state);
 
         ensure!(
-            stored_token.is_none() || (stored_token.eq(&provided_token)),
+            !identifier.is_entity()
+                || (stored_token.is_none() || (stored_token.eq(&provided_token))),
             errors::CryptoError::AuthenticationFailed
         );
 
