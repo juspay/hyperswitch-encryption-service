@@ -152,7 +152,7 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
         let provided_token = custodian.into_access_token(state);
 
         ensure!(
-            stored_tokens.all(|t| t.is_none() || t.eq(&provided_token)),
+            !identifier.is_entity() || stored_tokens.all(|t| t.is_none() || t.eq(&provided_token)),
             errors::CryptoError::AuthenticationFailed
         );
 
@@ -194,7 +194,8 @@ impl DataEncrypter<EncryptedData> for DecryptedData {
         let provided_token = custodian.into_access_token(state);
 
         ensure!(
-            stored_token.is_none() || (stored_token.eq(&provided_token)),
+            !identifier.is_entity()
+                || (stored_token.is_none() || (stored_token.eq(&provided_token))),
             errors::CryptoError::AuthenticationFailed
         );
 
@@ -224,7 +225,8 @@ impl DataDecrypter<DecryptedData> for EncryptedData {
         let provided_token = custodian.into_access_token(state);
 
         ensure!(
-            stored_token.is_none() || (stored_token.eq(&provided_token)),
+            !identifier.is_entity()
+                || (stored_token.is_none() || (stored_token.eq(&provided_token))),
             errors::CryptoError::AuthenticationFailed
         );
 

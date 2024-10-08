@@ -65,7 +65,7 @@ fn extract_credential(
         BASE64_ENGINE
             .decode(credential)
             .change_context(ParsingError::DecodingFailed(
-                "Failed while decoding base64".to_string(),
+                "Failed while base64 decoding the authorization header".to_string(),
             ))?;
     let credential = String::from_utf8(credential).change_context(ParsingError::DecodingFailed(
         "Failed while converting base64 to utf8".to_string(),
