@@ -19,6 +19,10 @@ impl Identifier {
             Self::Entity(id) => (String::from("Entity"), id.clone()),
         }
     }
+
+    pub fn is_entity(&self) -> bool {
+        matches!(self, Self::Entity(_))
+    }
 }
 
 impl core::fmt::Display for Identifier {

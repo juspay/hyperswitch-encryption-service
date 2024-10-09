@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     app::AppState,
-    core::crypto::KeyEncrypter,
+    core::{crypto::KeyEncrypter, custodian::Custodian},
     crypto::KeyManagement,
     env::observability as logger,
     errors::{self, SwitchError},
@@ -12,6 +12,7 @@ use crate::{
 
 pub async fn generate_and_create_data_key(
     state: Arc<AppState>,
+    custodian: Custodian,
     req: CreateDataKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
     let db = &state.db_pool;
@@ -24,6 +25,7 @@ pub async fn generate_and_create_data_key(
         identifier: req.identifier.clone(),
         key: aes_key,
         source,
+        token: custodian.into_access_token(state.as_ref()),
     }
     .encrypt(&state)
     .await

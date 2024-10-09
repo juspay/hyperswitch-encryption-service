@@ -5,7 +5,7 @@ use error_stack::ResultExt;
 use crate::{
     app::AppState,
     consts::base64::BASE64_ENGINE,
-    core::crypto::KeyEncrypter,
+    core::{crypto::KeyEncrypter, custodian::Custodian},
     crypto::Source,
     env::observability as logger,
     errors::{self, SwitchError},
@@ -16,6 +16,7 @@ use base64::Engine;
 
 pub async fn transfer_data_key(
     state: Arc<AppState>,
+    custodian: Custodian,
     req: TransferKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
     let db = &state.db_pool;
@@ -32,6 +33,7 @@ pub async fn transfer_data_key(
         identifier: req.identifier.clone(),
         key: key.into(),
         source: Source::KMS,
+        token: custodian.into_access_token(state.as_ref()),
     }
     .encrypt(&state)
     .await

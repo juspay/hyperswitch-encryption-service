@@ -19,6 +19,8 @@ pub enum CryptoError {
     ParseError(String),
     #[error("Invalid value")]
     InvalidValue,
+    #[error("Failed while authenticating the key")]
+    AuthenticationFailed,
 }
 
 impl super::SwitchError<(), CryptoError> for Result<(), ring::error::Unspecified> {

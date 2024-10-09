@@ -9,14 +9,17 @@ use crate::{
 };
 use opentelemetry::KeyValue;
 
+use super::custodian::Custodian;
+
 pub(super) async fn decryption(
     state: Arc<AppState>,
+    custodian: Custodian,
     req: DecryptionRequest,
 ) -> errors::CustomResult<DecryptionResponse, errors::ApplicationErrorResponse> {
     let identifier = req.identifier.clone();
     let decrypted_data = req
         .data
-        .decrypt(&state, &identifier)
+        .decrypt(&state, &identifier, custodian)
         .await
         .map_err(|err| {
             logger::error!(encryption_error=?err);
