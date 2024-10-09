@@ -1,12 +1,6 @@
 name: CI
 
-on:
-  push:
-    branches:
-      - main  
-  pull_request:
-    branches:
-      - main  
+on: [push, pull_request]
 
 jobs:
   build:
@@ -23,11 +17,14 @@ jobs:
           override: true
           components: clippy
 
-      - name: Install dependencies
-        run: cargo build --locked
+      - name: Install cargo-hack
+        run: cargo install cargo-hack
+
+      - name: Check compilation
+        run: cargo hack check --all-features --all-targets
 
       - name: Check formatting
-        run: cargo fmt -- --check
+        run: cargo +nightly fmt --all --check
 
       - name: Run Clippy
-        run: cargo clippy -- -D warnings
+        run: cargo hack clippy --all-features --all-targets
