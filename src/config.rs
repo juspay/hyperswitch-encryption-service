@@ -5,7 +5,7 @@ use crate::{
 use config::File;
 use serde::Deserialize;
 
-#[cfg(not(feature = "aws"))]
+#[cfg(feature = "aes")]
 use crate::crypto::aes256::GcmAes256;
 
 #[cfg(feature = "aws")]
@@ -54,6 +54,7 @@ impl SecretContainer {
     /// # Panics
     ///
     /// Panics when secret cannot be decrypted with KMS
+    // TODO: Create AWS Client for once.
     #[allow(clippy::expect_used, unused_variables)]
     pub async fn expose(&self, config: &Config) -> masking::Secret<String> {
         #[cfg(feature = "aws")]
@@ -81,8 +82,9 @@ impl SecretContainer {
             let secret = String::from_utf8(decrypted_output).expect("Invalid secret");
             masking::Secret::new(secret)
         }
+        // TODO: Add Valut's decruption logic for password
 
-        #[cfg(not(feature = "aws"))]
+        #[cfg(feature = "aes")]
         self.0.clone()
     }
 }
@@ -124,10 +126,12 @@ pub struct Certs {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Secrets {
-    #[cfg(not(feature = "aws"))]
+    #[cfg(feature = "aes")]
     pub master_key: GcmAes256,
     #[cfg(feature = "aws")]
     pub kms_config: AwsKmsConfig,
+    // TODO: Add Vault's initialized object
+    // #[cfg(feature = "vault")]
     pub access_token: masking::Secret<String>,
     pub hash_context: masking::Secret<String>,
 }
@@ -181,10 +185,12 @@ impl Secrets {
             EncryptionClient::new(client)
         }
 
-        #[cfg(not(feature = "aws"))]
+        #[cfg(feature = "aes")]
         {
             let client = self.master_key;
             EncryptionClient::new(client)
         }
+
+        // TODO: Add Vault instance
     }
 }

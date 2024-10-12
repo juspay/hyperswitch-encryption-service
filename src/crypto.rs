@@ -12,7 +12,7 @@ pub(crate) mod blake3;
 #[cfg(feature = "aws")]
 use crate::services::aws::AwsKmsClient;
 
-#[cfg(not(feature = "aws"))]
+#[cfg(feature = "aes")]
 use crate::crypto::aes256::GcmAes256;
 
 #[cfg(feature = "aws")]
@@ -74,7 +74,7 @@ impl KeyManagement for AwsKmsClient {
     }
 }
 
-#[cfg(not(feature = "aws"))]
+#[cfg(feature = "aes")]
 #[async_trait::async_trait]
 impl KeyManagement for GcmAes256 {
     async fn generate_key(
@@ -96,6 +96,8 @@ impl KeyManagement for GcmAes256 {
     }
 }
 
+//TODO: Add's Valut's async interface
+
 pub struct EncryptionClient<T: KeyManagement> {
     client: Arc<T>,
 }
@@ -110,8 +112,10 @@ impl<T: KeyManagement> EncryptionClient<T> {
 #[cfg(feature = "aws")]
 pub type KeyManagerClient = EncryptionClient<AwsKmsClient>;
 
-#[cfg(not(feature = "aws"))]
+#[cfg(feature = "aes")]
 pub type KeyManagerClient = EncryptionClient<GcmAes256>;
+
+// TODO: Add Vault's client
 
 impl<T: KeyManagement> EncryptionClient<T> {
     pub fn client(&self) -> &T {
