@@ -17,6 +17,9 @@ use aws_sdk_kms::primitives::Blob;
 #[cfg(feature = "aws")]
 use masking::PeekInterface;
 
+#[cfg(feature = "vault")]
+use crate::crypto::vault::{init_vault, VaultSettings};
+
 use std::path::PathBuf;
 
 pub mod vars {
@@ -85,7 +88,15 @@ impl SecretContainer {
         // TODO: Add Valut's decruption logic for password
 
         #[cfg(feature = "aes")]
-        self.0.clone()
+        {
+            self.0.clone()
+        }
+
+        #[cfg(feature = "vault")]
+        // TODO: Temp fix to connect to db
+        {
+            self.0.clone()
+        }
     }
 }
 
@@ -131,7 +142,9 @@ pub struct Secrets {
     #[cfg(feature = "aws")]
     pub kms_config: AwsKmsConfig,
     // TODO: Add Vault's initialized object
-    // #[cfg(feature = "vault")]
+    #[cfg(feature = "vault")]
+    pub vault_config: VaultSettings,
+
     pub access_token: masking::Secret<String>,
     pub hash_context: masking::Secret<String>,
 }
@@ -192,5 +205,12 @@ impl Secrets {
         }
 
         // TODO: Add Vault instance
+        #[cfg(feature = "vault")]
+        {
+            // This function doesn't return result therefore unwrapping.
+            // TODO: Make it customresult return type
+            let client = init_vault(self.vault_config).unwrap();
+            EncryptionClient::new(client)
+        }
     }
 }

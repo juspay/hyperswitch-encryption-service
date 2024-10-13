@@ -17,3 +17,6 @@ The encryption service mainly has following functionalities:-
 - All the Data Encryption Keys are Encrypted by either by securely generated AES-256 Key or a hosted Key Management Service (AWS KMS, Hashicorp Vault etc.)
 
 ![Architectural diagram](./docs/images/FlowDiagram.png)
+
+## Development
+- Run `docker compose --file docker-compose.yml up -d` to run required services (postgres, Hashicorp vault) for development.

@@ -9,6 +9,8 @@ pub(crate) mod aes256;
 
 pub(crate) mod blake3;
 
+pub(crate) mod vault;
+
 #[cfg(feature = "aws")]
 use crate::services::aws::AwsKmsClient;
 
@@ -18,10 +20,14 @@ use crate::crypto::aes256::GcmAes256;
 #[cfg(feature = "aws")]
 pub(crate) mod kms;
 
+#[cfg(feature = "vault")]
+use crate::crypto::vault::Vault;
+
 #[derive(Clone, EnumString, Display)]
 pub enum Source {
     KMS,
     AESLocal,
+    VAULT,
 }
 
 #[async_trait::async_trait]
@@ -96,6 +102,28 @@ impl KeyManagement for GcmAes256 {
     }
 }
 
+#[cfg(feature = "vault")]
+#[async_trait::async_trait]
+impl KeyManagement for Vault {
+    async fn generate_key(
+        &self,
+    ) -> CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError> {
+        <Self as Crypto>::generate_key(self).await
+    }
+    async fn encrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+        <Self as Crypto>::encrypt(self, input).await
+    }
+    async fn decrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+        <Self as Crypto>::decrypt(self, input).await
+    }
+}
+
 //TODO: Add's Valut's async interface
 
 pub struct EncryptionClient<T: KeyManagement> {
@@ -114,6 +142,9 @@ pub type KeyManagerClient = EncryptionClient<AwsKmsClient>;
 
 #[cfg(feature = "aes")]
 pub type KeyManagerClient = EncryptionClient<GcmAes256>;
+
+#[cfg(feature = "vault")]
+pub type KeyManagerClient = EncryptionClient<Vault>;
 
 // TODO: Add Vault's client
 
