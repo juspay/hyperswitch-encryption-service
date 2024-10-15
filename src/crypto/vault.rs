@@ -8,7 +8,9 @@ use futures::Future;
 use masking::{PeekInterface, Secret, StrongSecret};
 use serde::Deserialize;
 use std::pin::Pin;
+#[cfg(feature = "vault")]
 use vaultrs::client::{VaultClient, VaultClientSettingsBuilder};
+#[cfg(feature = "vault")]
 use vaultrs::{api, transit};
 #[derive(Debug, Deserialize, Clone)]
 pub struct VaultSettings {

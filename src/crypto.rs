@@ -9,8 +9,6 @@ pub(crate) mod aes256;
 
 pub(crate) mod blake3;
 
-pub(crate) mod vault;
-
 #[cfg(feature = "aws")]
 use crate::services::aws::AwsKmsClient;
 
@@ -19,6 +17,9 @@ use crate::crypto::aes256::GcmAes256;
 
 #[cfg(feature = "aws")]
 pub(crate) mod kms;
+
+#[cfg(feature = "vault")]
+pub(crate) mod vault;
 
 #[cfg(feature = "vault")]
 use crate::crypto::vault::Vault;
