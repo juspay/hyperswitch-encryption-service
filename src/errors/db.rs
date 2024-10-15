@@ -20,8 +20,8 @@ pub enum DatabaseError {
     NotNullViolation,
     #[error("Invalid value found in the database")]
     InvalidValue,
-    #[error("Other errors")]
-    Others,
+    #[error("Other errors - {0}")]
+    Others(String),
 }
 
 impl<T> super::SwitchError<T, DatabaseError> for super::CustomResult<T, ConnectionError> {
@@ -35,12 +35,16 @@ impl<T> super::SwitchError<T, DatabaseError> for Result<T, diesel::result::Error
         self.map_err(|err| {
             let err = match err {
                 diesel_error::NotFound => DatabaseError::NotFound,
-                diesel_error::DatabaseError(db_error, _) => match db_error {
+                diesel_error::DatabaseError(db_error, err_info) => match db_error {
                     DatabaseErrorKind::UniqueViolation => DatabaseError::UniqueViolation,
                     DatabaseErrorKind::NotNullViolation => DatabaseError::NotNullViolation,
-                    _ => DatabaseError::Others,
+                    _ => DatabaseError::Others(format!(
+                        "{:?}: {}",
+                        db_error,
+                        err_info.message().to_string()
+                    )),
                 },
-                _ => DatabaseError::Others,
+                _ => DatabaseError::Others(err.to_string()),
             };
             report!(err)
         })

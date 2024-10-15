@@ -110,8 +110,8 @@ pub struct Config {
     pub server: Server,
     pub metrics_server: Server,
     pub database: Database,
-    pub log: LogConfig,
     pub secrets: Secrets,
+    pub log: LogConfig,
     pub pool_config: PoolConfig,
     #[cfg(feature = "mtls")]
     pub certs: Certs,
@@ -144,6 +144,8 @@ pub struct Secrets {
     // TODO: Add Vault's initialized object
     #[cfg(feature = "vault")]
     pub vault_config: VaultSettings,
+    #[cfg(feature = "vault")]
+    pub vault_token: masking::Secret<String>,
 
     pub access_token: masking::Secret<String>,
     pub hash_context: masking::Secret<String>,
@@ -209,7 +211,7 @@ impl Secrets {
         {
             // This function doesn't return result therefore unwrapping.
             // TODO: Make it customresult return type
-            let client = init_vault(self.vault_config).unwrap();
+            let client = init_vault(self.vault_config, self.vault_token).unwrap();
             EncryptionClient::new(client)
         }
     }

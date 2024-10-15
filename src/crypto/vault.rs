@@ -1,19 +1,18 @@
 use crate::consts::base64::BASE64_ENGINE;
 use crate::crypto::{Crypto, Source};
+use crate::env::observability as logger;
 use crate::errors::{self, CryptoError, CustomResult, SwitchError};
 use base64::Engine;
 use error_stack::report;
 use futures::Future;
 use masking::{PeekInterface, Secret, StrongSecret};
 use serde::Deserialize;
-use std::array::TryFromSliceError;
 use std::pin::Pin;
 use vaultrs::client::{VaultClient, VaultClientSettingsBuilder};
 use vaultrs::{api, transit};
 #[derive(Debug, Deserialize, Clone)]
 pub struct VaultSettings {
     url: String,
-    token: Secret<String>,
     mount_point: String,
     encryption_key: String,
 }
@@ -23,11 +22,14 @@ pub struct Vault {
     settings: VaultSettings,
 }
 
-pub fn init_vault(settings: VaultSettings) -> CustomResult<Vault, CryptoError> {
+pub fn init_vault(
+    settings: VaultSettings,
+    token: Secret<String>,
+) -> CustomResult<Vault, CryptoError> {
     let client = VaultClient::new(
         VaultClientSettingsBuilder::default()
             .address(&settings.url)
-            .token(settings.token.peek())
+            .token(token.peek())
             .build()
             .switch()?,
     )
@@ -60,14 +62,14 @@ impl Crypto for Vault {
         )
         .await
         .switch()?;
-        let buffer: [u8; 32] =
-            response
-                .random_bytes
-                .as_bytes()
-                .try_into()
-                .map_err(|err: TryFromSliceError| {
-                    report!(err).change_context(CryptoError::KeyStoreFailed)
-                })?;
+        let key = BASE64_ENGINE
+            .decode(response.random_bytes)
+            .map_err(|err| report!(err).change_context(CryptoError::KeyGeneration))?;
+        let buffer: [u8; 32] = key.try_into().map_err(|err: Vec<u8>| {
+            let err_bytes = format!("{:?}", err);
+            logger::debug!(err_bytes);
+            report!(CryptoError::KeyGeneration)
+        })?;
         Ok((Source::VAULT, buffer.into()))
     }
 

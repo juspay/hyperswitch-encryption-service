@@ -24,5 +24,6 @@ services:
       - "8200:8200"
     environment:
       - VAULT_DEV_ROOT_TOKEN_ID=vault_token
+  
 
     
