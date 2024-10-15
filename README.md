@@ -20,7 +20,7 @@ The encryption service mainly has following functionalities:-
 
 
 ## Development
-- Cripta supports AES, AWS KMS, Hashicorp Vault as backends. Run cripta service with either of the backend by mentioning in feature flag. Ex: `cargo run 
+- Cripta supports AES, AWS KMS, Hashicorp Vault as backends. Run cripta service with either of the backend by mentioning in feature flag. Ex: `cargo run --features=aes` for running with AES as backend.
 - Run `docker compose --file docker-compose.yml up -d` to run required services (postgres, Hashicorp vault) for development.
 
 ### Hashicorp Vault Setup (Will be Automated in Future)
