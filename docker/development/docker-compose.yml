@@ -2,16 +2,7 @@ volumes:
   cript_pg_data:
 
 networks:
-  # cripta_net doesn't expose it's connected containers to outside world (even localhost).
-  # Postgres
   cripta_net:
-
-  # connect_with_host has only one container that's bridged to localhost.
-  # cripta, Hashicorp Vault
-  connect_with_host:
-    driver: bridge
-    driver_opts:
-      com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"
 
 
 services:
@@ -19,6 +10,8 @@ services:
     image: postgres:latest
     networks:
       - cripta_net
+    ports:
+      - "5432:5432"
     volumes:
       - cript_pg_data:/var/lib/postgresql/data
     environment:
@@ -35,11 +28,10 @@ services:
   hashicorpvault:
     profiles:
       - vault
+      - vault_only
     image: hashicorp/vault:latest
     networks:
       - cripta_net
-      # Remove below network to disable access from local system
-      - connect_with_host
     ports:
       - "8200:8200"
     environment:
@@ -48,6 +40,7 @@ services:
   hashicorpvault-initialize:
     profiles:
       - vault
+      - vault_only
     image: hashicorp/vault:latest
     # Give 5secs of time after staring of hashicorpvault service and before connecting to initialize the vault with encryption key.
     command: |
@@ -103,7 +96,6 @@ services:
     working_dir: /cripta
     networks:
       - cripta_net
-      - connect_with_host
     ports:
       - "5000:5000"
       - "6128:6128"
