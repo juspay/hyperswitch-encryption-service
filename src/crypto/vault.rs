@@ -95,10 +95,10 @@ impl Crypto for Vault {
 
     fn decrypt(&self, input: StrongSecret<Vec<u8>>) -> Self::DataReturn<'_> {
         Box::pin(async move {
-            // let inner = input.peek();
             let cypher_text = String::from_utf8(input.peek().to_vec()).map_err(|err| {
                 report!(err).change_context(CryptoError::DecryptionFailed("Vault"))
             })?;
+            println!("{}", cypher_text);
             let b64_encoded_str = transit::data::decrypt(
                 &self.inner_client,
                 &self.settings.mount_point,
