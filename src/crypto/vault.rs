@@ -24,18 +24,20 @@ pub struct Vault {
     settings: VaultSettings,
 }
 
-pub fn init_vault(settings: VaultSettings, token: Secret<String>) -> Vault {
-    let client = VaultClient::new(
-        VaultClientSettingsBuilder::default()
-            .address(&settings.url)
-            .token(token.peek())
-            .build()
-            .expect("Unable to build HashiCorp Vault Settings"),
-    )
-    .expect("Unable to build HashiCorp Vault client");
-    Vault {
-        inner_client: client,
-        settings: settings,
+impl Vault {
+    pub fn new(settings: VaultSettings, token: Secret<String>) -> Vault {
+        let client = VaultClient::new(
+            VaultClientSettingsBuilder::default()
+                .address(&settings.url)
+                .token(token.peek())
+                .build()
+                .expect("Unable to build HashiCorp Vault Settings"),
+        )
+        .expect("Unable to build HashiCorp Vault client");
+        Vault {
+            inner_client: client,
+            settings: settings,
+        }
     }
 }
 
@@ -52,6 +54,8 @@ impl Crypto for Vault {
     async fn generate_key(
         &self,
     ) -> CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError> {
+        //According to Vault transit engine can genarate high entropy random bytes of different lengths.
+        //https://developer.hashicorp.com/vault/docs/secrets/transit
         let response = transit::generate::random_bytes(
             &self.inner_client,
             &self.settings.mount_point,
@@ -69,7 +73,7 @@ impl Crypto for Vault {
             logger::debug!(err_bytes);
             report!(CryptoError::KeyGeneration)
         })?;
-        Ok((Source::VAULT, buffer.into()))
+        Ok((Source::HashicorpVault, buffer.into()))
     }
 
     fn encrypt(&self, input: StrongSecret<Vec<u8>>) -> Self::DataReturn<'_> {

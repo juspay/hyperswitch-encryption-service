@@ -18,7 +18,7 @@ use aws_sdk_kms::primitives::Blob;
 use masking::PeekInterface;
 
 #[cfg(feature = "vault")]
-use crate::crypto::vault::{init_vault, VaultSettings};
+use crate::crypto::vault::{Vault, VaultSettings};
 
 use std::path::PathBuf;
 
@@ -85,7 +85,6 @@ impl SecretContainer {
             let secret = String::from_utf8(decrypted_output).expect("Invalid secret");
             masking::Secret::new(secret)
         }
-        // TODO: Add Valut's decruption logic for password
 
         #[cfg(feature = "aes")]
         {
@@ -208,7 +207,7 @@ impl Secrets {
 
         #[cfg(feature = "vault")]
         {
-            let client = init_vault(self.vault_config, self.vault_token);
+            let client = Vault::new(self.vault_config, self.vault_token);
             EncryptionClient::new(client)
         }
     }

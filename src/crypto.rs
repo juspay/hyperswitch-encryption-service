@@ -28,7 +28,7 @@ use crate::crypto::vault::Vault;
 pub enum Source {
     KMS,
     AESLocal,
-    VAULT,
+    HashicorpVault,
 }
 
 #[async_trait::async_trait]
