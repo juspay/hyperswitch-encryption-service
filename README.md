@@ -20,15 +20,14 @@ The encryption service mainly has following functionalities:-
 
 
 ## Development
-- Cripta supports AES, AWS KMS, Hashicorp Vault as backends. Run cripta service with either of the backend by mentioning in feature flag. Ex: `cargo run` chooses AES as the default backend. For other backends disable default-features flag and then choose the backend. ``cargo run --no-default-features --features=vault` disables AES and chooses vault.
-- Run `docker compose --file docker-compose.yml up -d` to run required services (postgres, Hashicorp vault) for development.
+- Cripta supports AES, AWS KMS, Hashicorp Vault as backends. Run cripta service with either of the backend by mentioning in feature flag. 
+- `cargo run` chooses AES as the default backend. For other backends disable default-features flag and then choose the backend. Ex: `cargo run --no-default-features --features=vault` disables AES and chooses Hashicorp vault.
+- Run `docker compose --file docker/development/docker-compose.yml --profile aes up -d` to setup all the required minimal services with AES as backend.
 
 ### Hashicorp Vault Setup (Will be Automated in Future)
-- Get into docker container: `docker exec -it hyperswitch-encryption-service-vault-1 /bin/sh`
-- Enable transit secrets engine by running `vault secrets enable transit`
-- Create encryption namespace with the name `orders` by running `vault write -f transit/keys/orders`
-- Create environment variable in the host for authenticating with Vault (running in docker) `export CRIPTA__secrets__vault_token=vault_token`
- Run the cripta server `cargo run --no-default-features --features=vault` in host system
+- Stop running services under a given backend. Ex: `docker compose --file docker/development/docker-compose.yml --profile aes down` will stop services based on AES backend.
+- Run `docker compose --file docker/development/docker-compose.yml --profile vault up -d` to setup all the required services with vault as backend.
+- Interact Hashicorp vault in the browser by accessing `http://localhost:8200/ui/vault/secrets`
 
 #### FAQS
 - If application complains for not finding `vault_token` make sure that `CRIPTA__secrets__vault_token` env variable is present with the vault access token.

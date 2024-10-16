@@ -3,11 +3,11 @@ volumes:
 
 networks:
   # cripta_net doesn't expose it's connected containers to outside world (even localhost).
-  # Postgres, Hashicorp Vault
+  # Postgres
   cripta_net:
 
   # connect_with_host has only one container that's bridged to localhost.
-  # cripta
+  # cripta, Hashicorp Vault
   connect_with_host:
     driver: bridge
     driver_opts:
@@ -38,10 +38,28 @@ services:
     image: hashicorp/vault:latest
     networks:
       - cripta_net
+      # Remove below network to disable access from local system
+      - connect_with_host
+    ports:
+      - "8200:8200"
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: vault_token
-      VAULT_ADDR: http://localhost:8200
+  
+  hashicorpvault-initialize:
+    profiles:
+      - vault
+    image: hashicorp/vault:latest
+    # Give 5secs of time after staring of hashicorpvault service and before connecting to initialize the vault with encryption key.
+    command: |
+      /bin/sh -c "sleep 5 && vault secrets enable transit && vault write -f transit/keys/orders"
+    networks:
+      - cripta_net
+    environment:
+      VAULT_ADDR: "http://hashicorpvault:8200"
       VAULT_TOKEN: vault_token
+    depends_on:
+      hashicorpvault:
+        condition: service_started
   
   cripta-migration:
     build:
@@ -63,6 +81,8 @@ services:
         condition: service_healthy
   
   cripta: &cripta-block
+    profiles:
+      - aes
     build:
       context: ../..
       dockerfile_inline: |
@@ -71,8 +91,9 @@ services:
         WORKDIR /cripta
         COPY Cargo.toml /cripta/Cargo.toml
         RUN cargo fetch
+        RUN cargo install cargo-watch
     command: |
-      /bin/sh -c "cargo run"
+      /bin/sh -c "cargo watch -x run"
     environment: &cripta-env
       CRIPTA__database__host: pg
       CRIPTA__metrics_server__host: "0.0.0.0"
@@ -101,10 +122,14 @@ services:
     environment:
       <<: *cripta-env
       CRIPTA__secrets__vault_token: vault_token
+      CRIPTA__secrets__vault_config__url: "http://hashicorpvault:8200"
     depends_on:
       <<: *cripta-depends_on
       hashicorpvault:
-          condition: service_started
+        condition: service_started
+      hashicorpvault-initialize:
+        condition: service_completed_successfully
+      
 
     
     
