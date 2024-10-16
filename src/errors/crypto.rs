@@ -3,12 +3,6 @@ use error_stack::report;
 #[cfg(feature = "aws")]
 use crate::env::observability as logger;
 
-#[cfg(feature = "vault")]
-mod vault_errors {
-    pub use vaultrs::client::VaultClientSettingsBuilderError;
-    pub use vaultrs::error::ClientError;
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum CryptoError {
     #[error("Provided Key is invalid")]
@@ -27,8 +21,6 @@ pub enum CryptoError {
     InvalidValue,
     #[error("Failed while authenticating the key")]
     AuthenticationFailed,
-    #[error("Failed to initialize KeyStore")]
-    KeyStoreFailed,
 }
 
 impl super::SwitchError<(), CryptoError> for Result<(), ring::error::Unspecified> {
@@ -94,20 +86,5 @@ impl<T, U: core::fmt::Debug> super::SwitchError<T, CryptoError>
             logger::error!(aws_kms_err=?err);
             report!(CryptoError::KeyGeneration)
         })
-    }
-}
-
-#[cfg(feature = "vault")]
-impl<T> super::SwitchError<T, CryptoError>
-    for Result<T, vault_errors::VaultClientSettingsBuilderError>
-{
-    fn switch(self) -> super::CustomResult<T, CryptoError> {
-        self.map_err(|err| report!(err).change_context(CryptoError::KeyStoreFailed))
-    }
-}
-#[cfg(feature = "vault")]
-impl<T> super::SwitchError<T, CryptoError> for Result<T, vault_errors::ClientError> {
-    fn switch(self) -> super::CustomResult<T, CryptoError> {
-        self.map_err(|err| report!(err).change_context(CryptoError::KeyStoreFailed))
     }
 }

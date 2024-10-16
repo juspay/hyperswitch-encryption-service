@@ -1,7 +1,7 @@
 use crate::consts::base64::BASE64_ENGINE;
 use crate::crypto::{Crypto, Source};
 use crate::env::observability as logger;
-use crate::errors::{self, CryptoError, CustomResult, SwitchError};
+use crate::errors::{self, CryptoError, CustomResult};
 use base64::Engine;
 use error_stack::report;
 use futures::Future;
@@ -24,22 +24,19 @@ pub struct Vault {
     settings: VaultSettings,
 }
 
-pub fn init_vault(
-    settings: VaultSettings,
-    token: Secret<String>,
-) -> CustomResult<Vault, CryptoError> {
+pub fn init_vault(settings: VaultSettings, token: Secret<String>) -> Vault {
     let client = VaultClient::new(
         VaultClientSettingsBuilder::default()
             .address(&settings.url)
             .token(token.peek())
             .build()
-            .switch()?,
+            .expect("Unable to build HashiCorp Vault Settings"),
     )
-    .switch()?;
-    Ok(Vault {
+    .expect("Unable to build HashiCorp Vault client");
+    Vault {
         inner_client: client,
         settings: settings,
-    })
+    }
 }
 
 #[async_trait::async_trait]
@@ -63,7 +60,7 @@ impl Crypto for Vault {
             None,
         )
         .await
-        .switch()?;
+        .map_err(|err| report!(err).change_context(errors::CryptoError::KeyGeneration))?;
         let key = BASE64_ENGINE
             .decode(response.random_bytes)
             .map_err(|err| report!(err).change_context(CryptoError::KeyGeneration))?;
@@ -86,7 +83,9 @@ impl Crypto for Vault {
                 None,
             )
             .await
-            .switch()?
+            .map_err(|err| {
+                report!(err).change_context(CryptoError::EncryptionFailed("HashiCorp Vault"))
+            })?
             .ciphertext
             .as_bytes()
             .to_vec()
@@ -108,11 +107,15 @@ impl Crypto for Vault {
                 None,
             )
             .await
-            .switch()?
+            .map_err(|err| {
+                report!(err).change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))
+            })?
             .plaintext;
             Ok(BASE64_ENGINE
                 .decode(b64_encoded_str)
-                .map_err(|err| report!(err).change_context(CryptoError::DecryptionFailed("Vault")))?
+                .map_err(|err| {
+                    report!(err).change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))
+                })?
                 .into())
         })
     }

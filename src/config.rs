@@ -208,9 +208,7 @@ impl Secrets {
 
         #[cfg(feature = "vault")]
         {
-            // This function doesn't return result therefore unwrapping.
-            // TODO: Make it customresult return type
-            let client = init_vault(self.vault_config, self.vault_token).unwrap();
+            let client = init_vault(self.vault_config, self.vault_token);
             EncryptionClient::new(client)
         }
     }
