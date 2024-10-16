@@ -160,7 +160,7 @@ impl Version {
 
 impl Default for Version {
     fn default() -> Self {
-        Self(1)
+        Self(0)
     }
 }
 
