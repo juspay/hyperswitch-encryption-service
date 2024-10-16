@@ -1,0 +1,109 @@
+volumes:
+  cript_pg_data:
+
+networks:
+  cripta_net:
+  frontend:
+  # Specify driver options
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"
+
+
+services:
+  pg:
+    image: postgres:latest
+    networks:
+      - cripta_net
+    volumes:
+      - cript_pg_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: db_user
+      POSTGRES_PASSWORD: db_pass
+      POSTGRES_DB: encryption_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 5s
+      retries: 3
+      start_period: 5s
+      timeout: 5s
+
+  hashicorpvault:
+    profiles:
+      - vault
+    image: hashicorp/vault:latest
+    networks:
+      - cripta_net
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: vault_token
+      VAULT_ADDR: http://localhost:8200
+      VAULT_TOKEN: vault_token
+  
+  cripta-migration:
+    build:
+     dockerfile_inline: |
+        FROM rust:latest
+        RUN apt-get update
+        RUN cargo install diesel_cli --no-default-features --features postgres
+    command: |
+      /bin/sh -c "diesel migration run"
+    working_dir: /cripta
+    networks:
+      - cripta_net
+    volumes:
+      - ../..:/cripta
+    environment:
+      DATABASE_URL: "postgres://db_user:db_pass@pg:5432/encryption_db"
+    depends_on:
+      pg:
+        condition: service_healthy
+  
+  cripta: &cripta-block
+    build:
+      context: ../..
+      dockerfile_inline: |
+        FROM rust:latest
+        RUN apt-get update
+        WORKDIR /cripta
+        COPY Cargo.toml /cripta/Cargo.toml
+        RUN cargo fetch
+    command: |
+      /bin/sh -c "cargo run"
+    environment: &cripta-env
+      CRIPTA__database__host: pg
+      CRIPTA__metrics_server__host: "0.0.0.0"
+      CRIPTA__server__host: "0.0.0.0"
+    volumes:
+      - ../..:/cripta
+    working_dir: /cripta
+    networks:
+      - cripta_net
+      - frontend
+    ports:
+      - "5000:5000"
+      - "6128:6128"
+    depends_on: &cripta-depends_on
+      pg:
+        condition: service_healthy
+      cripta-migration:
+        condition: service_completed_successfully
+
+  cripta-vault:
+    profiles:
+      - vault
+    <<: *cripta-block
+    command: |
+       /bin/sh -c "cargo run --no-default-features --features vault"
+    environment:
+      <<: *cripta-env
+      CRIPTA__secrets__vault_token: vault_token
+    depends_on:
+      <<: *cripta-depends_on
+      hashicorpvault:
+          condition: service_started
+
+    
+    
+    
+      
+
