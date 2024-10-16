@@ -2,9 +2,13 @@ volumes:
   cript_pg_data:
 
 networks:
+  # cripta_net doesn't expose it's connected containers to outside world (even localhost).
+  # Postgres, Hashicorp Vault
   cripta_net:
-  frontend:
-  # Specify driver options
+
+  # connect_with_host has only one container that's bridged to localhost.
+  # cripta
+  connect_with_host:
     driver: bridge
     driver_opts:
       com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"
@@ -78,7 +82,7 @@ services:
     working_dir: /cripta
     networks:
       - cripta_net
-      - frontend
+      - connect_with_host
     ports:
       - "5000:5000"
       - "6128:6128"
