@@ -17,3 +17,17 @@ The encryption service mainly has following functionalities:-
 - All the Data Encryption Keys are Encrypted by either by securely generated AES-256 Key or a hosted Key Management Service (AWS KMS, Hashicorp Vault etc.)
 
 ![Architectural diagram](./docs/images/FlowDiagram.png)
+
+
+## Development
+- Cripta supports AES, AWS KMS, Hashicorp Vault as backends. Run cripta service with either of the backend by mentioning in feature flag. 
+- `cargo run` chooses AES as the default backend. For other backends disable default-features flag and then choose the backend. Ex: `cargo run --no-default-features --features=vault` disables AES and chooses Hashicorp vault.
+- Run `docker compose --file docker/development/docker-compose.yml --profile aes up -d` to setup all the required minimal services with AES as backend.
+
+### Hashicorp Vault Setup (Will be Automated in Future)
+- Stop running services under a given backend. Ex: `docker compose --file docker/development/docker-compose.yml --profile aes down` will stop services based on AES backend.
+- Run `docker compose --file docker/development/docker-compose.yml --profile vault up -d` to setup all the required services with vault as backend.
+- Interact Hashicorp vault in the browser by accessing `http://localhost:8200/ui/vault/secrets`
+
+#### FAQS
+- If application complains for not finding `vault_token` make sure that `CRIPTA__secrets__vault_token` env variable is present with the vault access token.

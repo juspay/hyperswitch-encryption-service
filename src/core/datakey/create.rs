@@ -6,7 +6,7 @@ use crate::{
     crypto::KeyManagement,
     env::observability as logger,
     errors::{self, SwitchError},
-    storage::dek::DataKeyStorageInterface,
+    storage::{cache, dek::DataKeyStorageInterface},
     types::{key::Version, requests::CreateDataKeyRequest, response::DataKeyCreateResponse, Key},
 };
 
@@ -17,9 +17,7 @@ pub async fn generate_and_create_data_key(
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
     let db = &state.db_pool;
     let version = Version::get_latest(&req.identifier, &state).await;
-
     let (source, aes_key) = state.keymanager_client.generate_key().await.switch()?;
-
     let key = Key {
         version,
         identifier: req.identifier.clone(),
@@ -36,6 +34,12 @@ pub async fn generate_and_create_data_key(
     })?;
 
     let data_key = db.get_or_insert_data_key(key).await.switch()?;
+    cache::VERSION_CACHE
+        .push(
+            format!("latest_version_{}", req.identifier),
+            data_key.version.clone(),
+        )
+        .await;
     Ok(DataKeyCreateResponse {
         key_version: data_key.version,
         identifier: req.identifier,

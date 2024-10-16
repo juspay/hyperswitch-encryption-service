@@ -12,16 +12,23 @@ pub(crate) mod blake3;
 #[cfg(feature = "aws")]
 use crate::services::aws::AwsKmsClient;
 
-#[cfg(not(feature = "aws"))]
+#[cfg(feature = "aes")]
 use crate::crypto::aes256::GcmAes256;
 
 #[cfg(feature = "aws")]
 pub(crate) mod kms;
 
+#[cfg(feature = "vault")]
+pub(crate) mod vault;
+
+#[cfg(feature = "vault")]
+use crate::crypto::vault::Vault;
+
 #[derive(Clone, EnumString, Display)]
 pub enum Source {
     KMS,
     AESLocal,
+    HashicorpVault,
 }
 
 #[async_trait::async_trait]
@@ -74,7 +81,7 @@ impl KeyManagement for AwsKmsClient {
     }
 }
 
-#[cfg(not(feature = "aws"))]
+#[cfg(feature = "aes")]
 #[async_trait::async_trait]
 impl KeyManagement for GcmAes256 {
     async fn generate_key(
@@ -96,6 +103,30 @@ impl KeyManagement for GcmAes256 {
     }
 }
 
+#[cfg(feature = "vault")]
+#[async_trait::async_trait]
+impl KeyManagement for Vault {
+    async fn generate_key(
+        &self,
+    ) -> CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError> {
+        <Self as Crypto>::generate_key(self).await
+    }
+    async fn encrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+        <Self as Crypto>::encrypt(self, input).await
+    }
+    async fn decrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+        <Self as Crypto>::decrypt(self, input).await
+    }
+}
+
+//TODO: Add's Valut's async interface
+
 pub struct EncryptionClient<T: KeyManagement> {
     client: Arc<T>,
 }
@@ -110,8 +141,13 @@ impl<T: KeyManagement> EncryptionClient<T> {
 #[cfg(feature = "aws")]
 pub type KeyManagerClient = EncryptionClient<AwsKmsClient>;
 
-#[cfg(not(feature = "aws"))]
+#[cfg(feature = "aes")]
 pub type KeyManagerClient = EncryptionClient<GcmAes256>;
+
+#[cfg(feature = "vault")]
+pub type KeyManagerClient = EncryptionClient<Vault>;
+
+// TODO: Add Vault's client
 
 impl<T: KeyManagement> EncryptionClient<T> {
     pub fn client(&self) -> &T {

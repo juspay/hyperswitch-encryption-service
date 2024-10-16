@@ -5,7 +5,7 @@ use crate::{
 use config::File;
 use serde::Deserialize;
 
-#[cfg(not(feature = "aws"))]
+#[cfg(feature = "aes")]
 use crate::crypto::aes256::GcmAes256;
 
 #[cfg(feature = "aws")]
@@ -16,6 +16,9 @@ use aws_sdk_kms::primitives::Blob;
 
 #[cfg(feature = "aws")]
 use masking::PeekInterface;
+
+#[cfg(feature = "vault")]
+use crate::crypto::vault::{Vault, VaultSettings};
 
 use std::path::PathBuf;
 
@@ -54,6 +57,7 @@ impl SecretContainer {
     /// # Panics
     ///
     /// Panics when secret cannot be decrypted with KMS
+    // TODO: Create AWS Client for once.
     #[allow(clippy::expect_used, unused_variables)]
     pub async fn expose(&self, config: &Config) -> masking::Secret<String> {
         #[cfg(feature = "aws")]
@@ -82,8 +86,16 @@ impl SecretContainer {
             masking::Secret::new(secret)
         }
 
-        #[cfg(not(feature = "aws"))]
-        self.0.clone()
+        #[cfg(feature = "aes")]
+        {
+            self.0.clone()
+        }
+
+        #[cfg(feature = "vault")]
+        // TODO: Temp fix to connect to db
+        {
+            self.0.clone()
+        }
     }
 }
 
@@ -97,8 +109,8 @@ pub struct Config {
     pub server: Server,
     pub metrics_server: Server,
     pub database: Database,
-    pub log: LogConfig,
     pub secrets: Secrets,
+    pub log: LogConfig,
     pub pool_config: PoolConfig,
     #[cfg(feature = "mtls")]
     pub certs: Certs,
@@ -124,10 +136,16 @@ pub struct Certs {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Secrets {
-    #[cfg(not(feature = "aws"))]
+    #[cfg(feature = "aes")]
     pub master_key: GcmAes256,
     #[cfg(feature = "aws")]
     pub kms_config: AwsKmsConfig,
+    // TODO: Add Vault's initialized object
+    #[cfg(feature = "vault")]
+    pub vault_config: VaultSettings,
+    #[cfg(feature = "vault")]
+    pub vault_token: masking::Secret<String>,
+
     pub access_token: masking::Secret<String>,
     pub hash_context: masking::Secret<String>,
 }
@@ -181,9 +199,15 @@ impl Secrets {
             EncryptionClient::new(client)
         }
 
-        #[cfg(not(feature = "aws"))]
+        #[cfg(feature = "aes")]
         {
             let client = self.master_key;
+            EncryptionClient::new(client)
+        }
+
+        #[cfg(feature = "vault")]
+        {
+            let client = Vault::new(self.vault_config, self.vault_token);
             EncryptionClient::new(client)
         }
     }

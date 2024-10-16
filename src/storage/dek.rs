@@ -48,7 +48,7 @@ impl DataKeyStorageInterface for DbState {
                     self.get_key(
                         v,
                         &identifier
-                            .change_context(errors::DatabaseError::Others)
+                            .change_context(errors::DatabaseError::Others(err.to_string()))
                             .attach_printable("Failed to parse identifier")?,
                     )
                     .await
