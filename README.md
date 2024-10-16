@@ -20,7 +20,7 @@ The encryption service mainly has following functionalities:-
 
 
 ## Development
-- Cripta supports AES, AWS KMS, Hashicorp Vault as backends. Run cripta service with either of the backend by mentioning in feature flag. Ex: `cargo run --features=aes` for running with AES as backend.
+- Cripta supports AES, AWS KMS, Hashicorp Vault as backends. Run cripta service with either of the backend by mentioning in feature flag. Ex: `cargo run` chooses AES as the default backend. For other backends disable default-features flag and then choose the backend. ``cargo run --no-default-features --features=vault` disables AES and chooses vault.
 - Run `docker compose --file docker-compose.yml up -d` to run required services (postgres, Hashicorp vault) for development.
 
 ### Hashicorp Vault Setup (Will be Automated in Future)
@@ -28,4 +28,7 @@ The encryption service mainly has following functionalities:-
 - Enable transit secrets engine by running `vault secrets enable transit`
 - Create encryption namespace with the name `orders` by running `vault write -f transit/keys/orders`
 - Create environment variable in the host for authenticating with Vault (running in docker) `export CRIPTA__secrets__vault_token=vault_token`
- Run the cripta server `cargo run --features=vault` in host system
+ Run the cripta server `cargo run --no-default-features --features=vault` in host system
+
+#### FAQS
+- If application complains for not finding `vault_token` make sure that `CRIPTA__secrets__vault_token` env variable is present with the vault access token.

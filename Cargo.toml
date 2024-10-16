@@ -8,6 +8,7 @@ rust-version = "1.78"
 tokio-rustls = { git = "https://github.com/rustls/tokio-rustls", rev = "3a153acec6c4d189eb5de501b2155b4484b8651b" } # main
 
 [features]
+default=["aes"]
 aes = []
 mtls = ["dep:rustls", "dep:rustls-pemfile", "axum-server/tls-rustls"]
 aws = ["dep:aws-config", "dep:aws-sdk-kms"]

@@ -206,7 +206,6 @@ impl Secrets {
             EncryptionClient::new(client)
         }
 
-        // TODO: Add Vault instance
         #[cfg(feature = "vault")]
         {
             // This function doesn't return result therefore unwrapping.
