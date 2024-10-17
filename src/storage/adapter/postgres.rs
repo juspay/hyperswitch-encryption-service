@@ -12,6 +12,10 @@ impl super::DbAdapter for DbState<PostgreSQL> {
     type Conn<'a> = Connection<'a>;
     type AdapterType = PostgreSQL;
 
+    /// # Panics
+    ///
+    /// Panics if unable to connect to Database
+    #[allow(clippy::expect_used)]
     async fn from_config(config: &Config) -> Self {
         let database = &config.database;
 
