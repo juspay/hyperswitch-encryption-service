@@ -1,3 +1,4 @@
+pub(crate) mod adapter;
 pub(crate) mod cache;
 pub(crate) mod dek;
 pub(crate) mod types;
@@ -7,61 +8,34 @@ use crate::{
     errors::{self, CustomResult},
 };
 
-use error_stack::ResultExt;
-
 use diesel_async::{pooled_connection::bb8::PooledConnection, AsyncPgConnection};
 
-use diesel_async::pooled_connection::{bb8::Pool, AsyncDieselConnectionManager, ManagerConfig};
-use masking::PeekInterface;
+use self::adapter::{DbAdapter, DbAdapterType};
+use diesel_async::pooled_connection::bb8::Pool;
 
 #[derive(Clone)]
-pub struct DbState {
+pub struct DbState<T: DbAdapterType> {
     pub pool: Pool<AsyncPgConnection>,
+    _adapter: std::marker::PhantomData<T>,
 }
 
 type Connection<'a> = PooledConnection<'a, AsyncPgConnection>;
 
-impl DbState {
+impl<T: DbAdapterType> DbState<T>
+where
+    Self: DbAdapter,
+{
     /// # Panics
     ///
     /// Panics if unable to connect to Database
     #[allow(clippy::expect_used)]
-    pub async fn from_config(config: &Config) -> Self {
-        let database = &config.database;
-
-        let password = database.password.expose(config).await;
-
-        let database_url = format!(
-            "postgres://{}:{}@{}:{}/{}",
-            database.user.peek(),
-            password.peek(),
-            database.host,
-            database.port,
-            database.dbname.peek()
-        );
-
-        let mgr_config = ManagerConfig::default();
-        let mgr = AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
-            database_url,
-            mgr_config,
-        );
-        let pool = Pool::builder()
-            .max_size(database.pool_size.unwrap_or(10))
-            .min_idle(database.min_idle)
-            .build(mgr)
-            .await
-            .expect("Failed to establish pool connection");
-
-        Self { pool }
+    pub async fn from_config(config: &Config) -> DbState<<Self as DbAdapter>::AdapterType> {
+        <Self as DbAdapter>::from_config(config).await
     }
 
-    pub async fn get_conn(&self) -> CustomResult<Connection<'_>, errors::ConnectionError> {
-        let conn = self
-            .pool
-            .get()
-            .await
-            .change_context(errors::ConnectionError::ConnectionEstablishFailed)?;
-
-        Ok(conn)
+    pub async fn get_conn<'a>(
+        &'a self,
+    ) -> CustomResult<<Self as DbAdapter>::Conn<'a>, errors::ConnectionError> {
+        <Self as DbAdapter>::get_conn(self).await
     }
 }
