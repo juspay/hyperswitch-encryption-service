@@ -33,9 +33,9 @@ where
         <Self as DbAdapter>::from_config(config).await
     }
 
-    pub async fn get_conn<'a>(
-        &'a self,
-    ) -> CustomResult<<Self as DbAdapter>::Conn<'a>, errors::ConnectionError> {
+    pub async fn get_conn(
+        &self,
+    ) -> CustomResult<<Self as DbAdapter>::Conn<'_>, errors::ConnectionError> {
         <Self as DbAdapter>::get_conn(self).await
     }
 }
