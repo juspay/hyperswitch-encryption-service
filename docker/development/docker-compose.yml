@@ -79,9 +79,8 @@ services:
         WORKDIR /cripta
         COPY Cargo.toml /cripta/Cargo.toml
         RUN cargo fetch
-        RUN cargo install cargo-watch
     command: |
-      /bin/sh -c "cargo watch -x run"
+      /bin/sh -c "cargo run"
     environment: &cripta-env
       CRIPTA__database__host: pg
       CRIPTA__metrics_server__host: "0.0.0.0"
