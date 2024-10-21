@@ -26,7 +26,8 @@ pub struct Vault {
 }
 
 impl Vault {
-    pub fn new(settings: VaultSettings) -> Vault {
+    #[allow(clippy::expect_used)]
+    pub fn new(settings: VaultSettings) -> Self {
         let client = VaultClient::new(
             VaultClientSettingsBuilder::default()
                 .address(&settings.url)
@@ -35,7 +36,7 @@ impl Vault {
                 .expect("Unable to build HashiCorp Vault Settings"),
         )
         .expect("Unable to build HashiCorp Vault client");
-        Vault {
+        Self {
             inner_client: client,
             settings,
         }
