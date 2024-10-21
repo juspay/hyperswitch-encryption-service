@@ -5,7 +5,7 @@ use crate::errors::{self, CryptoError, CustomResult};
 use base64::Engine;
 use error_stack::report;
 use futures::Future;
-use masking::{PeekInterface, Secret, StrongSecret};
+use masking::{PeekInterface, StrongSecret};
 use serde::Deserialize;
 use std::pin::Pin;
 #[cfg(feature = "vault")]
@@ -17,6 +17,7 @@ pub struct VaultSettings {
     url: String,
     mount_point: String,
     encryption_key: String,
+    vault_token: masking::Secret<String>,
 }
 
 pub struct Vault {
@@ -25,18 +26,18 @@ pub struct Vault {
 }
 
 impl Vault {
-    pub fn new(settings: VaultSettings, token: Secret<String>) -> Vault {
+    pub fn new(settings: VaultSettings) -> Vault {
         let client = VaultClient::new(
             VaultClientSettingsBuilder::default()
                 .address(&settings.url)
-                .token(token.peek())
+                .token(settings.vault_token.peek())
                 .build()
                 .expect("Unable to build HashiCorp Vault Settings"),
         )
         .expect("Unable to build HashiCorp Vault client");
         Vault {
             inner_client: client,
-            settings: settings,
+            settings,
         }
     }
 }
@@ -102,7 +103,6 @@ impl Crypto for Vault {
             let cypher_text = String::from_utf8(input.peek().to_vec()).map_err(|err| {
                 report!(err).change_context(CryptoError::DecryptionFailed("Vault"))
             })?;
-            println!("{}", cypher_text);
             let b64_encoded_str = transit::data::decrypt(
                 &self.inner_client,
                 &self.settings.mount_point,

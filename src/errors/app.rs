@@ -1,7 +1,7 @@
 use super::SwitchError;
 use axum::response::{IntoResponse, Response};
-use error_stack::report;
 use hyper::StatusCode;
+
 pub type ApiResponseResult<T> = Result<T, ApiErrorContainer>;
 
 pub struct ApiErrorContainer {
@@ -44,11 +44,8 @@ struct ApiErrorResponse<'a> {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ApplicationErrorResponse {
-    #[error("Internal Server Error Occurred - {prefix} {}",message.as_ref().unwrap_or(&"".to_string()))]
-    InternalServerError {
-        prefix: &'static str,
-        message: Option<String>,
-    },
+    #[error("Internal Server Error Occurred - {0}")]
+    InternalServerError(&'static str),
     #[error("The resource was not found in the {0}")]
     NotFound(&'static str),
     #[error("Invalid request provided {0}")]
@@ -82,36 +79,22 @@ impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, supe
         self.map_err(|err| {
             let new_err = match err.current_context() {
                 super::CryptoError::EncryptionFailed(_) => {
-                    ApplicationErrorResponse::InternalServerError {
-                        prefix: "Encryption failed",
-                        message: None,
-                    }
+                    ApplicationErrorResponse::InternalServerError("Encryption failed")
                 }
                 super::CryptoError::DecryptionFailed(_) => {
-                    ApplicationErrorResponse::InternalServerError {
-                        prefix: "Decryption failed",
-                        message: None,
-                    }
+                    ApplicationErrorResponse::InternalServerError("Decryption failed")
                 }
                 super::CryptoError::KeyGeneration => {
-                    ApplicationErrorResponse::InternalServerError {
-                        prefix: "Key generation failed",
-                        message: None,
-                    }
+                    ApplicationErrorResponse::InternalServerError("Key generation failed")
                 }
-                super::CryptoError::InvalidKey => ApplicationErrorResponse::InternalServerError {
-                    prefix: "Invalid key detected",
-                    message: None,
-                },
-                super::CryptoError::KeyGetFailed => ApplicationErrorResponse::InternalServerError {
-                    prefix: "Failed to get the key",
-                    message: None,
-                },
+                super::CryptoError::InvalidKey => {
+                    ApplicationErrorResponse::InternalServerError("Invalid key detected")
+                }
+                super::CryptoError::KeyGetFailed => {
+                    ApplicationErrorResponse::InternalServerError("Failed to get the key")
+                }
                 super::CryptoError::AuthenticationFailed => ApplicationErrorResponse::Unauthorized,
-                _ => ApplicationErrorResponse::InternalServerError {
-                    prefix: "Unexpected error occurred",
-                    message: None,
-                },
+                _ => ApplicationErrorResponse::InternalServerError("Unexpected error occurred"),
             };
             err.change_context(new_err)
         })
@@ -125,21 +108,13 @@ impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, supe
                 super::DatabaseError::NotFound => ApplicationErrorResponse::NotFound("Database"),
                 super::DatabaseError::ConnectionError(_)
                 | super::DatabaseError::NotNullViolation
-                | super::DatabaseError::InvalidValue => {
-                    ApplicationErrorResponse::InternalServerError {
-                        prefix: "Database error occurred",
-                        message: None,
-                    }
-                }
-                super::DatabaseError::Others(message) => {
-                    ApplicationErrorResponse::InternalServerError {
-                        prefix: "Database error occurred",
-                        message: Some(message.clone()),
-                    }
+                | super::DatabaseError::InvalidValue
+                | super::DatabaseError::Others => {
+                    ApplicationErrorResponse::InternalServerError("Database error occurred")
                 }
                 super::DatabaseError::UniqueViolation => ApplicationErrorResponse::UniqueViolation,
             };
-            report!(err).change_context(new_err)
+            err.change_context(new_err)
         })
     }
 }
@@ -153,10 +128,7 @@ impl<T> ToContainerError<T> for super::CustomResult<T, ApplicationErrorResponse>
 impl IntoResponse for ApiErrorContainer {
     fn into_response(self) -> Response {
         match self.error.current_context() {
-            err @ ApplicationErrorResponse::InternalServerError {
-                prefix: _,
-                message: _,
-            } => (
+            err @ ApplicationErrorResponse::InternalServerError(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 axum::Json(ApiErrorResponse {
                     error_message: err.to_string(),

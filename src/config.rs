@@ -57,7 +57,6 @@ impl SecretContainer {
     /// # Panics
     ///
     /// Panics when secret cannot be decrypted with KMS
-    // TODO: Create AWS Client for once.
     #[allow(clippy::expect_used, unused_variables)]
     pub async fn expose(&self, config: &Config) -> masking::Secret<String> {
         #[cfg(feature = "aws")]
@@ -86,13 +85,7 @@ impl SecretContainer {
             masking::Secret::new(secret)
         }
 
-        #[cfg(feature = "aes")]
-        {
-            self.0.clone()
-        }
-
-        #[cfg(feature = "vault")]
-        // TODO: Temp fix to connect to db
+        #[cfg(any(feature = "aes", feature = "vault"))]
         {
             self.0.clone()
         }
@@ -140,12 +133,8 @@ pub struct Secrets {
     pub master_key: GcmAes256,
     #[cfg(feature = "aws")]
     pub kms_config: AwsKmsConfig,
-    // TODO: Add Vault's initialized object
     #[cfg(feature = "vault")]
     pub vault_config: VaultSettings,
-    #[cfg(feature = "vault")]
-    pub vault_token: masking::Secret<String>,
-
     pub access_token: masking::Secret<String>,
     pub hash_context: masking::Secret<String>,
 }
@@ -207,7 +196,7 @@ impl Secrets {
 
         #[cfg(feature = "vault")]
         {
-            let client = Vault::new(self.vault_config, self.vault_token);
+            let client = Vault::new(self.vault_config);
             EncryptionClient::new(client)
         }
     }

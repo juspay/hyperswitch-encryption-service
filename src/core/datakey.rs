@@ -23,7 +23,6 @@ use rotate::*;
 #[axum::debug_handler]
 pub async fn create_data_key(
     State(state): State<Arc<AppState>>,
-    // custodian is extracted from Requests
     custodian: Custodian,
     Json(req): Json<CreateDataKeyRequest>,
 ) -> errors::ApiResponseResult<Json<DataKeyCreateResponse>> {

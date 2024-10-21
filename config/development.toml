@@ -31,3 +31,6 @@ hash_context = "keymanager:hyperswitch"
 url = "http://localhost:8200"
 mount_point = "transit"
 encryption_key = "orders"
+# 
+vault_token = "vault_token"
+

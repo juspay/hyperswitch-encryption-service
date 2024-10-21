@@ -21,16 +21,12 @@ pub async fn transfer_data_key(
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
     let db = &state.db_pool;
     let key = BASE64_ENGINE.decode(req.key).change_context(
-        errors::ApplicationErrorResponse::InternalServerError {
-            prefix: "Failed to decode the base64 key",
-            message: None,
-        },
+        errors::ApplicationErrorResponse::InternalServerError("Failed to decode the base64 key"),
     )?;
     let key = <[u8; 32]>::try_from(key).map_err(|_| {
-        error_stack::report!(errors::ApplicationErrorResponse::InternalServerError {
-            prefix: "Invalid key found",
-            message: None
-        })
+        error_stack::report!(errors::ApplicationErrorResponse::InternalServerError(
+            "Invalid key found"
+        ))
     })?;
     let key = Key {
         version: Version::default(),

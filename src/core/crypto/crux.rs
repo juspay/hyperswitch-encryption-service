@@ -44,7 +44,7 @@ impl KeyEncrypter<DataKeyNew> for Key {
             data_identifier,
             key_identifier,
             encryption_key,
-            version: self.version.increment().switch()?,
+            version: self.version,
             source: self.source.to_string(),
             created_at: time::PrimitiveDateTime::new(
                 time::OffsetDateTime::now_utc().date(),

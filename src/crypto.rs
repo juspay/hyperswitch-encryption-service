@@ -125,8 +125,6 @@ impl KeyManagement for Vault {
     }
 }
 
-//TODO: Add's Valut's async interface
-
 pub struct EncryptionClient<T: KeyManagement> {
     client: Arc<T>,
 }
@@ -146,8 +144,6 @@ pub type KeyManagerClient = EncryptionClient<GcmAes256>;
 
 #[cfg(feature = "vault")]
 pub type KeyManagerClient = EncryptionClient<Vault>;
-
-// TODO: Add Vault's client
 
 impl<T: KeyManagement> EncryptionClient<T> {
     pub fn client(&self) -> &T {

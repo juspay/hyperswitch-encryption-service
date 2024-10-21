@@ -24,7 +24,7 @@ The encryption service mainly has following functionalities:-
 - `cargo run` chooses AES as the default backend. For other backends disable default-features flag and then choose the backend. Ex: `cargo run --no-default-features --features=vault` disables AES and chooses Hashicorp vault.
 - Run `docker compose --file docker/development/docker-compose.yml --profile aes up -d` to setup all the required minimal services with AES as backend.
 
-### Hashicorp Vault Setup (Will be Automated in Future)
+### Hashicorp Vault Setup
 - Stop running services under a given backend. Ex: `docker compose --file docker/development/docker-compose.yml --profile aes down` will stop services based on AES backend.
 - Run `docker compose --file docker/development/docker-compose.yml --profile vault up -d` to setup all the required services with vault as backend.
 - Interact Hashicorp vault in the browser by accessing `http://localhost:8200/ui/vault/secrets`
