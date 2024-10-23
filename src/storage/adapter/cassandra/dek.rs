@@ -11,7 +11,12 @@ use crate::{
 };
 
 #[async_trait::async_trait]
-impl DataKeyStorageInterface for DbState<Cassandra> {
+impl DataKeyStorageInterface
+    for DbState<
+        diesel_async::pooled_connection::bb8::Pool<diesel_async::AsyncPgConnection>,
+        Cassandra,
+    >
+{
     async fn get_or_insert_data_key(
         &self,
         _new: DataKeyNew,
