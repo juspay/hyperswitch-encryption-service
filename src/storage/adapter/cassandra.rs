@@ -3,9 +3,15 @@ mod dek;
 use crate::storage::{adapter::Cassandra, errors, Config, Connection, DbState};
 
 #[async_trait::async_trait]
-impl super::DbAdapter for DbState<Cassandra> {
+impl super::DbAdapter
+    for DbState<
+        diesel_async::pooled_connection::bb8::Pool<diesel_async::AsyncPgConnection>,
+        Cassandra,
+    >
+{
     type Conn<'a> = Connection<'a>;
     type AdapterType = Cassandra;
+    type Pool = diesel_async::pooled_connection::bb8::Pool<diesel_async::AsyncPgConnection>;
 
     async fn from_config(_config: &Config) -> Self {
         unimplemented!("Not implemented Yet")

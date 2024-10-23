@@ -12,10 +12,10 @@ use crate::{
     types::{key::Version, Identifier},
 };
 use diesel::{associations::HasTable, BoolExpressionMethods, ExpressionMethods, QueryDsl};
-use diesel_async::RunQueryDsl;
+use diesel_async::{pooled_connection::bb8::Pool, AsyncPgConnection, RunQueryDsl};
 
 #[async_trait::async_trait]
-impl DataKeyStorageInterface for DbState<PostgreSQL> {
+impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     async fn get_or_insert_data_key(
         &self,
         new: DataKeyNew,

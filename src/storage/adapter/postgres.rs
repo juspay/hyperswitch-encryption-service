@@ -8,9 +8,10 @@ use diesel_async::AsyncPgConnection;
 use masking::PeekInterface;
 
 #[async_trait::async_trait]
-impl super::DbAdapter for DbState<PostgreSQL> {
+impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     type Conn<'a> = Connection<'a>;
     type AdapterType = PostgreSQL;
+    type Pool = Pool<AsyncPgConnection>;
 
     /// # Panics
     ///

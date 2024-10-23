@@ -17,8 +17,8 @@ pub trait DbAdapter {
     where
         Self: 'a;
     type AdapterType: DbAdapterType;
-
-    async fn from_config(config: &Config) -> DbState<Self::AdapterType>;
+    type Pool;
+    async fn from_config(config: &Config) -> DbState<Self::Pool, Self::AdapterType>;
     async fn get_conn<'a>(
         &'a self,
     ) -> errors::CustomResult<Self::Conn<'a>, errors::ConnectionError>;
