@@ -30,13 +30,13 @@ jobs:
           checksum: true
 
       - name: Check compilation for all features
-        run: cargo hack check --each-feature --exclude-no-default-features --exclude-all-features --exclude-features mtls
+        run: cargo hack check --each-feature --exclude-no-default-features --exclude-all-features --exclude-features mtls --all-targets
       
       - name: Check compilation for mtls with aes
         run: cargo hack check --features aes,mtls
 
       - name: Run Clippy
-        run: cargo hack clippy --each-feature --exclude-no-default-features --exclude-all-features --exclude-features mtls
+        run: cargo hack clippy --each-feature --exclude-no-default-features --exclude-all-features --exclude-features mtls --all-targets
 
   formatting:
     name: Check formatting
