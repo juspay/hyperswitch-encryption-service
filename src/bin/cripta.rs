@@ -16,6 +16,7 @@ use std::sync::Arc;
 #[tokio::main]
 async fn main() {
     let config = config::Config::with_config_path(config::Environment::which(), None);
+    config.validate();
 
     let _guard = observability::setup(&config.log, []);
 

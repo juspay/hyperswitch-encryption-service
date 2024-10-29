@@ -9,19 +9,12 @@ pub(crate) mod aes256;
 
 pub(crate) mod blake3;
 
-#[cfg(feature = "aws")]
 use crate::services::aws::AwsKmsClient;
-
-#[cfg(feature = "aes")]
 use crate::crypto::aes256::GcmAes256;
 
-#[cfg(feature = "aws")]
 pub(crate) mod kms;
 
-#[cfg(feature = "vault")]
 pub(crate) mod vault;
-
-#[cfg(feature = "vault")]
 use crate::crypto::vault::Vault;
 
 #[derive(Clone, EnumString, Display)]
@@ -59,7 +52,6 @@ pub trait KeyManagement {
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError>;
 }
 
-#[cfg(feature = "aws")]
 #[async_trait::async_trait]
 impl KeyManagement for AwsKmsClient {
     async fn generate_key(
@@ -80,8 +72,6 @@ impl KeyManagement for AwsKmsClient {
         <Self as Crypto>::decrypt(self, input).await
     }
 }
-
-#[cfg(feature = "aes")]
 #[async_trait::async_trait]
 impl KeyManagement for GcmAes256 {
     async fn generate_key(
@@ -103,7 +93,6 @@ impl KeyManagement for GcmAes256 {
     }
 }
 
-#[cfg(feature = "vault")]
 #[async_trait::async_trait]
 impl KeyManagement for Vault {
     async fn generate_key(
@@ -125,34 +114,26 @@ impl KeyManagement for Vault {
     }
 }
 
-pub struct EncryptionClient<T: KeyManagement> {
-    client: Arc<T>,
+pub type Backend = dyn KeyManagement + Send + Sync;
+
+pub struct KeyManagerClient {
+    client: Arc<Backend>,
 }
 
-impl<T: KeyManagement> EncryptionClient<T> {
-    pub fn new(client: T) -> Self {
-        Self {
-            client: Arc::new(client),
-        }
+impl KeyManagerClient {
+    pub fn new(client: Arc<Backend>) -> Self {
+        Self { client }
     }
 }
-#[cfg(feature = "aws")]
-pub type KeyManagerClient = EncryptionClient<AwsKmsClient>;
 
-#[cfg(feature = "aes")]
-pub type KeyManagerClient = EncryptionClient<GcmAes256>;
-
-#[cfg(feature = "vault")]
-pub type KeyManagerClient = EncryptionClient<Vault>;
-
-impl<T: KeyManagement> EncryptionClient<T> {
-    pub fn client(&self) -> &T {
+impl KeyManagerClient {
+    pub fn client(&self) -> &Arc<Backend> {
         &self.client
     }
 }
 
-impl<T: KeyManagement> Deref for EncryptionClient<T> {
-    type Target = T;
+impl Deref for KeyManagerClient {
+    type Target = Arc<Backend>;
     fn deref(&self) -> &Self::Target {
         self.client()
     }

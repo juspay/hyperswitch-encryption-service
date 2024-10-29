@@ -15,7 +15,7 @@ use ring::aead::{self, BoundKey, OpeningKey, SealingKey, UnboundKey};
 
 use masking::StrongSecret;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct GcmAes256 {
     key: StrongSecret<[u8; 32]>,
 }

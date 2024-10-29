@@ -8,16 +8,15 @@ use futures::Future;
 use masking::{PeekInterface, StrongSecret};
 use serde::Deserialize;
 use std::pin::Pin;
-#[cfg(feature = "vault")]
 use vaultrs::client::{VaultClient, VaultClientSettingsBuilder};
-#[cfg(feature = "vault")]
 use vaultrs::{api, transit};
-#[derive(Debug, Deserialize, Clone)]
+
+#[derive(Debug, Deserialize, Clone, Default, PartialEq, Eq)]
 pub struct VaultSettings {
-    url: String,
-    mount_point: String,
-    encryption_key: String,
-    vault_token: masking::Secret<String>,
+    pub url: String,
+    pub mount_point: String,
+    pub encryption_key: String,
+    pub vault_token: masking::Secret<String>,
 }
 
 pub struct Vault {
