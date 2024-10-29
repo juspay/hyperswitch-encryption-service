@@ -9,8 +9,8 @@ pub(crate) mod aes256;
 
 pub(crate) mod blake3;
 
-use crate::services::aws::AwsKmsClient;
 use crate::crypto::aes256::GcmAes256;
+use crate::services::aws::AwsKmsClient;
 
 pub(crate) mod kms;
 
