@@ -101,7 +101,7 @@ impl SecretContainer {
                 &client,
                 &config.secrets.vault_config.mount_point,
                 &config.secrets.vault_config.encryption_key,
-                &cypher_text,
+                cypher_text,
                 None,
             )
             .await
@@ -112,8 +112,7 @@ impl SecretContainer {
                 String::from_utf8(
                     crate::consts::base64::BASE64_ENGINE
                         .decode(b64_encoded_str)
-                        .expect("Failed to base64 decode the vault data")
-                        .into(),
+                        .expect("Failed to base64 decode the vault data"),
                 )
                 .expect("Invalid secret"),
             );
