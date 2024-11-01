@@ -29,7 +29,6 @@ impl Custodian {
             .map(hex::encode)
             .map(StrongSecret::new)
     }
-
 }
 
 #[axum::async_trait]

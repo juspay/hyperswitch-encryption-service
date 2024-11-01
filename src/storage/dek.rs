@@ -2,7 +2,10 @@ use super::DbState;
 use error_stack::ResultExt;
 
 use crate::{
-    env::observability as logger, errors::{self, CustomResult, SwitchError}, schema::data_key_store::*, storage::types::{DataKey, DataKeyNew}, types::{key::Version, Identifier}
+    errors::{self, CustomResult, SwitchError},
+    schema::data_key_store::*,
+    storage::types::{DataKey, DataKeyNew},
+    types::{key::Version, Identifier},
 };
 use diesel::{associations::HasTable, BoolExpressionMethods, ExpressionMethods, QueryDsl};
 use diesel_async::RunQueryDsl;
@@ -35,27 +38,24 @@ impl DataKeyStorageInterface for DbState {
 
         let v = new.version;
 
-        logger::info!("connection establised: {:?}",identifier);
         let mut connection = self.get_conn().await.switch()?;
         let query = diesel::insert_into(DataKey::table()).values(new);
-        logger::info!("connection establised");
-        let res = match query.get_result(&mut connection).await.switch() {
+
+        match query.get_result(&mut connection).await.switch() {
             Ok(result) => Ok(result),
             Err(err) => match err.current_context() {
                 errors::DatabaseError::UniqueViolation => {
                     self.get_key(
                         v,
                         &identifier
-                        .change_context(errors::DatabaseError::Others)
-                        .attach_printable("Failed to parse identifier")?,
+                            .change_context(errors::DatabaseError::Others)
+                            .attach_printable("Failed to parse identifier")?,
                     )
                     .await
                 }
                 _ => Err(err),
             },
-        };
-        logger::info!("test log");
-        return res;
+        }
     }
 
     async fn get_latest_version(
