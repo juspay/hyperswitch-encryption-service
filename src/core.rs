@@ -1,4 +1,4 @@
-mod crypto;
+pub mod crypto;
 mod datakey;
 mod health;
 mod metrics;

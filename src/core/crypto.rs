@@ -1,5 +1,5 @@
 mod crux;
-pub(crate) mod custodian;
+pub mod custodian;
 mod decryption;
 mod encryption;
 

@@ -3,7 +3,7 @@ use diesel::{Identifiable, Insertable, Queryable};
 use masking::StrongSecret;
 use time::PrimitiveDateTime;
 
-#[derive(Insertable)]
+#[derive(Insertable,Debug)]
 #[diesel(table_name = data_key_store)]
 pub struct DataKeyNew {
     pub key_identifier: String,

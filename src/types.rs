@@ -1,5 +1,5 @@
-mod core;
-pub(crate) mod method;
+pub mod core;
+pub mod method;
 pub(crate) mod requests;
 pub(crate) mod response;
 

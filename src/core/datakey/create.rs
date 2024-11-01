@@ -18,8 +18,9 @@ pub async fn generate_and_create_data_key(
     let db = &state.db_pool;
     let version = Version::get_latest(&req.identifier, &state).await;
 
+    logger::info!("Version [{:?}]",version);
     let (source, aes_key) = state.keymanager_client.generate_key().await.switch()?;
-
+    logger::info!("Aes Key [{:?}]",aes_key);
     let key = Key {
         version,
         identifier: req.identifier.clone(),
@@ -27,6 +28,7 @@ pub async fn generate_and_create_data_key(
         source,
         token: custodian.into_access_token(state.as_ref()),
     }
+
     .encrypt(&state)
     .await
     .switch()
@@ -34,6 +36,7 @@ pub async fn generate_and_create_data_key(
         logger::error!(?err);
         err
     })?;
+    logger::info!("test Key");
 
     let data_key = db.get_or_insert_data_key(key).await.switch()?;
     Ok(DataKeyCreateResponse {
