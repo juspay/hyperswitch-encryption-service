@@ -1,11 +1,17 @@
+use std::sync::Arc;
+
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use tokio::runtime::Runtime;
 use rustc_hash::FxHashMap;
 use cripta::{
     app::AppState,
     config,
-    core::crypto::custodian::Custodian,
+    core::{
+        crypto::custodian::Custodian,
+        datakey::create::generate_and_create_data_key,
+    },
     types::{
+        requests::CreateDataKeyRequest,
         core::{DecryptedData, DecryptedDataGroup, Identifier},
         method::EncryptionType,
     },
@@ -16,14 +22,6 @@ use cripta::{
 const SINGLE_BENCH_ITERATION: u32 = 10;
 const BATCH_BENCH_ITERATION: u32 = 10;
 
-// Note: Create a dataKey with the following user before running bench
-// curl --location 'localhost:5000/key/create' \
-// --header 'Content-type: application/json' \
-// --data '{
-//   "data_identifier": "User",
-//   "key_identifier": "user_12345"
-// }'
-
 criterion_main!(benches);
 criterion_group!(benches, criterion_data_encryption_decryption, criterion_batch_data_encryption_decryption);
 
@@ -32,11 +30,21 @@ pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
     let custodian = Custodian::new(Some(("key".to_string(),"value".to_string())));
     let config = config::Config::with_config_path(config::Environment::Dev, None);
     let state = rt.block_on(async {
-         let state = AppState::from_config(config).await;
-         return state;
+        let state = AppState::from_config(config).await;
+        return state;
     });
-    let identifier = Identifier::User(String::from("user_12345"));
-
+    // create a DataKey in data_key_store
+    let config2 = config::Config::with_config_path(config::Environment::Dev, None);
+    let identifier = Identifier::User(String::from("bench_user"));
+    let key_create_req: CreateDataKeyRequest = CreateDataKeyRequest {identifier: identifier.clone(),};
+    let key_create_state = rt.block_on(async {
+         let state = AppState::from_config(config2).await;
+         return  <AppState as Into<Arc<AppState>>>::into(state);
+    });
+    rt.block_on(async {
+        let _ = generate_and_create_data_key(key_create_state,custodian.clone(),key_create_req).await;
+    });
+    
     {
         let mut group = c.benchmark_group("data-encryption-single");
         (0..SINGLE_BENCH_ITERATION).for_each(|po| {
@@ -113,7 +121,7 @@ pub fn criterion_batch_data_encryption_decryption(c: &mut Criterion) {
          let state = AppState::from_config(config).await;
          return state;
     });
-    let identifier = Identifier::User(String::from("user_12345"));
+    let identifier = Identifier::User(String::from("bench_user"));
     {
         let mut group = c.benchmark_group("data-encryption-batch");
         (0..BATCH_BENCH_ITERATION).for_each(|po| {
