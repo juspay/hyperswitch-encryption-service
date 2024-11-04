@@ -20,7 +20,8 @@ criterion_group!(benches, criterion_data_encryption_decryption, criterion_batch_
 pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let custodian = Custodian::new(Some(("key".to_string(),"value".to_string())));
-    let config = config::Config::with_config_path(config::Environment::which(), None);
+    // let config = config::Config::with_config_path(config::Environment::which(), None);
+    let config = config::Config::with_config_path(config::Environment::Dev, None);
     let state = rt.block_on(async {
          let state = AppState::from_config(config).await;
          return state;
@@ -98,7 +99,7 @@ fn generate_batch_data(size: u64) -> DecryptedDataGroup {
 pub fn criterion_batch_data_encryption_decryption(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let custodian = Custodian::new(Some(("key".to_string(),"value".to_string())));
-    let config = config::Config::with_config_path(config::Environment::which(), None);
+    let config = config::Config::with_config_path(config::Environment::Dev, None);
     let state = rt.block_on(async {
          let state = AppState::from_config(config).await;
          return state;
