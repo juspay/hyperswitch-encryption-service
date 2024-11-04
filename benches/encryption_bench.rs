@@ -11,8 +11,18 @@ use cripta::{
     },
 };
 
+// Command: cargo bench
+// Note: modify this to run for different size inputs
 const SINGLE_BENCH_ITERATION: u32 = 10;
 const BATCH_BENCH_ITERATION: u32 = 10;
+
+// Note: Create a dataKey with the following user before running bench
+// curl --location 'localhost:5000/key/create' \
+// --header 'Content-type: application/json' \
+// --data '{
+//   "data_identifier": "User",
+//   "key_identifier": "user_12345"
+// }'
 
 criterion_main!(benches);
 criterion_group!(benches, criterion_data_encryption_decryption, criterion_batch_data_encryption_decryption);
@@ -20,7 +30,6 @@ criterion_group!(benches, criterion_data_encryption_decryption, criterion_batch_
 pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let custodian = Custodian::new(Some(("key".to_string(),"value".to_string())));
-    // let config = config::Config::with_config_path(config::Environment::which(), None);
     let config = config::Config::with_config_path(config::Environment::Dev, None);
     let state = rt.block_on(async {
          let state = AppState::from_config(config).await;
@@ -72,7 +81,7 @@ pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
                     b.iter(|| {
                         black_box(
                             rt.block_on(async {
-                                let enc = encrypted_data.clone().decrypt(&state, &identifier.clone(), custodian.clone()).await.expect("Failed while encrypting");
+                                let enc = encrypted_data.clone().decrypt(&state, &identifier.clone(), custodian.clone()).await.expect("Failed while decrypting");
                                 return enc;
                             })
                         )
@@ -144,7 +153,7 @@ pub fn criterion_batch_data_encryption_decryption(c: &mut Criterion) {
                     b.iter(|| {
                         black_box(
                             rt.block_on(async {
-                                let enc = encrypted_bench_input.clone().decrypt(&state, &identifier.clone(), custodian.clone()).await.expect("Failed while encrypting");
+                                let enc = encrypted_bench_input.clone().decrypt(&state, &identifier.clone(), custodian.clone()).await.expect("Failed while decrypting");
                                 return enc;
                             })
                         )
