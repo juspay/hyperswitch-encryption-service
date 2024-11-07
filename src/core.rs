@@ -1,5 +1,5 @@
-mod crypto;
-mod datakey;
+pub mod crypto;
+pub mod datakey;
 mod health;
 mod metrics;
 

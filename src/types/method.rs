@@ -5,14 +5,14 @@ use crate::{
     types::Identifier,
 };
 
-#[derive(Eq, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Eq, PartialEq, Debug, serde::Serialize, serde::Deserialize, Clone)]
 #[serde(untagged)]
 pub enum EncryptionType {
     Single(super::DecryptedData),
     Batch(super::DecryptedDataGroup),
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 #[serde(untagged)]
 pub enum DecryptionType {
     Single(super::EncryptedData),
