@@ -18,8 +18,13 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 use core::fmt;
 
+use charybdis::scylla::SerializeValue;
 use masking::StrongSecret;
 use masking::{Deserialize, Serialize};
+use scylla::{
+    deserialize::{DeserializeValue, FrameSlice},
+    frame::response::result::ColumnType,
+};
 use serde::de::{self, Deserializer, Unexpected, Visitor};
 
 #[derive(Clone)]
@@ -87,6 +92,37 @@ pub struct Version(i32);
 impl Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&format!("v{}", self.0))
+    }
+}
+
+impl SerializeValue for Version {
+    fn serialize<'b>(
+        &self,
+        typ: &ColumnType<'_>,
+        writer: scylla::serialize::writers::CellWriter<'b>,
+    ) -> Result<
+        scylla::serialize::writers::WrittenCellProof<'b>,
+        scylla::serialize::SerializationError,
+    > {
+        if typ != &scylla::frame::response::result::ColumnType::Int {
+            return Err(scylla::serialize::SerializationError::new(
+                scylla::serialize::value::BuiltinTypeCheckError {
+                    rust_name: std::any::type_name::<Self>(),
+                    got: typ.clone().into_owned(),
+                    kind: scylla::serialize::value::BuiltinTypeCheckErrorKind::MismatchedType {
+                        expected: &[ColumnType::Int],
+                    },
+                },
+            ));
+        }
+
+        let proof = writer
+            .set_value(self.0.to_be_bytes().as_slice())
+            .map_err(|_| {
+                scylla::serialize::SerializationError::new(errors::DatabaseError::Others)
+            })?;
+
+        Ok(proof)
     }
 }
 
@@ -201,6 +237,20 @@ where
     type Row = i32;
     fn build(row: Self::Row) -> deserialize::Result<Self> {
         Ok(Self::from(row))
+    }
+}
+
+impl<'frame, 'metadata> DeserializeValue<'frame, 'metadata> for Version {
+    fn type_check(typ: &ColumnType<'_>) -> Result<(), scylla::deserialize::TypeCheckError> {
+        i32::type_check(typ)
+    }
+
+    fn deserialize(
+        typ: &'metadata ColumnType<'metadata>,
+        cql_val: Option<FrameSlice<'frame>>,
+    ) -> Result<Self, scylla::deserialize::DeserializationError> {
+        let int = <i32 as DeserializeValue<'frame, 'metadata>>::deserialize(typ, cql_val)?;
+        Ok(Self::from(int))
     }
 }
 

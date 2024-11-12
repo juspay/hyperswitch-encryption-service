@@ -1,25 +1,34 @@
 mod dek;
 
-use crate::storage::{adapter::Cassandra, errors, Config, Connection, DbState};
+use crate::storage::{adapter::Cassandra, errors, Config, DbState};
 
 #[async_trait::async_trait]
-impl super::DbAdapter
-    for DbState<
-        diesel_async::pooled_connection::bb8::Pool<diesel_async::AsyncPgConnection>,
-        Cassandra,
-    >
-{
-    type Conn<'a> = Connection<'a>;
+impl super::DbAdapter for DbState<scylla::CachingSession, Cassandra> {
+    type Conn<'a> = &'a scylla::CachingSession;
     type AdapterType = Cassandra;
-    type Pool = diesel_async::pooled_connection::bb8::Pool<diesel_async::AsyncPgConnection>;
+    type Pool = scylla::CachingSession;
 
-    async fn from_config(_config: &Config) -> Self {
-        unimplemented!("Not implemented Yet")
+    #[allow(clippy::expect_used)]
+    async fn from_config(config: &Config) -> Self {
+        let session = scylla::SessionBuilder::new()
+            .known_nodes([&config.cassandra.known_nodes])
+            .pool_size(scylla::transport::session::PoolSize::PerHost(
+                config.cassandra.pool_size,
+            ))
+            .use_keyspace(&config.cassandra.keyspace, false)
+            .build()
+            .await
+            .expect("Unable to build the cassandra Pool");
+
+        Self {
+            _adapter: std::marker::PhantomData,
+            pool: scylla::CachingSession::from(session, config.cassandra.cache_size),
+        }
     }
 
     async fn get_conn<'a>(
         &'a self,
     ) -> errors::CustomResult<Self::Conn<'a>, errors::ConnectionError> {
-        unimplemented!("Not implemented Yet")
+        Ok(&self.pool)
     }
 }
