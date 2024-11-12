@@ -13,7 +13,7 @@ use rayon::{ThreadPool, ThreadPoolBuilder};
 type StorageState = DbState<Pool<AsyncPgConnection>, adapter::PostgreSQL>;
 
 #[cfg(feature = "cassandra")]
-type StorageState = DbState<Pool<AsyncPgConnection>, adapter::Cassandra>;
+type StorageState = DbState<scylla::CachingSession, adapter::Cassandra>;
 
 pub struct AppState {
     pub conf: Config,

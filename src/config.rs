@@ -2,6 +2,9 @@ use crate::{
     crypto::{EncryptionClient, KeyManagerClient},
     env::observability::LogConfig,
 };
+
+use std::num::NonZeroUsize;
+
 use config::File;
 use serde::Deserialize;
 
@@ -99,9 +102,19 @@ pub struct Config {
     pub database: Database,
     pub log: LogConfig,
     pub secrets: Secrets,
+    pub cassandra: Cassandra,
     pub pool_config: PoolConfig,
     #[cfg(feature = "mtls")]
     pub certs: Certs,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Cassandra {
+    pub known_nodes: String,
+    pub keyspace: String,
+    pub timeout: u32,
+    pub pool_size: NonZeroUsize,
+    pub cache_size: usize,
 }
 
 #[derive(Deserialize, Debug)]
@@ -163,7 +176,9 @@ impl Config {
             .add_source(
                 config::Environment::with_prefix("CRIPTA")
                     .try_parsing(true)
-                    .separator("__"),
+                    .separator("__")
+                    .list_separator(",")
+                    .with_list_parse_key("cassandra.known_nodes"),
             )
             .build()
             .expect("Unable to find configuration");

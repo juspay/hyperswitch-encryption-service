@@ -18,6 +18,13 @@ dbname = "encryption_db"
 pool_size = 5
 min_idle = 2
 
+[cassandra]
+known_nodes = "localhost:9042"
+pool_size = 16
+keyspace = "encryption_db"
+timeout = 60
+cache_size = 120
+
 [log]
 log_level = "debug"
 log_format = "console"
