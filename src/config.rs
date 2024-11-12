@@ -105,7 +105,7 @@ impl SecretContainer {
                 None,
             )
             .await
-            .expect("Failed why decrypted vault encrypted secret")
+            .expect("Failed while decrypting vault encrypted secret")
             .plaintext;
 
             return masking::Secret::new(
