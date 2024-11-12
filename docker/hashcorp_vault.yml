@@ -1,0 +1,18 @@
+networks:
+  cripta_net:
+
+services:
+  hashicorpvault-initialize:
+    image: hashicorp/vault:latest
+    # Give 5secs of time after staring of hashicorpvault service and before connecting to initialize the vault with encryption key.
+    command: |
+      /bin/sh -c "sleep 5 && vault secrets enable transit && vault write -f transit/keys/orders"
+    networks:
+      - cripta_net
+    environment:
+      VAULT_ADDR: "http://hashicorpvault:8200"
+      VAULT_TOKEN: vault_token
+    depends_on:
+      hashicorpvault:
+        condition: service_started
+
