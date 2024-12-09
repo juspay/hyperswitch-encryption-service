@@ -14,6 +14,7 @@ mtls = ["dep:rustls", "dep:rustls-pemfile", "axum-server/tls-rustls"]
 aws = []
 release = ["aws", "mtls"]
 vault = []
+cassandra = []
 
 [dependencies]
 cargo_metadata = "0.18.1"
