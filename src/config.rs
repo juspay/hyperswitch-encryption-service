@@ -145,7 +145,7 @@ pub struct Config {
 
 #[derive(Deserialize, Debug)]
 pub struct Cassandra {
-    pub known_nodes: String,
+    pub known_nodes: Vec<String>,
     pub keyspace: String,
     pub timeout: u32,
     pub pool_size: NonZeroUsize,

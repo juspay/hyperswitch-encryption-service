@@ -11,7 +11,7 @@ impl super::DbAdapter for DbState<scylla::CachingSession, Cassandra> {
     #[allow(clippy::expect_used)]
     async fn from_config(config: &Config) -> Self {
         let session = scylla::SessionBuilder::new()
-            .known_nodes([&config.cassandra.known_nodes])
+            .known_nodes(&config.cassandra.known_nodes)
             .pool_size(scylla::transport::session::PoolSize::PerHost(
                 config.cassandra.pool_size,
             ))

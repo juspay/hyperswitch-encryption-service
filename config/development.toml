@@ -19,7 +19,7 @@ pool_size = 5
 min_idle = 2
 
 [cassandra]
-known_nodes = "localhost:9042"
+known_nodes = ["localhost:9042"]
 pool_size = 16
 keyspace = "encryption_db"
 timeout = 60
