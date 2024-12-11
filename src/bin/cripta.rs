@@ -16,6 +16,7 @@ use std::sync::Arc;
 #[tokio::main]
 async fn main() {
     let config = config::Config::with_config_path(config::Environment::which(), None);
+    config.validate();
 
     let _guard = observability::setup(&config.log, []);
 
@@ -23,7 +24,7 @@ async fn main() {
         .parse()
         .expect("Unable to parse host");
 
-    logger::info!("Application started [{:?}] [{:?}]", config.server, config);
+    logger::info!("Application starting [{:?}] [{:?}]", config.server, config);
 
     let state = Arc::new(AppState::from_config(config).await);
 

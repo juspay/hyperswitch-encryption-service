@@ -3,7 +3,6 @@ use std::sync::Arc;
 use crate::{
     app::AppState,
     core::{crypto::KeyEncrypter, custodian::Custodian},
-    crypto::KeyManagement,
     env::observability as logger,
     errors::{self, SwitchError},
     storage::dek::DataKeyStorageInterface,

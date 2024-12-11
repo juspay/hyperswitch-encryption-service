@@ -11,12 +11,13 @@ use crate::app::AppState;
 use crate::consts::base64::BASE64_ENGINE;
 use crate::errors::{ApiErrorContainer, CustomResult, ParsingError, SwitchError, ToContainerError};
 
+#[derive(Clone)]
 pub struct Custodian {
     pub keys: Option<(StrongSecret<String>, StrongSecret<String>)>,
 }
 
 impl Custodian {
-    fn new(keys: Option<(String, String)>) -> Self {
+    pub fn new(keys: Option<(String, String)>) -> Self {
         let keys = keys.map(|(key1, key2)| (StrongSecret::new(key1), StrongSecret::new(key2)));
         Self { keys }
     }

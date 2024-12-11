@@ -7,7 +7,7 @@ use std::str::FromStr;
 
 use crate::{
     app::AppState,
-    crypto::{aes256::GcmAes256, Crypto, KeyManagement, Source},
+    crypto::{aes256::GcmAes256, Crypto, Source},
     errors::{self, SwitchError},
     storage::types::{DataKey, DataKeyNew},
     types::{

@@ -17,3 +17,4 @@ The encryption service mainly has following functionalities:-
 - All the Data Encryption Keys are Encrypted by either by securely generated AES-256 Key or a hosted Key Management Service (AWS KMS, Hashicorp Vault etc.)
 
 ![Architectural diagram](./docs/images/FlowDiagram.png)
+
