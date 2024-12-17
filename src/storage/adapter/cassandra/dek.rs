@@ -71,7 +71,7 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
 
         let data_key =
             DataKey::find_by_key_identifier_and_data_identifier_and_version(key_id, data_id, v)
-                .consistency(scylla::statement::Consistency::One)
+                .consistency(scylla::statement::Consistency::LocalQuorum)
                 .execute(connection)
                 .await
                 .switch()?;
