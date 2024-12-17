@@ -113,6 +113,7 @@ pub struct Database {
     pub dbname: masking::Secret<String>,
     pub pool_size: Option<u32>,
     pub min_idle: Option<u32>,
+    pub enable_ssl: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

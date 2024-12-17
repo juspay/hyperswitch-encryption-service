@@ -31,7 +31,7 @@ impl DbState {
 
         let password = database.password.expose(config).await;
 
-        let database_url = format!(
+        let mut database_url = format!(
             "postgres://{}:{}@{}:{}/{}",
             database.user.peek(),
             password.peek(),
@@ -39,6 +39,10 @@ impl DbState {
             database.port,
             database.dbname.peek()
         );
+
+        if database.enable_ssl == Some(true) {
+            database_url.push_str("?sslmode=require");
+        }
 
         let mgr_config = ManagerConfig::default();
         let mgr = AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
