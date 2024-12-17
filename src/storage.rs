@@ -9,9 +9,14 @@ use crate::{
 
 use error_stack::ResultExt;
 
-use diesel_async::{pooled_connection::bb8::PooledConnection, AsyncPgConnection};
+#[cfg(feature = "postgres_ssl")]
+use diesel::{ConnectionError, ConnectionResult};
+
+#[cfg(feature = "postgres_ssl")]
+use futures_util::future::{BoxFuture, FutureExt};
 
 use diesel_async::pooled_connection::{bb8::Pool, AsyncDieselConnectionManager, ManagerConfig};
+use diesel_async::{pooled_connection::bb8::PooledConnection, AsyncPgConnection};
 use masking::PeekInterface;
 
 #[derive(Clone)]
@@ -31,7 +36,7 @@ impl DbState {
 
         let password = database.password.expose(config).await;
 
-        let mut database_url = format!(
+        let database_url = format!(
             "postgres://{}:{}@{}:{}/{}",
             database.user.peek(),
             password.peek(),
@@ -40,11 +45,17 @@ impl DbState {
             database.dbname.peek()
         );
 
+        #[cfg(not(feature = "postgres_ssl"))]
+        let mgr_config = ManagerConfig::default();
+
+        #[cfg(feature = "postgres_ssl")]
+        let mut mgr_config = ManagerConfig::default();
+
+        #[cfg(feature = "postgres_ssl")]
         if database.enable_ssl == Some(true) {
-            database_url.push_str("?sslmode=require");
+            mgr_config.custom_setup = Box::new(Self::establish_connection);
         }
 
-        let mgr_config = ManagerConfig::default();
         let mgr = AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
             database_url,
             mgr_config,
@@ -67,5 +78,31 @@ impl DbState {
             .change_context(errors::ConnectionError::ConnectionEstablishFailed)?;
 
         Ok(conn)
+    }
+
+    #[cfg(feature = "postgres_ssl")]
+    fn establish_connection(config: &str) -> BoxFuture<'_, ConnectionResult<AsyncPgConnection>> {
+        let fut = async {
+            let rustls_config = rustls::ClientConfig::builder()
+                .with_root_certificates(Self::root_certs())
+                .with_no_client_auth();
+            let tls = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
+            let (client, conn) = tokio_postgres::connect(config, tls)
+                .await
+                .map_err(|e| ConnectionError::BadConnection(e.to_string()))?;
+
+            AsyncPgConnection::try_from_client_and_connection(client, conn).await
+        };
+        fut.boxed()
+    }
+
+    #[cfg(feature = "postgres_ssl")]
+    fn root_certs() -> rustls::RootCertStore {
+        let mut roots = rustls::RootCertStore::empty();
+        // Loads certs from the system's trusted store.
+        let certs = rustls_native_certs::load_native_certs()
+            .expect("Failed to load certs from OS for SSL connection");
+        roots.add_parsable_certificates(certs);
+        roots
     }
 }
