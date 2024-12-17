@@ -2114,7 +2114,7 @@ dependencies = [
 [[package]]
 name = "masking"
 version = "0.1.0"
-source = "git+https://github.com/juspay/hyperswitch.git?branch=update_scylla#e84bbac225a92c5503492ecc28cc78572efcbd7c"
+source = "git+https://github.com/juspay/hyperswitch.git?tag=2024.12.17.0#886e2aacd7dcd8a04a33884ceafb1562aa7c365f"
 dependencies = [
  "diesel",
  "erased-serde",
