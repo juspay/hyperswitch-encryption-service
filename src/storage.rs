@@ -98,10 +98,13 @@ impl DbState {
 
     #[cfg(feature = "postgres_ssl")]
     fn root_certs() -> rustls::RootCertStore {
+        use crate::env::observability;
+
         let mut roots = rustls::RootCertStore::empty();
         // Loads certs from the system's trusted store.
         let certs = rustls_native_certs::load_native_certs()
             .expect("Failed to load certs from OS for SSL connection");
+        observability::info!("Number of certs loaded {:?}", certs.len());
         roots.add_parsable_certificates(certs);
         roots
     }
