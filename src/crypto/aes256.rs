@@ -98,7 +98,7 @@ impl<'de> Deserialize<'de> for GcmAes256 {
     {
         struct Aes256Visitor;
 
-        impl<'de> Visitor<'de> for Aes256Visitor {
+        impl Visitor<'_> for Aes256Visitor {
             type Value = GcmAes256;
 
             fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {

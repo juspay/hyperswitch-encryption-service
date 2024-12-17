@@ -27,7 +27,6 @@ where
     /// # Panics
     ///
     /// Panics if unable to connect to Database
-    #[allow(clippy::expect_used)]
     pub async fn from_config(
         config: &Config,
     ) -> DbState<<Self as DbAdapter>::Pool, <Self as DbAdapter>::AdapterType> {

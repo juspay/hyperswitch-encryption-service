@@ -1,3 +1,4 @@
+use crate::env::observability as logger;
 use diesel::result::{DatabaseErrorKind, Error as diesel_error};
 use error_stack::{report, ResultExt};
 use thiserror::Error;
@@ -47,6 +48,22 @@ impl<T> super::SwitchError<T, DatabaseError> for Result<T, diesel::result::Error
     }
 }
 
+impl<T> super::SwitchError<T, DatabaseError> for Result<T, charybdis::errors::CharybdisError> {
+    fn switch(self) -> super::CustomResult<T, DatabaseError> {
+        self.map_err(|err| {
+            let (err, message) = match err {
+                charybdis::errors::CharybdisError::NotFoundError(err) => {
+                    (DatabaseError::NotFound, err)
+                }
+                err => {
+                    logger::error!(err=?err);
+                    (DatabaseError::Others, "An unknown error occurred")
+                }
+            };
+            report!(err).attach_printable(message)
+        })
+    }
+}
 impl<T> super::SwitchError<T, DatabaseError> for super::CustomResult<T, super::CryptoError> {
     fn switch(self) -> super::CustomResult<T, super::DatabaseError> {
         self.change_context(DatabaseError::InvalidValue)

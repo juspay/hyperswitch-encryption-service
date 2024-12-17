@@ -5,15 +5,18 @@ use crate::{config::Config, crypto::KeyManagerClient, storage::DbState};
 
 use crate::storage::adapter;
 
+#[cfg(not(feature = "cassandra"))]
 use diesel_async::pooled_connection::bb8::Pool;
+#[cfg(not(feature = "cassandra"))]
 use diesel_async::AsyncPgConnection;
+
 use rayon::{ThreadPool, ThreadPoolBuilder};
 
 #[cfg(not(feature = "cassandra"))]
 type StorageState = DbState<Pool<AsyncPgConnection>, adapter::PostgreSQL>;
 
 #[cfg(feature = "cassandra")]
-type StorageState = DbState<Pool<AsyncPgConnection>, adapter::Cassandra>;
+type StorageState = DbState<scylla::CachingSession, adapter::Cassandra>;
 
 pub struct AppState {
     pub conf: Config,

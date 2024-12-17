@@ -39,9 +39,11 @@ opentelemetry-prometheus = "0.16.0"
 prometheus = "0.13.4"
 serde = { version = "1.0.202", features = ["derive"] }
 serde_json = "1.0.117"
-masking = { git = "https://github.com/juspay/hyperswitch", tag = "v1.109.0" }
+masking = { git = "https://github.com/juspay/hyperswitch.git",tag = "2024.12.17.0",features = ["cassandra"] }
 async-trait = "0.1.80"
 hex = "0.4.3"
+charybdis = { git = "https://github.com/dracarys18/charybdis.git", rev = "1637c263f512adf7840705e3ab405a113437a6e3" }
+scylla = { git = "https://github.com/juspay/scylla-rust-driver.git",rev = "5700aa2847b25437cdd4fcf34d707aa90dca8b89", features = ["time-03"]}
 ring = { version = "0.17.8", features = ["std"] }
 strum = { version = "0.26", features = ["derive"] }
 futures = "0.3.30"
