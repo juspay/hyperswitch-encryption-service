@@ -8,7 +8,7 @@ impl Blake3 {
         let access_token = &config.secrets.access_token;
         let context = config.secrets.hash_context.peek();
 
-        let access_token = access_token.expose(&config).await;
+        let access_token = access_token.expose(config).await;
 
         let key = blake3::derive_key(context, access_token.peek().as_bytes());
 
