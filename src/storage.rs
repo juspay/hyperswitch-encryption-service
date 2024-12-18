@@ -96,6 +96,7 @@ impl DbState {
         fut.boxed()
     }
 
+    #[allow(clippy::expect_used)]
     #[cfg(feature = "postgres_ssl")]
     fn root_certs() -> rustls::RootCertStore {
         use crate::{consts::DB_ROOT_CA_PATH, env::observability as logger};
@@ -109,7 +110,6 @@ impl DbState {
                 let cert_data = fs::read(&root_ca_path).expect("Failed to read root cert");
                 let mut reader = BufReader::new(&cert_data[..]);
                 let certs = rustls_pemfile::certs(&mut reader)
-                    .into_iter()
                     .flatten()
                     .collect::<Vec<_>>();
                 for cert in certs {
