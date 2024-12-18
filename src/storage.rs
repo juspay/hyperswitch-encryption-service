@@ -98,11 +98,34 @@ impl DbState {
 
     #[cfg(feature = "postgres_ssl")]
     fn root_certs() -> rustls::RootCertStore {
+        use crate::{consts::DB_ROOT_CA_PATH, env::observability as logger};
+        use std::{env, fs, io::BufReader};
+
         let mut roots = rustls::RootCertStore::empty();
-        // Loads certs from the system's trusted store.
-        let certs = rustls_native_certs::load_native_certs()
-            .expect("Failed to load certs from OS for SSL connection");
-        roots.add_parsable_certificates(certs);
+
+        match env::var(DB_ROOT_CA_PATH) {
+            Ok(root_ca_path) => {
+                logger::info!("Trying to load server root cert from the path {root_ca_path}",);
+                let cert_data = fs::read(&root_ca_path).expect("Failed to read root cert");
+                let mut reader = BufReader::new(&cert_data[..]);
+                let certs = rustls_pemfile::certs(&mut reader)
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<_>>();
+                for cert in certs {
+                    roots
+                        .add(cert)
+                        .expect("Failed to add cert to RootCertStore");
+                }
+            }
+            Err(_) => {
+                logger::info!("Trying to load server root cert from the System trusted store");
+                // Loads certs from the system's trusted store.
+                let certs = rustls_native_certs::load_native_certs()
+                    .expect("Failed to load certs from system for SSL connection");
+                roots.add_parsable_certificates(certs);
+            }
+        }
         roots
     }
 }
