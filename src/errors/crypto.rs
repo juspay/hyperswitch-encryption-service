@@ -1,6 +1,5 @@
 use error_stack::report;
 
-#[cfg(feature = "aws")]
 use crate::env::observability as logger;
 
 #[derive(Debug, thiserror::Error)]
@@ -19,6 +18,8 @@ pub enum CryptoError {
     ParseError(String),
     #[error("Invalid value")]
     InvalidValue,
+    #[error("Failed while authenticating the key")]
+    AuthenticationFailed,
 }
 
 impl super::SwitchError<(), CryptoError> for Result<(), ring::error::Unspecified> {
@@ -45,7 +46,6 @@ impl<T> super::SwitchError<T, CryptoError> for Result<T, strum::ParseError> {
     }
 }
 
-#[cfg(feature = "aws")]
 impl<T, U: core::fmt::Debug> super::SwitchError<T, CryptoError>
     for Result<T, aws_sdk_kms::error::SdkError<aws_sdk_kms::operation::encrypt::EncryptError, U>>
 {
@@ -57,7 +57,6 @@ impl<T, U: core::fmt::Debug> super::SwitchError<T, CryptoError>
     }
 }
 
-#[cfg(feature = "aws")]
 impl<T, U: core::fmt::Debug> super::SwitchError<T, CryptoError>
     for Result<T, aws_sdk_kms::error::SdkError<aws_sdk_kms::operation::decrypt::DecryptError, U>>
 {
@@ -69,7 +68,6 @@ impl<T, U: core::fmt::Debug> super::SwitchError<T, CryptoError>
     }
 }
 
-#[cfg(feature = "aws")]
 impl<T, U: core::fmt::Debug> super::SwitchError<T, CryptoError>
     for Result<
         T,

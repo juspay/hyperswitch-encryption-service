@@ -25,4 +25,5 @@ log_format = "console"
 
 [secrets]
 master_key = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"
-
+access_token = "secret123"
+hash_context = "keymanager:hyperswitch"

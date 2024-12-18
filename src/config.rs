@@ -1,21 +1,25 @@
+use crate::crypto::aes256::GcmAes256;
 use crate::{
-    crypto::{EncryptionClient, KeyManagerClient},
+    crypto::KeyManagerClient,
     env::observability::LogConfig,
+    errors::{self, CustomResult},
 };
 use config::File;
 use serde::Deserialize;
+use std::sync::Arc;
 
-#[cfg(not(feature = "aws"))]
-use crate::crypto::aes256::GcmAes256;
-
-#[cfg(feature = "aws")]
 use crate::services::aws::{AwsKmsClient, AwsKmsConfig};
 
-#[cfg(feature = "aws")]
 use aws_sdk_kms::primitives::Blob;
 
-#[cfg(feature = "aws")]
 use masking::PeekInterface;
+
+use crate::crypto::vault::{Vault, VaultSettings};
+
+use vaultrs::{
+    client::{VaultClient, VaultClientSettingsBuilder},
+    transit,
+};
 
 use std::path::PathBuf;
 
@@ -56,8 +60,7 @@ impl SecretContainer {
     /// Panics when secret cannot be decrypted with KMS
     #[allow(clippy::expect_used, unused_variables)]
     pub async fn expose(&self, config: &Config) -> masking::Secret<String> {
-        #[cfg(feature = "aws")]
-        {
+        if cfg!(feature = "aws") {
             use base64::Engine;
 
             let kms = AwsKmsClient::new(&config.secrets.kms_config).await;
@@ -80,10 +83,42 @@ impl SecretContainer {
 
             let secret = String::from_utf8(decrypted_output).expect("Invalid secret");
             masking::Secret::new(secret)
-        }
+        } else if cfg!(feature = "vault") {
+            use base64::Engine;
 
-        #[cfg(not(feature = "aws"))]
-        self.0.clone()
+            let client = VaultClient::new(
+                VaultClientSettingsBuilder::default()
+                    .address(&config.secrets.vault_config.url)
+                    .token(config.secrets.vault_config.vault_token.peek())
+                    .build()
+                    .expect("Unable to build HashiCorp Vault Settings"),
+            )
+            .expect("Unable to build HashiCorp Vault client");
+
+            let cypher_text = self.0.peek();
+
+            let b64_encoded_str = transit::data::decrypt(
+                &client,
+                &config.secrets.vault_config.mount_point,
+                &config.secrets.vault_config.encryption_key,
+                cypher_text,
+                None,
+            )
+            .await
+            .expect("Failed while decrypting vault encrypted secret")
+            .plaintext;
+
+            return masking::Secret::new(
+                String::from_utf8(
+                    crate::consts::base64::BASE64_ENGINE
+                        .decode(b64_encoded_str)
+                        .expect("Failed to base64 decode the vault data"),
+                )
+                .expect("Invalid secret"),
+            );
+        } else {
+            self.0.clone()
+        }
     }
 }
 
@@ -97,8 +132,8 @@ pub struct Config {
     pub server: Server,
     pub metrics_server: Server,
     pub database: Database,
-    pub log: LogConfig,
     pub secrets: Secrets,
+    pub log: LogConfig,
     pub pool_config: PoolConfig,
     #[cfg(feature = "mtls")]
     pub certs: Certs,
@@ -123,12 +158,16 @@ pub struct Certs {
     pub root_ca: SecretContainer,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Default)]
 pub struct Secrets {
-    #[cfg(not(feature = "aws"))]
+    #[serde(default)]
     pub master_key: GcmAes256,
-    #[cfg(feature = "aws")]
+    #[serde(default)]
     pub kms_config: AwsKmsConfig,
+    #[serde(default)]
+    pub vault_config: VaultSettings,
+    pub access_token: masking::Secret<String>,
+    pub hash_context: masking::Secret<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -137,6 +176,21 @@ pub struct Server {
     pub host: String,
 }
 
+impl Secrets {
+    fn validate(&self) -> CustomResult<(), errors::ParsingError> {
+        if cfg!(feature = "aws") && (self.kms_config == AwsKmsConfig::default()) {
+            Err(error_stack::report!(errors::ParsingError::DecodingFailed(
+                "AWS config is not provided".to_string()
+            )))
+        } else if cfg!(feature = "vault") && (self.vault_config == VaultSettings::default()) {
+            Err(error_stack::report!(errors::ParsingError::DecodingFailed(
+                "Vault config is not provided".to_string()
+            )))
+        } else {
+            Ok(())
+        }
+    }
+}
 impl Config {
     pub fn config_path(environment: Environment, explicit_config_path: Option<PathBuf>) -> PathBuf {
         let mut config_path = PathBuf::new();
@@ -170,20 +224,28 @@ impl Config {
         serde_path_to_error::deserialize(config)
             .expect("Unable to deserialize application configuration")
     }
+    /// # Panics
+    ///
+    /// Panics for a validation fail
+    #[allow(clippy::panic, clippy::expect_used)]
+    pub fn validate(&self) {
+        self.secrets
+            .validate()
+            .expect("Failed to valdiate secrets some missing configuration found")
+    }
 }
 
 impl Secrets {
     pub async fn create_keymanager_client(self) -> KeyManagerClient {
-        #[cfg(feature = "aws")]
-        {
+        if cfg!(feature = "aws") {
             let client = AwsKmsClient::new(&self.kms_config).await;
-            EncryptionClient::new(client)
-        }
-
-        #[cfg(not(feature = "aws"))]
-        {
+            KeyManagerClient::new(Arc::new(client))
+        } else if cfg!(feature = "vault") {
+            let client = Vault::new(self.vault_config);
+            KeyManagerClient::new(Arc::new(client))
+        } else {
             let client = self.master_key;
-            EncryptionClient::new(client)
+            KeyManagerClient::new(Arc::new(client))
         }
     }
 }

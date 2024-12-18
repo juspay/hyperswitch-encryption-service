@@ -1,18 +1,18 @@
 use crate::{
     app::AppState,
-    core::{DataDecrypter, DataEncrypter},
+    core::{custodian::Custodian, DataDecrypter, DataEncrypter},
     errors,
     types::Identifier,
 };
 
-#[derive(Eq, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Eq, PartialEq, Debug, serde::Serialize, serde::Deserialize, Clone)]
 #[serde(untagged)]
 pub enum EncryptionType {
     Single(super::DecryptedData),
     Batch(super::DecryptedDataGroup),
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 #[serde(untagged)]
 pub enum DecryptionType {
     Single(super::EncryptedData),
@@ -24,10 +24,15 @@ impl DecryptionType {
         self,
         state: &AppState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<EncryptionType, errors::CryptoError> {
         Ok(match self {
-            Self::Single(data) => EncryptionType::Single(data.decrypt(state, identifier).await?),
-            Self::Batch(data) => EncryptionType::Batch(data.decrypt(state, identifier).await?),
+            Self::Single(data) => {
+                EncryptionType::Single(data.decrypt(state, identifier, custodian).await?)
+            }
+            Self::Batch(data) => {
+                EncryptionType::Batch(data.decrypt(state, identifier, custodian).await?)
+            }
         })
     }
 }
@@ -37,10 +42,15 @@ impl EncryptionType {
         self,
         state: &AppState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<DecryptionType, errors::CryptoError> {
         Ok(match self {
-            Self::Single(data) => DecryptionType::Single(data.encrypt(state, identifier).await?),
-            Self::Batch(data) => DecryptionType::Batch(data.encrypt(state, identifier).await?),
+            Self::Single(data) => {
+                DecryptionType::Single(data.encrypt(state, identifier, custodian).await?)
+            }
+            Self::Batch(data) => {
+                DecryptionType::Batch(data.encrypt(state, identifier, custodian).await?)
+            }
         })
     }
 }

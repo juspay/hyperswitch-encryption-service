@@ -9,10 +9,10 @@ use serde::{
 };
 use std::fmt;
 
-#[derive(Eq, PartialEq, Debug, Serialize, serde::Deserialize)]
+#[derive(Eq, PartialEq, Debug, Serialize, serde::Deserialize, Clone)]
 pub struct DecryptedDataGroup(pub FxHashMap<String, DecryptedData>);
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct DecryptedData(masking::StrongSecret<Vec<u8>>);
 
 impl DecryptedData {
@@ -66,10 +66,10 @@ impl<'de> Deserialize<'de> for DecryptedData {
     }
 }
 
-#[derive(Eq, PartialEq, Serialize, serde::Deserialize, Debug)]
+#[derive(Eq, PartialEq, Serialize, serde::Deserialize, Debug, Clone)]
 pub struct EncryptedDataGroup(pub FxHashMap<String, EncryptedData>);
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct EncryptedData {
     pub version: Version,
     pub data: masking::StrongSecret<Vec<u8>>,

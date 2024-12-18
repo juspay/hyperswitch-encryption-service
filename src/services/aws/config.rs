@@ -2,7 +2,7 @@ use aws_config::{meta::region::RegionProviderChain, BehaviorVersion};
 use aws_sdk_kms::{config::Region, Client};
 
 /// Configuration parameters required for constructing a [`AwsKmsClient`].
-#[derive(Clone, Debug, Default, serde::Deserialize)]
+#[derive(Clone, Debug, Default, serde::Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct AwsKmsConfig {
     /// The AWS key identifier of the KMS key used to encrypt or decrypt data.

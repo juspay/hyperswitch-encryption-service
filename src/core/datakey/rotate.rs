@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     app::AppState,
-    core::crypto::KeyEncrypter,
-    crypto::KeyManagement,
+    core::{crypto::KeyEncrypter, custodian::Custodian},
     env::observability as logger,
     errors::{self, SwitchError},
     storage::dek::DataKeyStorageInterface,
@@ -12,6 +11,7 @@ use crate::{
 
 pub async fn generate_and_rotate_data_key(
     state: Arc<AppState>,
+    custodian: Custodian,
     req: RotateDataKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
     let db = &state.db_pool;
@@ -29,6 +29,7 @@ pub async fn generate_and_rotate_data_key(
         identifier: req.identifier.clone(),
         key: aes_key,
         source,
+        token: custodian.into_access_token(state.as_ref()),
     }
     .encrypt(&state)
     .await
