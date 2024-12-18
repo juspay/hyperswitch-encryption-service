@@ -25,7 +25,7 @@ impl Custodian {
     pub fn into_access_token(self, state: &AppState) -> Option<StrongSecret<String>> {
         self.keys
             .map(|(x, y)| format!("{}:{}", x.peek(), y.peek()))
-            .map(|key| crate::crypto::blake3::Blake3::hash(state, Secret::new(key)))
+            .map(|token| state.hash_client.hash(Secret::new(token)))
             .map(hex::encode)
             .map(StrongSecret::new)
     }
