@@ -2,6 +2,7 @@ use crate::{
     app::AppState,
     core::KeyDecrypter,
     crypto::Source,
+    env::observability as logger,
     errors::{self, SwitchError},
     storage::{cache, dek::DataKeyStorageInterface},
     types::Identifier,
@@ -98,27 +99,18 @@ impl Display for Version {
 impl SerializeValue for Version {
     fn serialize<'b>(
         &self,
-        typ: &ColumnType<'_>,
+        _typ: &ColumnType<'_>,
         writer: scylla::serialize::writers::CellWriter<'b>,
     ) -> Result<
         scylla::serialize::writers::WrittenCellProof<'b>,
         scylla::serialize::SerializationError,
     > {
-        if typ != &scylla::frame::response::result::ColumnType::Int {
-            return Err(scylla::serialize::SerializationError::new(
-                scylla::serialize::value::BuiltinTypeCheckError {
-                    rust_name: std::any::type_name::<Self>(),
-                    got: typ.clone().into_owned(),
-                    kind: scylla::serialize::value::BuiltinTypeCheckErrorKind::MismatchedType {
-                        expected: &[ColumnType::Int],
-                    },
-                },
-            ));
-        }
-
+        // Skipping type check here since `Version` is a domain type and the type checking would be
+        // done during the construction of `Version` type.
         let proof = writer
             .set_value(self.0.to_be_bytes().as_slice())
-            .map_err(|_| {
+            .map_err(|err| {
+                logger::error!(version_serialize_err=?err);
                 scylla::serialize::SerializationError::new(errors::DatabaseError::Others)
             })?;
 

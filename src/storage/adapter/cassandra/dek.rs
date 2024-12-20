@@ -3,7 +3,8 @@ use charybdis::operations::Insert;
 use super::DbState;
 
 use crate::{
-    errors::{self, CustomResult, SwitchError},
+    env::observability as logger,
+    errors::{self, CustomResult, DatabaseError, SwitchError},
     storage::{
         adapter::Cassandra,
         dek::DataKeyStorageInterface,
@@ -34,7 +35,10 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
 
         match find_query {
             Ok(key) => Ok(key),
-            Err(_) => {
+            Err(err) => {
+                if !err.current_context().eq(&DatabaseError::NotFound) {
+                    logger::error!(database_err=?err);
+                }
                 key.insert()
                     .consistency(Consistency::EachQuorum)
                     .execute(connection)
