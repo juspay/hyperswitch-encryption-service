@@ -12,12 +12,15 @@ use error_stack::ResultExt;
 #[cfg(feature = "postgres_ssl")]
 use diesel::{ConnectionError, ConnectionResult};
 
-#[cfg(feature = "postgres_ssl")]
-use futures_util::future::{BoxFuture, FutureExt};
-
 use diesel_async::pooled_connection::{bb8::Pool, AsyncDieselConnectionManager, ManagerConfig};
 use diesel_async::{pooled_connection::bb8::PooledConnection, AsyncPgConnection};
 use masking::PeekInterface;
+
+#[cfg(feature = "postgres_ssl")]
+use core::{future::Future, pin::Pin};
+
+#[cfg(feature = "postgres_ssl")]
+type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 #[derive(Clone)]
 pub struct DbState {
@@ -93,7 +96,7 @@ impl DbState {
 
             AsyncPgConnection::try_from_client_and_connection(client, conn).await
         };
-        fut.boxed()
+        Box::pin(fut)
     }
 
     #[allow(clippy::expect_used)]

@@ -14,7 +14,7 @@ mtls = ["dep:rustls", "dep:rustls-pemfile", "axum-server/tls-rustls"]
 aws = []
 release = ["aws", "mtls"]
 vault = []
-postgres_ssl = ["dep:futures-util", "dep:rustls", "dep:rustls-native-certs", "dep:rustls-pemfile", "dep:tokio-postgres", "dep:tokio-postgres-rustls"]
+postgres_ssl = ["dep:rustls", "dep:rustls-native-certs", "dep:rustls-pemfile", "dep:tokio-postgres", "dep:tokio-postgres-rustls"]
 
 [dependencies]
 cargo_metadata = "0.18.1"
@@ -25,7 +25,6 @@ aws-sdk-kms = { version = "1.29.0" }
 axum = { version = "0.7.5", features = ["macros"] }
 axum-server = {git = "https://github.com/dracarys18/axum-server.git",rev ="5430efefd14b43cbbc8e4faa50ff9274b8b8b7aa"}
 base64 = "0.22.1"
-futures-util = { version = "0.3.17", default-features = false, optional = true, features = ["std"] }
 tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }
 tower-http = {version = "0.5.2", features = ["trace","request-id","util"] }
 ulid = "1.1.2"
