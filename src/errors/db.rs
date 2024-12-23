@@ -9,7 +9,7 @@ pub enum ConnectionError {
     ConnectionEstablishFailed,
 }
 
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Debug)]
 pub enum DatabaseError {
     #[error("Failed to get the connection out of the pool")]
     ConnectionError(error_stack::Report<ConnectionError>),

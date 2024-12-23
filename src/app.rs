@@ -1,7 +1,7 @@
 #[cfg(feature = "mtls")]
 pub mod tls;
 
-use crate::{config::Config, crypto::KeyManagerClient, storage::DbState};
+use crate::{config::Config, crypto::blake3::Blake3, crypto::KeyManagerClient, storage::DbState};
 
 use crate::storage::adapter;
 
@@ -23,6 +23,7 @@ pub struct AppState {
     pub db_pool: StorageState,
     pub keymanager_client: KeyManagerClient,
     pub thread_pool: ThreadPool,
+    pub hash_client: Blake3,
 }
 
 impl AppState {
@@ -34,11 +35,13 @@ impl AppState {
         let secrets = config.secrets.clone();
         let db_pool = StorageState::from_config(&config).await;
         let num_threads = config.pool_config.pool;
+        let hash_client = Blake3::from_config(&config).await;
 
         Self {
             conf: config,
             keymanager_client: secrets.create_keymanager_client().await,
             db_pool,
+            hash_client,
             thread_pool: ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .build()

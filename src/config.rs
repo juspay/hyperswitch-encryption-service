@@ -170,7 +170,7 @@ pub struct Certs {
     pub root_ca: SecretContainer,
 }
 
-#[derive(Deserialize, Debug, Clone, Default)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Secrets {
     #[serde(default)]
     pub master_key: GcmAes256,
@@ -178,7 +178,7 @@ pub struct Secrets {
     pub kms_config: AwsKmsConfig,
     #[serde(default)]
     pub vault_config: VaultSettings,
-    pub access_token: masking::Secret<String>,
+    pub access_token: SecretContainer,
     pub hash_context: masking::Secret<String>,
 }
 

@@ -36,9 +36,10 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
         match find_query {
             Ok(key) => Ok(key),
             Err(err) => {
-                if !err.current_context().eq(&DatabaseError::NotFound) {
+                if let DatabaseError::NotFound = err.current_context() {
                     logger::error!(database_err=?err);
                 }
+
                 key.insert()
                     .consistency(Consistency::EachQuorum)
                     .execute(connection)
