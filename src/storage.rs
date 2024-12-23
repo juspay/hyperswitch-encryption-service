@@ -10,18 +10,13 @@ use crate::{
 use error_stack::ResultExt;
 
 #[cfg(feature = "postgres_ssl")]
-use diesel::{ConnectionError, ConnectionResult};
+use diesel::ConnectionError;
+#[cfg(feature = "postgres_ssl")]
+use masking::Secret;
 
 use diesel_async::pooled_connection::{bb8::Pool, AsyncDieselConnectionManager, ManagerConfig};
 use diesel_async::{pooled_connection::bb8::PooledConnection, AsyncPgConnection};
 use masking::PeekInterface;
-
-#[cfg(feature = "postgres_ssl")]
-use core::{future::Future, pin::Pin};
-
-#[cfg(feature = "postgres_ssl")]
-type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
-
 #[derive(Clone)]
 pub struct DbState {
     pub pool: Pool<AsyncPgConnection>,
@@ -56,7 +51,28 @@ impl DbState {
 
         #[cfg(feature = "postgres_ssl")]
         if database.enable_ssl == Some(true) {
-            mgr_config.custom_setup = Box::new(Self::establish_connection);
+            let root_ca = database
+                .root_ca
+                .clone()
+                .expect("Failed to load db server root cert from the config")
+                .expose(config)
+                .await;
+            mgr_config.custom_setup = Box::new(move |config: &str| {
+                Box::pin({
+                    let root_ca = root_ca.clone();
+                    async move {
+                        let rustls_config = rustls::ClientConfig::builder()
+                            .with_root_certificates(Self::root_certs(root_ca))
+                            .with_no_client_auth();
+                        let tls = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
+                        let (client, conn) = tokio_postgres::connect(config, tls)
+                            .await
+                            .map_err(|e| ConnectionError::BadConnection(e.to_string()))?;
+
+                        AsyncPgConnection::try_from_client_and_connection(client, conn).await
+                    }
+                })
+            });
         }
 
         let mgr = AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
@@ -83,51 +99,14 @@ impl DbState {
         Ok(conn)
     }
 
-    #[cfg(feature = "postgres_ssl")]
-    fn establish_connection(config: &str) -> BoxFuture<'_, ConnectionResult<AsyncPgConnection>> {
-        let fut = async {
-            let rustls_config = rustls::ClientConfig::builder()
-                .with_root_certificates(Self::root_certs())
-                .with_no_client_auth();
-            let tls = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
-            let (client, conn) = tokio_postgres::connect(config, tls)
-                .await
-                .map_err(|e| ConnectionError::BadConnection(e.to_string()))?;
-
-            AsyncPgConnection::try_from_client_and_connection(client, conn).await
-        };
-        Box::pin(fut)
-    }
-
     #[allow(clippy::expect_used)]
     #[cfg(feature = "postgres_ssl")]
-    fn root_certs() -> rustls::RootCertStore {
-        use crate::{consts::DB_ROOT_CA_PATH, env::observability as logger};
-        use std::{env, fs, io::BufReader};
-
+    fn root_certs(root_ca: Secret<String>) -> rustls::RootCertStore {
         let mut roots = rustls::RootCertStore::empty();
-
-        match env::var(DB_ROOT_CA_PATH) {
-            Ok(root_ca_path) => {
-                logger::info!("Trying to load server root cert from the path {root_ca_path}",);
-                let cert_data = fs::read(&root_ca_path).expect("Failed to read root cert");
-                let mut reader = BufReader::new(&cert_data[..]);
-                let certs = rustls_pemfile::certs(&mut reader)
-                    .flatten()
-                    .collect::<Vec<_>>();
-                for cert in certs {
-                    roots
-                        .add(cert)
-                        .expect("Failed to add cert to RootCertStore");
-                }
-            }
-            Err(_) => {
-                logger::info!("Trying to load server root cert from the System trusted store");
-                // Loads certs from the system's trusted store.
-                let certs = rustls_native_certs::load_native_certs()
-                    .expect("Failed to load certs from system for SSL connection");
-                roots.add_parsable_certificates(certs);
-            }
+        for cert in rustls_pemfile::certs(&mut root_ca.peek().as_ref()) {
+            roots
+                .add(cert.expect("Failed to load db server root cert"))
+                .expect("Failed to add cert to RootCertStore");
         }
         roots
     }

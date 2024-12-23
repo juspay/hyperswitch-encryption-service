@@ -149,6 +149,7 @@ pub struct Database {
     pub pool_size: Option<u32>,
     pub min_idle: Option<u32>,
     pub enable_ssl: Option<bool>,
+    pub root_ca: Option<SecretContainer>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
