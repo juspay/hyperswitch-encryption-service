@@ -19,13 +19,6 @@ pool_size = 5
 min_idle = 2
 enable_ssl = false
 
-[cassandra]
-known_nodes = ["localhost:9042"]
-pool_size = 16
-keyspace = "encryption_db"
-timeout = 60
-cache_size = 120
-
 [log]
 log_level = "debug"
 log_format = "console"
