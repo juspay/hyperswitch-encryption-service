@@ -4,6 +4,9 @@ use crate::{
     env::observability::LogConfig,
     errors::{self, CustomResult},
 };
+
+use std::num::NonZeroUsize;
+
 use config::File;
 use serde::Deserialize;
 use std::sync::Arc;
@@ -133,10 +136,20 @@ pub struct Config {
     pub metrics_server: Server,
     pub database: Database,
     pub secrets: Secrets,
+    pub cassandra: Cassandra,
     pub log: LogConfig,
     pub pool_config: PoolConfig,
     #[cfg(feature = "mtls")]
     pub certs: Certs,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Cassandra {
+    pub known_nodes: Vec<String>,
+    pub keyspace: String,
+    pub timeout: u32,
+    pub pool_size: NonZeroUsize,
+    pub cache_size: usize,
 }
 
 #[derive(Deserialize, Debug)]
@@ -159,7 +172,7 @@ pub struct Certs {
     pub root_ca: SecretContainer,
 }
 
-#[derive(Deserialize, Debug, Clone, Default)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Secrets {
     #[serde(default)]
     pub master_key: GcmAes256,
@@ -167,7 +180,7 @@ pub struct Secrets {
     pub kms_config: AwsKmsConfig,
     #[serde(default)]
     pub vault_config: VaultSettings,
-    pub access_token: masking::Secret<String>,
+    pub access_token: SecretContainer,
     pub hash_context: masking::Secret<String>,
 }
 
@@ -217,7 +230,9 @@ impl Config {
             .add_source(
                 config::Environment::with_prefix("CRIPTA")
                     .try_parsing(true)
-                    .separator("__"),
+                    .separator("__")
+                    .list_separator(",")
+                    .with_list_parse_key("cassandra.known_nodes"),
             )
             .build()
             .expect("Unable to find configuration");
