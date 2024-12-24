@@ -12,7 +12,7 @@ tokio-rustls = { git = "https://github.com/rustls/tokio-rustls", rev = "3a153ace
 aes = []
 mtls = ["dep:rustls", "dep:rustls-pemfile", "axum-server/tls-rustls"]
 aws = []
-release = ["aws", "mtls"]
+release = ["aws", "mtls", "postgres_ssl"]
 vault = []
 postgres_ssl = ["dep:rustls", "dep:rustls-native-certs", "dep:rustls-pemfile", "dep:tokio-postgres", "dep:tokio-postgres-rustls"]
 
