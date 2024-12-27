@@ -3,6 +3,8 @@ mod dek;
 use error_stack::ResultExt;
 
 use crate::storage::{adapter::PostgreSQL, errors, Config, Connection, DbState};
+#[cfg(feature = "postgres_ssl")]
+use diesel::ConnectionError;
 use diesel_async::pooled_connection::{bb8::Pool, AsyncDieselConnectionManager, ManagerConfig};
 use diesel_async::AsyncPgConnection;
 use masking::PeekInterface;
@@ -31,7 +33,44 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
             database.dbname.peek()
         );
 
+        #[cfg(not(feature = "postgres_ssl"))]
         let mgr_config = ManagerConfig::default();
+
+        #[cfg(feature = "postgres_ssl")]
+        let mut mgr_config = ManagerConfig::default();
+
+        #[cfg(feature = "postgres_ssl")]
+        if database.enable_ssl == Some(true) {
+            let root_ca = database
+                .root_ca
+                .clone()
+                .expect("Failed to load db server root cert from the config")
+                .expose(config)
+                .await;
+            mgr_config.custom_setup = Box::new(move |config: &str| {
+                Box::pin({
+                    let root_ca = root_ca.clone();
+                    async move {
+                        let mut root_certificate = rustls::RootCertStore::empty();
+                        for cert in rustls_pemfile::certs(&mut root_ca.peek().as_ref()) {
+                            root_certificate
+                                .add(cert.expect("Failed to load db server root cert"))
+                                .expect("Failed to add cert to RootCertStore");
+                        }
+                        let rustls_config = rustls::ClientConfig::builder()
+                            .with_root_certificates(root_certificate)
+                            .with_no_client_auth();
+                        let tls = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
+                        let (client, conn) = tokio_postgres::connect(config, tls)
+                            .await
+                            .map_err(|e| ConnectionError::BadConnection(e.to_string()))?;
+
+                        AsyncPgConnection::try_from_client_and_connection(client, conn).await
+                    }
+                })
+            });
+        }
+
         let mgr = AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
             database_url,
             mgr_config,
