@@ -137,6 +137,7 @@ pub struct Config {
     pub metrics_server: Server,
     pub database: Database,
     pub secrets: Secrets,
+    #[serde(default)]
     pub cassandra: Cassandra,
     pub log: LogConfig,
     pub multitenancy: MultiTenancy,
@@ -163,7 +164,7 @@ pub struct TenantConfig {
     pub cache_prefix: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Eq, PartialEq)]
 pub struct Cassandra {
     pub known_nodes: Vec<String>,
     pub timeout: u32,
@@ -180,6 +181,8 @@ pub struct Database {
     pub dbname: masking::Secret<String>,
     pub pool_size: Option<u32>,
     pub min_idle: Option<u32>,
+    pub enable_ssl: Option<bool>,
+    pub root_ca: Option<SecretContainer>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -209,19 +212,52 @@ pub struct Server {
 
 impl Secrets {
     fn validate(&self) -> CustomResult<(), errors::ParsingError> {
-        if cfg!(feature = "aws") && (self.kms_config == AwsKmsConfig::default()) {
-            Err(error_stack::report!(errors::ParsingError::DecodingFailed(
-                "AWS config is not provided".to_string()
-            )))
-        } else if cfg!(feature = "vault") && (self.vault_config == VaultSettings::default()) {
-            Err(error_stack::report!(errors::ParsingError::DecodingFailed(
-                "Vault config is not provided".to_string()
-            )))
-        } else {
-            Ok(())
+        if cfg!(feature = "aws") {
+            error_stack::ensure!(
+                !self.kms_config.eq(&AwsKmsConfig::default()),
+                errors::ParsingError::DecodingFailed("AWS config is not provided".to_string())
+            )
+        } else if cfg!(feature = "vault") {
+            error_stack::ensure!(
+                !self.vault_config.eq(&VaultSettings::default()),
+                errors::ParsingError::DecodingFailed("Vault config is not provided".to_string())
+            )
+        }
+        Ok(())
+    }
+}
+
+/// # Panics
+///
+/// Panics if the provided pool_size is not a non zero number
+#[allow(clippy::expect_used)]
+impl Default for Cassandra {
+    fn default() -> Self {
+        Self {
+            known_nodes: Vec::new(),
+            timeout: 0,
+            cache_size: 0,
+            pool_size: NonZeroUsize::new(1).expect("The provided number is non zero"),
         }
     }
 }
+
+impl Cassandra {
+    fn validate(&self) -> CustomResult<(), errors::ParsingError> {
+        if cfg!(feature = "cassandra") {
+            error_stack::ensure!(
+                !self.eq(&Self::default()),
+                errors::ParsingError::DecodingFailed(
+                    "Failed to validate Cassandra configuration, missing configuration found"
+                        .to_string()
+                )
+            )
+        }
+
+        Ok(())
+    }
+}
+
 impl Config {
     pub fn config_path(environment: Environment, explicit_config_path: Option<PathBuf>) -> PathBuf {
         let mut config_path = PathBuf::new();
@@ -264,7 +300,11 @@ impl Config {
     pub fn validate(&self) {
         self.secrets
             .validate()
-            .expect("Failed to valdiate secrets some missing configuration found")
+            .expect("Failed to valdiate secrets some missing configuration found");
+
+        self.cassandra
+            .validate()
+            .expect("Failed to valdiate cassandra some missing configuration found");
     }
 }
 
