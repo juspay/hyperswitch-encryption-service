@@ -2,10 +2,11 @@ mod dek;
 
 use error_stack::ResultExt;
 
-use crate::storage::{adapter::PostgreSQL, errors, Config, Connection, DbState};
+use crate::storage::{
+    adapter::PostgreSQL, errors, Config, Connection, DatabaseUrl, DbState, TenantKind,
+};
 use diesel_async::pooled_connection::{bb8::Pool, AsyncDieselConnectionManager, ManagerConfig};
 use diesel_async::AsyncPgConnection;
-use masking::PeekInterface;
 
 #[async_trait::async_trait]
 impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
@@ -17,19 +18,12 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     ///
     /// Panics if unable to connect to Database
     #[allow(clippy::expect_used)]
-    async fn from_config(config: &Config) -> Self {
+    async fn from_config<Tenant: TenantKind + DatabaseUrl<Self::AdapterType>>(
+        config: &Config,
+        schema: &str,
+    ) -> Self {
         let database = &config.database;
-
-        let password = database.password.expose(config).await;
-
-        let database_url = format!(
-            "postgres://{}:{}@{}:{}/{}",
-            database.user.peek(),
-            password.peek(),
-            database.host,
-            database.port,
-            database.dbname.peek()
-        );
+        let database_url = Tenant::get_database_url(&config, schema).await;
 
         let mgr_config = ManagerConfig::default();
         let mgr = AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
@@ -48,6 +42,7 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
             pool,
         }
     }
+
     async fn get_conn<'a>(
         &'a self,
     ) -> errors::CustomResult<Self::Conn<'a>, errors::ConnectionError> {

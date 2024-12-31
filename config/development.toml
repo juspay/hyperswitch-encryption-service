@@ -25,6 +25,14 @@ keyspace = "encryption_db"
 timeout = 60
 cache_size = 120
 
+[multitenancy.global_tenant]
+cache_prefix = ""
+schema = "public"
+
+[multitenancy.tenants.public]
+cache_prefix = ""
+schema = "public"
+
 [log]
 log_level = "debug"
 log_format = "console"

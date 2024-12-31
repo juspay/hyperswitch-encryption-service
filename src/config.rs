@@ -8,6 +8,7 @@ use crate::{
 use std::num::NonZeroUsize;
 
 use config::File;
+use rustc_hash::FxHashMap;
 use serde::Deserialize;
 use std::sync::Arc;
 
@@ -138,15 +139,33 @@ pub struct Config {
     pub secrets: Secrets,
     pub cassandra: Cassandra,
     pub log: LogConfig,
+    pub multitenancy: MultiTenancy,
     pub pool_config: PoolConfig,
     #[cfg(feature = "mtls")]
     pub certs: Certs,
 }
 
 #[derive(Deserialize, Debug)]
+pub struct MultiTenancy {
+    pub tenants: TenantsConfig,
+    pub global_tenant: GlobalTenant,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct GlobalTenant(pub TenantConfig);
+
+#[derive(Deserialize, Debug)]
+pub struct TenantsConfig(pub FxHashMap<String, TenantConfig>);
+
+#[derive(Deserialize, Debug)]
+pub struct TenantConfig {
+    pub schema: String,
+    pub cache_prefix: String,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct Cassandra {
     pub known_nodes: Vec<String>,
-    pub keyspace: String,
     pub timeout: u32,
     pub pool_size: NonZeroUsize,
     pub cache_size: usize,

@@ -10,6 +10,7 @@ use masking::{PeekInterface, Secret, StrongSecret};
 use crate::app::AppState;
 use crate::consts::base64::BASE64_ENGINE;
 use crate::errors::{ApiErrorContainer, CustomResult, ParsingError, SwitchError, ToContainerError};
+use crate::multitenancy::TenantState;
 
 #[derive(Clone)]
 pub struct Custodian {
@@ -22,7 +23,7 @@ impl Custodian {
         Self { keys }
     }
 
-    pub fn into_access_token(self, state: &AppState) -> Option<StrongSecret<String>> {
+    pub fn into_access_token(self, state: &TenantState) -> Option<StrongSecret<String>> {
         self.keys
             .map(|(x, y)| format!("{}:{}", x.peek(), y.peek()))
             .map(|token| state.hash_client.hash(Secret::new(token)))

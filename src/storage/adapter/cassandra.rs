@@ -1,6 +1,9 @@
 mod dek;
 
-use crate::storage::{adapter::Cassandra, errors, Config, DbState};
+use crate::{
+    multitenancy::tenant_kind::TenantKind,
+    storage::{adapter::Cassandra, errors, Config, DatabaseUrl, DbState},
+};
 
 #[async_trait::async_trait]
 impl super::DbAdapter for DbState<scylla::CachingSession, Cassandra> {
@@ -9,13 +12,16 @@ impl super::DbAdapter for DbState<scylla::CachingSession, Cassandra> {
     type Pool = scylla::CachingSession;
 
     #[allow(clippy::expect_used)]
-    async fn from_config(config: &Config) -> Self {
+    async fn from_config<Tenant: TenantKind + DatabaseUrl<Self::AdapterType>>(
+        config: &Config,
+        schema: &str,
+    ) -> Self {
         let session = scylla::SessionBuilder::new()
             .known_nodes(&config.cassandra.known_nodes)
             .pool_size(scylla::transport::session::PoolSize::PerHost(
                 config.cassandra.pool_size,
             ))
-            .use_keyspace(&config.cassandra.keyspace, false)
+            .use_keyspace(Tenant::get_database_url(config, schema).await, false)
             .build()
             .await
             .expect("Unable to build the cassandra Pool");

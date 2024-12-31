@@ -1,9 +1,9 @@
 use crate::{
-    app::AppState,
     core::KeyDecrypter,
     crypto::Source,
     env::observability as logger,
     errors::{self, SwitchError},
+    multitenancy::TenantState,
     storage::{cache, dek::DataKeyStorageInterface},
     types::Identifier,
 };
@@ -39,11 +39,11 @@ pub struct Key {
 
 impl Key {
     pub async fn get_key(
-        state: &AppState,
+        state: &TenantState,
         identifier: &Identifier,
         version: Version,
     ) -> errors::CustomResult<Self, errors::DatabaseError> {
-        let db = &state.db_pool;
+        let db = state.get_db_pool(identifier);
         let get_and_decrypt_key = || async {
             let key = db.get_key(version, identifier).await?;
             key.decrypt(state).await.switch()
@@ -58,11 +58,11 @@ impl Key {
     }
 
     pub async fn get_multiple_keys(
-        state: &AppState,
+        state: &TenantState,
         identifier: &Identifier,
         version: FxHashSet<Version>,
     ) -> errors::CustomResult<FxHashMap<Version, Self>, errors::DatabaseError> {
-        let db = &state.db_pool;
+        let db = &state.get_db_pool(identifier);
         let get_and_decrypt_key = |v: Version| async move {
             let key = db.get_key(v, identifier).await?;
             key.decrypt(state).await.switch()
@@ -165,8 +165,8 @@ impl Serialize for Version {
 }
 
 impl Version {
-    pub async fn get_latest(identifier: &Identifier, state: &AppState) -> Self {
-        let db = &state.db_pool;
+    pub async fn get_latest(identifier: &Identifier, state: &TenantState) -> Self {
+        let db = state.get_db_pool(identifier);
         let latest_version = db.get_latest_version(identifier);
         let v = cache::get_or_populate_cache(
             format!("latest_version_{}", identifier),
