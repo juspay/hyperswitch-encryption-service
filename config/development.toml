@@ -20,11 +20,11 @@ min_idle = 2
 enable_ssl = false
 
 [multitenancy.global_tenant]
-cache_prefix = ""
-schema = "public"
+cache_prefix = "global"
+schema = "global"
 
 [multitenancy.tenants.public]
-cache_prefix = ""
+cache_prefix = "public"
 schema = "public"
 
 [log]

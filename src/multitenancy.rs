@@ -79,13 +79,3 @@ fn extract_tenant(
             errors::ParsingError::TenantIdNotFound,
         ))
 }
-
-pub mod tenant_kind {
-    pub trait TenantKind {}
-
-    pub struct MultiTenant;
-    pub struct GlobalTenant;
-
-    impl TenantKind for MultiTenant {}
-    impl TenantKind for GlobalTenant {}
-}

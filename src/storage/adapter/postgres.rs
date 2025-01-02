@@ -2,9 +2,8 @@ mod dek;
 
 use error_stack::ResultExt;
 
-use crate::storage::{
-    adapter::PostgreSQL, errors, Config, Connection, DatabaseUrl, DbState, TenantKind,
-};
+use crate::storage::{adapter::PostgreSQL, errors, Config, Connection, DbState};
+use masking::PeekInterface;
 
 #[cfg(feature = "postgres_ssl")]
 use diesel::ConnectionError;
@@ -22,12 +21,19 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     ///
     /// Panics if unable to connect to Database
     #[allow(clippy::expect_used)]
-    async fn from_config<Tenant: TenantKind + DatabaseUrl<Self::AdapterType>>(
-        config: &Config,
-        schema: &str,
-    ) -> Self {
+    async fn from_config(config: &Config, schema: &str) -> Self {
         let database = &config.database;
-        let database_url = Tenant::get_database_url(config, schema).await;
+        let password = database.password.expose(config).await;
+        let database_url = format!(
+            "postgres://{}:{}@{}:{}/{}?application_name={}&options=-c search_path%3D{}",
+            database.user.peek(),
+            password.peek(),
+            database.host,
+            database.port,
+            database.dbname.peek(),
+            schema,
+            schema
+        );
 
         #[cfg(not(feature = "postgres_ssl"))]
         let mgr_config = ManagerConfig::default();

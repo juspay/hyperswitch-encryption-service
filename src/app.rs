@@ -6,10 +6,7 @@ use crate::{
     config::{Config, TenantConfig},
     crypto::blake3::Blake3,
     crypto::KeyManagerClient,
-    multitenancy::{
-        tenant_kind::{GlobalTenant, MultiTenant},
-        MultiTenant as Tf, TenantId, TenantState,
-    },
+    multitenancy::{MultiTenant, TenantId, TenantState},
     storage::DbState,
 };
 use std::sync::Arc;
@@ -30,7 +27,7 @@ pub(crate) type StorageState = DbState<scylla::CachingSession, adapter::Cassandr
 
 pub struct AppState {
     pub conf: Config,
-    pub tenant_states: Tf<TenantState>,
+    pub tenant_states: MultiTenant<TenantState>,
 }
 
 impl AppState {
@@ -52,6 +49,7 @@ impl AppState {
 }
 
 pub struct SessionState {
+    pub cache_prefix: String,
     pub thread_pool: ThreadPool,
     pub keymanager_client: KeyManagerClient,
     db_pool: StorageState,
@@ -66,18 +64,15 @@ impl SessionState {
     #[allow(clippy::expect_used)]
     pub async fn from_config(config: &Config, tenant_config: &TenantConfig) -> Self {
         let secrets = config.secrets.clone();
-        let db_pool = StorageState::from_config::<MultiTenant>(config, &tenant_config.schema).await;
-
-        let global_db_pool = StorageState::from_config::<GlobalTenant>(
-            config,
-            &config.multitenancy.global_tenant.0.schema,
-        )
-        .await;
+        let db_pool = StorageState::from_config(config, &tenant_config.schema).await;
+        let global_db_pool =
+            StorageState::from_config(config, &config.multitenancy.global_tenant.0.schema).await;
 
         let num_threads = config.pool_config.pool;
         let hash_client = Blake3::from_config(config).await;
 
         Self {
+            cache_prefix: tenant_config.cache_prefix.clone(),
             keymanager_client: secrets.create_keymanager_client().await,
             db_pool,
             global_db_pool,

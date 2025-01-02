@@ -37,7 +37,7 @@ async fn main() {
                 let request_id = request.headers().get("x-request-id").and_then(|r| r.to_str().ok()).unwrap_or("unknown_id");
 
                 tracing::debug_span!("request",request_id = %request_id,method = %request.method(), uri=%request.uri(), tenant_id=%tenant_id)
-            }),
+            })
         );
 
     let app = Router::new()

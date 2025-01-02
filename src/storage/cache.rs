@@ -4,13 +4,31 @@ mod statics;
 pub use core::*;
 pub use statics::*;
 
+use crate::multitenancy::TenantState;
 use moka::future::Cache as MokCache;
+
+#[derive(PartialEq, Eq, Hash)]
+pub struct Key {
+    prefix: String,
+    key: String,
+}
+
+impl Key {
+    // Taking TenantState instead of cache_prefix here because both of them are String type and
+    // it's easy to interchange these accidentally
+    pub fn from_state(tenant: &TenantState, key: String) -> Self {
+        Key {
+            prefix: tenant.cache_prefix.clone(),
+            key,
+        }
+    }
+}
 
 pub struct Cache<V: Send + Sync + Clone>
 where
     V: Send + Sync + Clone,
 {
-    inner: MokCache<String, V>,
+    inner: MokCache<Key, V>,
 }
 
 impl<V> Cache<V>
@@ -31,11 +49,11 @@ where
         }
     }
 
-    pub async fn push(&self, key: String, val: V) {
+    pub async fn push(&self, key: Key, val: V) {
         self.inner.insert(key, val).await;
     }
 
-    pub async fn get(&self, key: &str) -> Option<V> {
+    pub async fn get(&self, key: &Key) -> Option<V> {
         self.inner.get(key).await
     }
 }
