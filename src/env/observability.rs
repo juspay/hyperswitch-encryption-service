@@ -3,7 +3,7 @@ use super::{
     metrics::{self, MetricsGuard},
 };
 
-pub use super::logger::LogConfig;
+pub use super::logger::{LogConfig, LogLevel, OnRequest, OnResponse};
 
 pub use tracing::{debug, error, info, trace, warn};
 

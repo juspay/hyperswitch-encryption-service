@@ -46,6 +46,96 @@ pub(super) struct LogGuard {
     _log_guard: WorkerGuard,
 }
 
+#[derive(Clone)]
+pub struct OnRequest {
+    level: LogLevel,
+}
+
+impl OnRequest {
+    pub fn with_level(level: LogLevel) -> Self {
+        Self { level }
+    }
+}
+
+impl<B> tower_http::trace::OnRequest<B> for OnRequest {
+    fn on_request(&mut self, _: &hyper::Request<B>, _: &tracing::Span) {
+        match self.level {
+            LogLevel::Debug => {
+                tracing::event!(tracing::Level::DEBUG, "Started processing request");
+            }
+            LogLevel::Warn => {
+                tracing::event!(tracing::Level::WARN, "Started processing request");
+            }
+            LogLevel::Error => {
+                tracing::event!(tracing::Level::ERROR, "Started processing request");
+            }
+            LogLevel::Info => {
+                tracing::event!(tracing::Level::INFO, "Started processing request");
+            }
+            _ => {}
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct OnResponse {
+    level: LogLevel,
+}
+
+impl OnResponse {
+    pub fn with_level(level: LogLevel) -> Self {
+        Self { level }
+    }
+}
+
+impl<B> tower_http::trace::OnResponse<B> for OnResponse {
+    fn on_response(
+        self,
+        response: &hyper::Response<B>,
+        latency: std::time::Duration,
+        _: &tracing::Span,
+    ) {
+        let status = response.status().as_u16();
+        let latency = latency.as_micros();
+
+        match self.level {
+            LogLevel::Debug => {
+                tracing::event!(
+                    tracing::Level::DEBUG,
+                    status,
+                    latency,
+                    "Finished processing request"
+                );
+            }
+            LogLevel::Warn => {
+                tracing::event!(
+                    tracing::Level::WARN,
+                    status,
+                    latency,
+                    "Finished processing request"
+                );
+            }
+            LogLevel::Error => {
+                tracing::event!(
+                    tracing::Level::ERROR,
+                    status,
+                    latency,
+                    "Finished processing request"
+                );
+            }
+            LogLevel::Info => {
+                tracing::event!(
+                    tracing::Level::INFO,
+                    status,
+                    latency,
+                    "Finished processing request"
+                );
+            }
+            _ => {}
+        }
+    }
+}
+
 pub(super) fn setup_logging_pipeline(
     log_config: &LogConfig,
     crates_to_filter: impl AsRef<[&'static str]>,

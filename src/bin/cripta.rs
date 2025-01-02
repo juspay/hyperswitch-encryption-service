@@ -8,7 +8,12 @@ use tower::ServiceBuilder;
 use tower_http::{trace::TraceLayer, ServiceBuilderExt};
 
 use cripta::{
-    app::AppState, config, env::observability, env::observability as logger, request_id::MakeUlid,
+    app::AppState,
+    config,
+    consts::{TENANANT_HEADER, X_REQUEST_ID},
+    env::observability,
+    env::observability as logger,
+    request_id::MakeUlid,
     routes::*,
 };
 use std::sync::Arc;
@@ -33,11 +38,13 @@ async fn main() {
         .propagate_x_request_id()
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
-                let tenant_id = request.headers().get("x-tenant-id").and_then(|r| r.to_str().ok()).unwrap_or("invalid_tenant");
-                let request_id = request.headers().get("x-request-id").and_then(|r| r.to_str().ok()).unwrap_or("unknown_id");
+                let tenant_id = request.headers().get(TENANANT_HEADER).and_then(|r| r.to_str().ok()).unwrap_or("invalid_tenant");
+                let request_id = request.headers().get(X_REQUEST_ID).and_then(|r| r.to_str().ok()).unwrap_or("unknown_id");
 
                 tracing::debug_span!("request",request_id = %request_id,method = %request.method(), uri=%request.uri(), tenant_id=%tenant_id)
             })
+            .on_request(logger::OnRequest::with_level(logger::LogLevel::Info))
+            .on_response(logger::OnResponse::with_level(logger::LogLevel::Info))
         );
 
     let app = Router::new()
