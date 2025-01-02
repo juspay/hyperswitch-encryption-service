@@ -17,7 +17,7 @@ impl Key {
     // Taking TenantState instead of cache_prefix here because both of them are String type and
     // it's easy to interchange these accidentally
     pub fn from_state(tenant: &TenantState, key: String) -> Self {
-        Key {
+        Self {
             prefix: tenant.cache_prefix.clone(),
             key,
         }
