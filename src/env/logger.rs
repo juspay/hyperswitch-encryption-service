@@ -96,7 +96,7 @@ impl<B> tower_http::trace::OnResponse<B> for OnResponse {
         _: &tracing::Span,
     ) {
         let status = response.status().as_u16();
-        let latency = latency.as_micros();
+        let latency = format!("{}μs", latency.as_micros());
 
         match self.level {
             LogLevel::Debug => {
