@@ -6,9 +6,9 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use std::str::FromStr;
 
 use crate::{
-    app::AppState,
     crypto::{aes256::GcmAes256, Crypto, Source},
     errors::{self, SwitchError},
+    multitenancy::TenantState,
     storage::types::{DataKey, DataKeyNew},
     types::{
         key::Version, DecryptedData, DecryptedDataGroup, EncryptedData, EncryptedDataGroup,
@@ -20,19 +20,25 @@ use super::custodian::Custodian;
 
 #[async_trait::async_trait]
 pub trait KeyEncrypter<ToType> {
-    async fn encrypt(self, state: &AppState) -> errors::CustomResult<ToType, errors::CryptoError>;
+    async fn encrypt(
+        self,
+        state: &TenantState,
+    ) -> errors::CustomResult<ToType, errors::CryptoError>;
 }
 
 #[async_trait::async_trait]
 pub trait KeyDecrypter<ToType> {
-    async fn decrypt(self, state: &AppState) -> errors::CustomResult<ToType, errors::CryptoError>;
+    async fn decrypt(
+        self,
+        state: &TenantState,
+    ) -> errors::CustomResult<ToType, errors::CryptoError>;
 }
 
 #[async_trait::async_trait]
 impl KeyEncrypter<DataKeyNew> for Key {
     async fn encrypt(
         self,
-        state: &AppState,
+        state: &TenantState,
     ) -> errors::CustomResult<DataKeyNew, errors::CryptoError> {
         let encryption_key = state
             .keymanager_client
@@ -57,7 +63,7 @@ impl KeyEncrypter<DataKeyNew> for Key {
 
 #[async_trait::async_trait]
 impl KeyDecrypter<Key> for DataKey {
-    async fn decrypt(self, state: &AppState) -> errors::CustomResult<Key, errors::CryptoError> {
+    async fn decrypt(self, state: &TenantState) -> errors::CustomResult<Key, errors::CryptoError> {
         let decrypted_key = state
             .keymanager_client
             .decrypt_key(self.encryption_key)
@@ -84,7 +90,7 @@ impl KeyDecrypter<Key> for DataKey {
 pub trait DataEncrypter<ToType> {
     async fn encrypt(
         self,
-        state: &AppState,
+        state: &TenantState,
         identifier: &Identifier,
         custodian: Custodian,
     ) -> errors::CustomResult<ToType, errors::CryptoError>;
@@ -94,7 +100,7 @@ pub trait DataEncrypter<ToType> {
 pub trait DataDecrypter<ToType> {
     async fn decrypt(
         self,
-        state: &AppState,
+        state: &TenantState,
         identifier: &Identifier,
         custodian: Custodian,
     ) -> errors::CustomResult<ToType, errors::CryptoError>;
@@ -104,7 +110,7 @@ pub trait DataDecrypter<ToType> {
 impl DataEncrypter<EncryptedDataGroup> for DecryptedDataGroup {
     async fn encrypt(
         self,
-        state: &AppState,
+        state: &TenantState,
         identifier: &Identifier,
         custodian: Custodian,
     ) -> errors::CustomResult<EncryptedDataGroup, errors::CryptoError> {
@@ -139,7 +145,7 @@ impl DataEncrypter<EncryptedDataGroup> for DecryptedDataGroup {
 impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
     async fn decrypt(
         self,
-        state: &AppState,
+        state: &TenantState,
         identifier: &Identifier,
         custodian: Custodian,
     ) -> errors::CustomResult<DecryptedDataGroup, errors::CryptoError> {
@@ -183,7 +189,7 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
 impl DataEncrypter<EncryptedData> for DecryptedData {
     async fn encrypt(
         self,
-        state: &AppState,
+        state: &TenantState,
         identifier: &Identifier,
         custodian: Custodian,
     ) -> errors::CustomResult<EncryptedData, errors::CryptoError> {
@@ -213,7 +219,7 @@ impl DataEncrypter<EncryptedData> for DecryptedData {
 impl DataDecrypter<DecryptedData> for EncryptedData {
     async fn decrypt(
         self,
-        state: &AppState,
+        state: &TenantState,
         identifier: &Identifier,
         custodian: Custodian,
     ) -> errors::CustomResult<DecryptedData, errors::CryptoError> {

@@ -1,10 +1,8 @@
-use std::sync::Arc;
-
 use crate::{
-    app::AppState,
     env::observability as logger,
     errors::{self, SwitchError},
     metrics,
+    multitenancy::TenantState,
     types::{requests::DecryptionRequest, response::DecryptionResponse},
 };
 use opentelemetry::KeyValue;
@@ -12,7 +10,7 @@ use opentelemetry::KeyValue;
 use super::custodian::Custodian;
 
 pub(super) async fn decryption(
-    state: Arc<AppState>,
+    state: TenantState,
     custodian: Custodian,
     req: DecryptionRequest,
 ) -> errors::CustomResult<DecryptionResponse, errors::ApplicationErrorResponse> {

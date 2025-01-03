@@ -8,6 +8,7 @@ use crate::{
 use std::num::NonZeroUsize;
 
 use config::File;
+use rustc_hash::FxHashMap;
 use serde::Deserialize;
 use std::sync::Arc;
 
@@ -139,15 +140,29 @@ pub struct Config {
     #[serde(default)]
     pub cassandra: Cassandra,
     pub log: LogConfig,
+    pub multitenancy: MultiTenancy,
     pub pool_config: PoolConfig,
     #[cfg(feature = "mtls")]
     pub certs: Certs,
 }
 
+#[derive(Deserialize, Debug)]
+pub struct MultiTenancy {
+    pub tenants: TenantsConfig,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct TenantsConfig(pub FxHashMap<String, TenantConfig>);
+
+#[derive(Deserialize, Debug)]
+pub struct TenantConfig {
+    pub schema: String,
+    pub cache_prefix: String,
+}
+
 #[derive(Deserialize, Debug, Eq, PartialEq)]
 pub struct Cassandra {
     pub known_nodes: Vec<String>,
-    pub keyspace: String,
     pub timeout: u32,
     pub pool_size: NonZeroUsize,
     pub cache_size: usize,
@@ -216,7 +231,6 @@ impl Default for Cassandra {
     fn default() -> Self {
         Self {
             known_nodes: Vec::new(),
-            keyspace: String::new(),
             timeout: 0,
             cache_size: 0,
             pool_size: NonZeroUsize::new(1).expect("The provided number is non zero"),
@@ -236,6 +250,17 @@ impl Cassandra {
             )
         }
 
+        Ok(())
+    }
+}
+
+impl MultiTenancy {
+    fn validate(&self) -> CustomResult<(), errors::ParsingError> {
+        error_stack::ensure!(
+            !self.tenants.0.is_empty(),
+            errors::ParsingError::DecodingFailed("Failed to validate multitenancy configuration. You need to configure atleast one tenant".to_string()
+         )
+       );
         Ok(())
     }
 }
@@ -287,6 +312,10 @@ impl Config {
         self.cassandra
             .validate()
             .expect("Failed to valdiate cassandra some missing configuration found");
+
+        self.multitenancy
+            .validate()
+            .expect("Failed to validate multitenancy, some missing configuration found");
     }
 }
 

@@ -3,11 +3,13 @@ mod dek;
 use error_stack::ResultExt;
 
 use crate::storage::{adapter::PostgreSQL, errors, Config, Connection, DbState};
+use masking::PeekInterface;
+
 #[cfg(feature = "postgres_ssl")]
 use diesel::ConnectionError;
+
 use diesel_async::pooled_connection::{bb8::Pool, AsyncDieselConnectionManager, ManagerConfig};
 use diesel_async::AsyncPgConnection;
-use masking::PeekInterface;
 
 #[async_trait::async_trait]
 impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
@@ -19,18 +21,18 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     ///
     /// Panics if unable to connect to Database
     #[allow(clippy::expect_used)]
-    async fn from_config(config: &Config) -> Self {
+    async fn from_config(config: &Config, schema: &str) -> Self {
         let database = &config.database;
-
         let password = database.password.expose(config).await;
-
         let database_url = format!(
-            "postgres://{}:{}@{}:{}/{}",
+            "postgres://{}:{}@{}:{}/{}?application_name={}&options=-c search_path%3D{}",
             database.user.peek(),
             password.peek(),
             database.host,
             database.port,
-            database.dbname.peek()
+            database.dbname.peek(),
+            schema,
+            schema
         );
 
         #[cfg(not(feature = "postgres_ssl"))]
@@ -87,6 +89,7 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
             pool,
         }
     }
+
     async fn get_conn<'a>(
         &'a self,
     ) -> errors::CustomResult<Self::Conn<'a>, errors::ConnectionError> {

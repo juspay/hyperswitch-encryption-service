@@ -3,6 +3,7 @@ mod postgres;
 
 use crate::{config::Config, errors, storage::DbState};
 
+#[derive(Clone)]
 pub struct PostgreSQL;
 pub struct Cassandra;
 
@@ -18,7 +19,7 @@ pub trait DbAdapter {
         Self: 'a;
     type AdapterType: DbAdapterType;
     type Pool;
-    async fn from_config(config: &Config) -> DbState<Self::Pool, Self::AdapterType>;
+    async fn from_config(config: &Config, schema: &str) -> DbState<Self::Pool, Self::AdapterType>;
     async fn get_conn<'a>(
         &'a self,
     ) -> errors::CustomResult<Self::Conn<'a>, errors::ConnectionError>;

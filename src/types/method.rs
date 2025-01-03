@@ -1,7 +1,7 @@
 use crate::{
-    app::AppState,
     core::{custodian::Custodian, DataDecrypter, DataEncrypter},
     errors,
+    multitenancy::TenantState,
     types::Identifier,
 };
 
@@ -22,7 +22,7 @@ pub enum DecryptionType {
 impl DecryptionType {
     pub async fn decrypt(
         self,
-        state: &AppState,
+        state: &TenantState,
         identifier: &Identifier,
         custodian: Custodian,
     ) -> errors::CustomResult<EncryptionType, errors::CryptoError> {
@@ -40,7 +40,7 @@ impl DecryptionType {
 impl EncryptionType {
     pub async fn encrypt(
         self,
-        state: &AppState,
+        state: &TenantState,
         identifier: &Identifier,
         custodian: Custodian,
     ) -> errors::CustomResult<DecryptionType, errors::CryptoError> {

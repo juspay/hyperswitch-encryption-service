@@ -1,17 +1,15 @@
+use super::custodian::Custodian;
 use crate::{
-    app::AppState,
     env::observability as logger,
     errors::{self, SwitchError},
     metrics,
+    multitenancy::TenantState,
     types::{requests::EncryptDataRequest, response::EncryptionResponse},
 };
 use opentelemetry::KeyValue;
-use std::sync::Arc;
-
-use super::custodian::Custodian;
 
 pub(super) async fn encryption(
-    state: Arc<AppState>,
+    state: TenantState,
     custodian: Custodian,
     req: EncryptDataRequest,
 ) -> errors::CustomResult<EncryptionResponse, errors::ApplicationErrorResponse> {

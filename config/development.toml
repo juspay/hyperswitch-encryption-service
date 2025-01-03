@@ -19,6 +19,14 @@ pool_size = 5
 min_idle = 2
 enable_ssl = false
 
+[multitenancy.tenants.public]
+cache_prefix = "public"
+schema = "public"
+
+[multitenancy.tenants.global]
+cache_prefix = "global"
+schema = "global"
+
 [log]
 log_level = "debug"
 log_format = "console"

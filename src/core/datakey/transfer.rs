@@ -1,25 +1,23 @@
-use std::sync::Arc;
-
 use error_stack::ResultExt;
 
 use crate::{
-    app::AppState,
     consts::base64::BASE64_ENGINE,
     core::{crypto::KeyEncrypter, custodian::Custodian},
     crypto::Source,
     env::observability as logger,
     errors::{self, SwitchError},
+    multitenancy::TenantState,
     storage::dek::DataKeyStorageInterface,
     types::{key::Version, requests::TransferKeyRequest, response::DataKeyCreateResponse, Key},
 };
 use base64::Engine;
 
 pub async fn transfer_data_key(
-    state: Arc<AppState>,
+    state: TenantState,
     custodian: Custodian,
     req: TransferKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
-    let db = &state.db_pool;
+    let db = &state.get_db_pool();
     let key = BASE64_ENGINE.decode(req.key).change_context(
         errors::ApplicationErrorResponse::InternalServerError("Failed to decode the base64 key"),
     )?;
@@ -33,7 +31,7 @@ pub async fn transfer_data_key(
         identifier: req.identifier.clone(),
         key: key.into(),
         source: Source::KMS,
-        token: custodian.into_access_token(state.as_ref()),
+        token: custodian.into_access_token(&state),
     }
     .encrypt(&state)
     .await

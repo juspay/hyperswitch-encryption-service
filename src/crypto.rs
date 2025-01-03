@@ -116,6 +116,7 @@ impl KeyManagement for Vault {
 
 pub type Backend = dyn KeyManagement + Send + Sync;
 
+#[derive(Clone)]
 pub struct KeyManagerClient {
     client: Arc<Backend>,
 }
