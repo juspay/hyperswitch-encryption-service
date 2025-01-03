@@ -149,11 +149,7 @@ pub struct Config {
 #[derive(Deserialize, Debug)]
 pub struct MultiTenancy {
     pub tenants: TenantsConfig,
-    pub global_tenant: GlobalTenant,
 }
-
-#[derive(Deserialize, Debug)]
-pub struct GlobalTenant(pub TenantConfig);
 
 #[derive(Deserialize, Debug)]
 pub struct TenantsConfig(pub FxHashMap<String, TenantConfig>);
@@ -258,6 +254,17 @@ impl Cassandra {
     }
 }
 
+impl MultiTenancy {
+    fn validate(&self) -> CustomResult<(), errors::ParsingError> {
+        error_stack::ensure!(
+            !self.tenants.0.is_empty(),
+            errors::ParsingError::DecodingFailed("Failed to validate multitenancy configuration. You need to configure atleast one tenant".to_string()
+         )
+       );
+        Ok(())
+    }
+}
+
 impl Config {
     pub fn config_path(environment: Environment, explicit_config_path: Option<PathBuf>) -> PathBuf {
         let mut config_path = PathBuf::new();
@@ -305,6 +312,10 @@ impl Config {
         self.cassandra
             .validate()
             .expect("Failed to valdiate cassandra some missing configuration found");
+
+        self.multitenancy
+            .validate()
+            .expect("Failed to validate multitenancy, some missing configuration found");
     }
 }
 

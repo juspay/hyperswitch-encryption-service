@@ -12,7 +12,7 @@ pub async fn generate_and_create_data_key(
     custodian: Custodian,
     req: CreateDataKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
-    let db = state.get_db_pool(&req.identifier);
+    let db = state.get_db_pool();
     let version = Version::get_latest(&req.identifier, &state).await;
 
     let (source, aes_key) = state.keymanager_client.generate_key().await.switch()?;

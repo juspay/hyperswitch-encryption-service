@@ -17,7 +17,7 @@ pub async fn transfer_data_key(
     custodian: Custodian,
     req: TransferKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
-    let db = &state.get_db_pool(&req.identifier);
+    let db = &state.get_db_pool();
     let key = BASE64_ENGINE.decode(req.key).change_context(
         errors::ApplicationErrorResponse::InternalServerError("Failed to decode the base64 key"),
     )?;

@@ -1,7 +1,6 @@
 use crate::{
     app::{AppState, SessionState, StorageState},
     errors::{self, ApiErrorContainer, ToContainerError},
-    types::Identifier,
 };
 use error_stack::ResultExt;
 use hyper::header;
@@ -28,11 +27,8 @@ impl TenantState {
         Self(session)
     }
 
-    pub(crate) fn get_db_pool(&self, identifier: &Identifier) -> &StorageState {
-        match identifier {
-            Identifier::UserAuth(_) | Identifier::User(_) => self.global_db_pool(),
-            Identifier::Merchant(_) | Identifier::Entity(_) => self.db_pool(),
-        }
+    pub(crate) fn get_db_pool(&self) -> &StorageState {
+        self.db_pool()
     }
 }
 

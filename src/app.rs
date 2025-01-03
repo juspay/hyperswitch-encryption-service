@@ -53,7 +53,6 @@ pub struct SessionState {
     pub thread_pool: ThreadPool,
     pub keymanager_client: KeyManagerClient,
     db_pool: StorageState,
-    global_db_pool: StorageState,
     pub hash_client: Blake3,
 }
 
@@ -65,9 +64,6 @@ impl SessionState {
     pub async fn from_config(config: &Config, tenant_config: &TenantConfig) -> Self {
         let secrets = config.secrets.clone();
         let db_pool = StorageState::from_config(config, &tenant_config.schema).await;
-        let global_db_pool =
-            StorageState::from_config(config, &config.multitenancy.global_tenant.0.schema).await;
-
         let num_threads = config.pool_config.pool;
         let hash_client = Blake3::from_config(config).await;
 
@@ -75,17 +71,12 @@ impl SessionState {
             cache_prefix: tenant_config.cache_prefix.clone(),
             keymanager_client: secrets.create_keymanager_client().await,
             db_pool,
-            global_db_pool,
             hash_client,
             thread_pool: ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .build()
                 .expect("Failed to create a threadpool"),
         }
-    }
-
-    pub fn global_db_pool(&self) -> &StorageState {
-        &self.global_db_pool
     }
 
     pub fn db_pool(&self) -> &StorageState {
