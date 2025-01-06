@@ -17,6 +17,7 @@ use tokio::runtime::Runtime;
 // Note: modify this to run for different size inputs
 const SINGLE_BENCH_ITERATION: u32 = 10;
 const BATCH_BENCH_ITERATION: u32 = 10;
+const PUBLIC_TENANT_ID: &str = "public";
 
 criterion_main!(benches);
 criterion_group!(
@@ -41,7 +42,7 @@ pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
     };
     let tenant_state = state
         .tenant_states
-        .get(&TenantId::new("public".to_string()))
+        .get(&TenantId::new(PUBLIC_TENANT_ID.to_string()))
         .cloned()
         .expect("Invalid tenant");
 
@@ -141,7 +142,7 @@ pub fn criterion_batch_data_encryption_decryption(c: &mut Criterion) {
     let state = rt.block_on(async { AppState::from_config(config).await });
     let tenant_state = state
         .tenant_states
-        .get(&TenantId::new("public".to_string()))
+        .get(&TenantId::new(PUBLIC_TENANT_ID.to_string()))
         .cloned()
         .expect("Invalid tenant");
 

@@ -6,4 +6,4 @@ pub mod base64 {
 }
 
 pub const X_REQUEST_ID: &str = "x-request-id";
-pub const TENANANT_HEADER: &str = "x-tenant-id";
+pub const TENANT_HEADER: &str = "x-tenant-id";
