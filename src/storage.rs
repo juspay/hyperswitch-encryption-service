@@ -7,7 +7,6 @@ use crate::{
     config::Config,
     errors::{self, CustomResult},
 };
-
 use diesel_async::{pooled_connection::bb8::PooledConnection, AsyncPgConnection};
 
 use self::adapter::{DbAdapter, DbAdapterType};
@@ -29,8 +28,9 @@ where
     /// Panics if unable to connect to Database
     pub async fn from_config(
         config: &Config,
+        schema: &str,
     ) -> DbState<<Self as DbAdapter>::Pool, <Self as DbAdapter>::AdapterType> {
-        <Self as DbAdapter>::from_config(config).await
+        <Self as DbAdapter>::from_config(config, schema).await
     }
 
     pub async fn get_conn(

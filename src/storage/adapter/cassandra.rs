@@ -9,13 +9,13 @@ impl super::DbAdapter for DbState<scylla::CachingSession, Cassandra> {
     type Pool = scylla::CachingSession;
 
     #[allow(clippy::expect_used)]
-    async fn from_config(config: &Config) -> Self {
+    async fn from_config(config: &Config, schema: &str) -> Self {
         let session = scylla::SessionBuilder::new()
             .known_nodes(&config.cassandra.known_nodes)
             .pool_size(scylla::transport::session::PoolSize::PerHost(
                 config.cassandra.pool_size,
             ))
-            .use_keyspace(&config.cassandra.keyspace, false)
+            .use_keyspace(schema, false)
             .build()
             .await
             .expect("Unable to build the cassandra Pool");

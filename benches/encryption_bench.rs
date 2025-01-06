@@ -1,9 +1,8 @@
-use std::sync::Arc;
-
 use cripta::{
     app::AppState,
     config,
     core::{crypto::custodian::Custodian, datakey::create::generate_and_create_data_key},
+    multitenancy::TenantId,
     types::{
         core::{DecryptedData, DecryptedDataGroup, Identifier},
         method::EncryptionType,
@@ -18,6 +17,7 @@ use tokio::runtime::Runtime;
 // Note: modify this to run for different size inputs
 const SINGLE_BENCH_ITERATION: u32 = 10;
 const BATCH_BENCH_ITERATION: u32 = 10;
+const PUBLIC_TENANT_ID: &str = "public";
 
 criterion_main!(benches);
 criterion_group!(
@@ -36,18 +36,20 @@ pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
     let config = config::Config::with_config_path(config::Environment::Dev, None);
     let state = rt.block_on(async { AppState::from_config(config).await });
     // create a DataKey in data_key_store
-    let config2 = config::Config::with_config_path(config::Environment::Dev, None);
     let identifier = Identifier::User(String::from("bench_user"));
     let key_create_req: CreateDataKeyRequest = CreateDataKeyRequest {
         identifier: identifier.clone(),
     };
-    let key_create_state = rt.block_on(async {
-        let state = AppState::from_config(config2).await;
-        <AppState as Into<Arc<AppState>>>::into(state)
-    });
+    let tenant_state = state
+        .tenant_states
+        .get(&TenantId::new(PUBLIC_TENANT_ID.to_string()))
+        .cloned()
+        .expect("Invalid tenant");
+
     rt.block_on(async {
         let _ =
-            generate_and_create_data_key(key_create_state, custodian.clone(), key_create_req).await;
+            generate_and_create_data_key(tenant_state.clone(), custodian.clone(), key_create_req)
+                .await;
     });
 
     {
@@ -68,7 +70,7 @@ pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
                         black_box(rt.block_on(async {
                             bench_input
                                 .clone()
-                                .encrypt(&state, &identifier.clone(), custodian.clone())
+                                .encrypt(&tenant_state, &identifier.clone(), custodian.clone())
                                 .await
                                 .expect("Failed while encrypting")
                         }))
@@ -88,7 +90,7 @@ pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
             let bench_input = EncryptionType::Single(DecryptedData::from_data(value.into()));
             let encrypted_data = rt.block_on(async {
                 bench_input
-                    .encrypt(&state, &identifier, custodian.clone())
+                    .encrypt(&tenant_state, &identifier, custodian.clone())
                     .await
                     .expect("Failed while encrypting")
             });
@@ -102,7 +104,7 @@ pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
                         black_box(rt.block_on(async {
                             encrypted_data
                                 .clone()
-                                .decrypt(&state, &identifier.clone(), custodian.clone())
+                                .decrypt(&tenant_state, &identifier.clone(), custodian.clone())
                                 .await
                                 .expect("Failed while decrypting")
                         }))
@@ -138,6 +140,12 @@ pub fn criterion_batch_data_encryption_decryption(c: &mut Criterion) {
     let custodian = Custodian::new(Some(("key".to_string(), "value".to_string())));
     let config = config::Config::with_config_path(config::Environment::Dev, None);
     let state = rt.block_on(async { AppState::from_config(config).await });
+    let tenant_state = state
+        .tenant_states
+        .get(&TenantId::new(PUBLIC_TENANT_ID.to_string()))
+        .cloned()
+        .expect("Invalid tenant");
+
     let identifier = Identifier::User(String::from("bench_user"));
     {
         let mut group = c.benchmark_group("data-encryption-batch");
@@ -153,7 +161,7 @@ pub fn criterion_batch_data_encryption_decryption(c: &mut Criterion) {
                         black_box(rt.block_on(async {
                             bench_input
                                 .clone()
-                                .encrypt(&state, &identifier.clone(), custodian.clone())
+                                .encrypt(&tenant_state, &identifier.clone(), custodian.clone())
                                 .await
                                 .expect("Failed while encrypting")
                         }))
@@ -169,7 +177,7 @@ pub fn criterion_batch_data_encryption_decryption(c: &mut Criterion) {
             let decrypted_input = EncryptionType::Batch(generate_batch_data(input_size));
             let encrypted_bench_input = rt.block_on(async {
                 decrypted_input
-                    .encrypt(&state, &identifier, custodian.clone())
+                    .encrypt(&tenant_state, &identifier, custodian.clone())
                     .await
                     .expect("Failed while encrypting")
             });
@@ -182,7 +190,7 @@ pub fn criterion_batch_data_encryption_decryption(c: &mut Criterion) {
                         black_box(rt.block_on(async {
                             encrypted_bench_input
                                 .clone()
-                                .decrypt(&state, &identifier.clone(), custodian.clone())
+                                .decrypt(&tenant_state, &identifier.clone(), custodian.clone())
                                 .await
                                 .expect("Failed while decrypting")
                         }))

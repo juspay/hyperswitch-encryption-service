@@ -16,6 +16,10 @@ mod error_codes {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ParsingError {
+    #[error("Tenant ID that was passed was invalid")]
+    InvalidTenantId,
+    #[error("Could not find any tenant with the passed tenant id")]
+    TenantIdNotFound,
     #[error("Parsing failed with error {0}")]
     ParsingFailed(String),
     #[error("Decoding failed with error {0}")]
@@ -56,6 +60,10 @@ pub enum ApplicationErrorResponse {
     UniqueViolation,
     #[error("Authentication failed")]
     Unauthorized,
+    #[error("Tenant ID that was passed was not configured")]
+    TenantIdNotFound,
+    #[error("Tenant ID which was passed in the headers was invalid")]
+    InvalidTenantId,
 }
 
 impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, ParsingError> {
@@ -68,6 +76,8 @@ impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, Pars
                 ParsingError::DecodingFailed(s) => {
                     ApplicationErrorResponse::ParsingFailed(s.to_string())
                 }
+                ParsingError::TenantIdNotFound => ApplicationErrorResponse::TenantIdNotFound,
+                ParsingError::InvalidTenantId => ApplicationErrorResponse::InvalidTenantId,
             };
             err.change_context(new_err)
         })
@@ -157,6 +167,20 @@ impl IntoResponse for ApiErrorContainer {
                 }),
             ),
             err @ ApplicationErrorResponse::UniqueViolation => (
+                StatusCode::BAD_REQUEST,
+                axum::Json(ApiErrorResponse {
+                    error_message: err.to_string(),
+                    error_code: error_codes::BR_00,
+                }),
+            ),
+            err @ ApplicationErrorResponse::TenantIdNotFound => (
+                StatusCode::BAD_REQUEST,
+                axum::Json(ApiErrorResponse {
+                    error_message: err.to_string(),
+                    error_code: error_codes::BR_00,
+                }),
+            ),
+            err @ ApplicationErrorResponse::InvalidTenantId => (
                 StatusCode::BAD_REQUEST,
                 axum::Json(ApiErrorResponse {
                     error_message: err.to_string(),

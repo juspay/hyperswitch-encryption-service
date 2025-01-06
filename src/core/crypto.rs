@@ -6,22 +6,21 @@ mod encryption;
 pub use crux::*;
 
 use crate::{
-    app::AppState,
     errors, metrics,
+    multitenancy::TenantState,
     types::{
         requests::{DecryptionRequest, EncryptDataRequest},
         response::{DecryptionResponse, EncryptionResponse},
     },
     utils,
 };
-use axum::extract::{Json, State};
+use axum::extract::Json;
 use opentelemetry::KeyValue;
-use std::sync::Arc;
 
 use self::custodian::Custodian;
 
 pub async fn encrypt_data(
-    State(state): State<Arc<AppState>>,
+    state: TenantState,
     custodian: Custodian,
     Json(req): Json<EncryptDataRequest>,
 ) -> errors::ApiResponseResult<Json<EncryptionResponse>> {
@@ -39,7 +38,7 @@ pub async fn encrypt_data(
 }
 
 pub async fn decrypt_data(
-    State(state): State<Arc<AppState>>,
+    state: TenantState,
     custodian: Custodian,
     Json(req): Json<DecryptionRequest>,
 ) -> errors::ApiResponseResult<Json<DecryptionResponse>> {
