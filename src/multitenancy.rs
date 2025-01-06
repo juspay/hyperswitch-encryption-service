@@ -1,5 +1,6 @@
 use crate::{
     app::{AppState, SessionState, StorageState},
+    consts::TENANT_HEADER,
     errors::{self, ApiErrorContainer, SwitchError, ToContainerError},
 };
 use error_stack::ResultExt;
@@ -49,9 +50,9 @@ impl axum::extract::FromRequestParts<Arc<AppState>> for TenantState {
     ) -> Result<Self, Self::Rejection> {
         parts
             .headers
-            .get("x-tenant-id")
+            .get(TENANT_HEADER)
             .ok_or(error_stack::Report::new(
-                errors::ApplicationErrorResponse::TenantIDNotFound,
+                errors::ApplicationErrorResponse::TenantIdNotFound,
             ))
             .and_then(|header| extract_tenant(state, header).switch())
             .to_container_error()

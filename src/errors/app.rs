@@ -61,7 +61,7 @@ pub enum ApplicationErrorResponse {
     #[error("Authentication failed")]
     Unauthorized,
     #[error("Tenant ID that was passed was not configured")]
-    TenantIDNotFound,
+    TenantIdNotFound,
     #[error("Tenant ID which was passed in the headers was invalid")]
     InvalidTenantId,
 }
@@ -76,7 +76,7 @@ impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, Pars
                 ParsingError::DecodingFailed(s) => {
                     ApplicationErrorResponse::ParsingFailed(s.to_string())
                 }
-                ParsingError::TenantIdNotFound => ApplicationErrorResponse::TenantIDNotFound,
+                ParsingError::TenantIdNotFound => ApplicationErrorResponse::TenantIdNotFound,
                 ParsingError::InvalidTenantId => ApplicationErrorResponse::InvalidTenantId,
             };
             err.change_context(new_err)
@@ -173,7 +173,7 @@ impl IntoResponse for ApiErrorContainer {
                     error_code: error_codes::BR_00,
                 }),
             ),
-            err @ ApplicationErrorResponse::TenantIDNotFound => (
+            err @ ApplicationErrorResponse::TenantIdNotFound => (
                 StatusCode::BAD_REQUEST,
                 axum::Json(ApiErrorResponse {
                     error_message: err.to_string(),
