@@ -3,6 +3,9 @@ name: Run postman tests
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
+      - 'releases/*'
   pull_request:
   merge_group:
     types: [checks_requested]
@@ -40,45 +43,50 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        if: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group') }}
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push' }}
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
 
       - name: Build and Cache Rust Dependencies
-        if: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group') }}
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push' }}
         uses: Swatinem/rust-cache@v2.7.0
 
       - name: Install Diesel CLI with Postgres Support
-        if: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group') }}
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push' }}
         uses: baptiste0928/cargo-install@v2.2.0
         with:
           crate: diesel_cli
           features: postgres
           args: "--no-default-features"
 
+      - name: List files before Diesel migration
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push' }}
+        run: ls
+
       - name: Diesel migration run
-        if: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group')}}
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push' }}
         shell: bash
         env:
           DATABASE_URL: postgres://db_user:db_pass@localhost:5432/encryption_db
-        run: just migrate run --locked-schema
+        run: diesel migration run
+
+      - name: Install newman from fork
+        run: npm install -g 'git+ssh://git@github.com:knutties/newman.git#feature/newman-dir'
         
       - name: Build project
-        if: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group')}}
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push' }}
         run: cargo build --package cripta --bin cripta
 
       - name: Setup Local Server
-        if: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group')}}
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push' }}
         run: |
-          # Start the server in the background
           target/debug/cripta &
           SERVER_PID=$!
 
-          # Wait for the server to start in port 8080
           COUNT=0
-          while ! nc -z localhost 8080; do
-            if [ $COUNT -gt 12 ]; then # Wait for up to 2 minutes (12 * 10 seconds)
+          while ! nc -z localhost 5000; do
+            if [ $COUNT -gt 12 ]; then
               echo "Server did not start within a reasonable time. Exiting."
               kill ${SERVER_PID}
               exit 1
@@ -87,8 +95,10 @@ jobs:
               sleep 10
             fi
           done
-  
-    
-    
-    
+      - name: Run Tests
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push' }}
+        env:
+          BASE_URL: "http://localhost:5000"
+        shell: bash
+        run: newman dir-run postman/collection-dir
           
