@@ -19,6 +19,7 @@ env:
   USER: db_user
   PASSWORD: db_pass
   DB_NAME: encryption_db
+  RUN_TESTS: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group') }}
 
 jobs:
   runner:
@@ -31,6 +32,7 @@ jobs:
           POSTGRES_USER: db_user
           POSTGRES_PASSWORD: db_pass
           POSTGRES_DB: encryption_db
+          
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -42,30 +44,33 @@ jobs:
       - name: Repository checkout
         uses: actions/checkout@v4
 
+      - name: Skip tests for PRs from forks
+        shell: bash
+        if: ${{ env.RUN_TESTS == 'false' }}
+        run: echo 'Skipping tests for PRs from forks'
+
       - name: Install Rust
-        if: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group')}}
+        if: ${{ env.RUN_TESTS == 'true' }}
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          toolchain: stable 2 weeks ago
+          components: clippy
 
       - name: Build and Cache Rust Dependencies
-        if: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group')}}
+        if: ${{ env.RUN_TESTS == 'true' }}
         uses: Swatinem/rust-cache@v2.7.0
 
       - name: Install Diesel CLI with Postgres Support
-        if: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group')}}
+        if: ${{ env.RUN_TESTS == 'true' }}
         uses: baptiste0928/cargo-install@v2.2.0
         with:
           crate: diesel_cli
           features: postgres
           args: "--no-default-features"
 
-      - name: List files before Diesel migration
-        if: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group')}}
-        run: ls
 
       - name: Diesel migration run
-        if: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group')}}
+        if: ${{ env.RUN_TESTS == 'true' }}
         shell: bash
         env:
           DATABASE_URL: postgres://db_user:db_pass@localhost:5432/encryption_db
@@ -75,11 +80,11 @@ jobs:
         run: npm install -g 'git+ssh://git@github.com:knutties/newman.git#feature/newman-dir'
 
       - name: Build project
-        if: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group')}}
+        if: ${{ env.RUN_TESTS == 'true' }}
         run: cargo build --package cripta --bin cripta
 
       - name: Setup Local Server
-        if: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group')}}
+        if: ${{ env.RUN_TESTS == 'true' }}
         run: |
           target/debug/cripta &
           SERVER_PID=$!
@@ -96,7 +101,7 @@ jobs:
             fi
           done
       - name: Run Tests
-        if: ${{ ((github.event_name == 'pull_request') && (github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name)) || (github.event_name == 'merge_group')}}
+        if: ${{ env.RUN_TESTS == 'true' }}
         env:
           BASE_URL: "http://localhost:5000"
         shell: bash

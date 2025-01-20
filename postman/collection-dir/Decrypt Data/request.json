@@ -21,7 +21,7 @@
       "data_identifier": "User",
       "key_identifier": "123",
       "data": {
-        "ff": "{{ff_value}}"
+        "value": "{{value}}"
       }
     }
   },

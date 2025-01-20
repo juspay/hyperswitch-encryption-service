@@ -1,0 +1,238 @@
+{
+  "item": [
+    {
+      "name": "Create Key",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Create Key - Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "(function () {",
+              "    let jsonData = pm.response.json();",
+              "    pm.environment.set(\"key_version\", jsonData.key_version);",
+              "    pm.environment.set(\"identifier\", JSON.stringify(jsonData.identifier));",
+              "})();"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenant_id}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          },
+          "raw": "{\"data_identifier\":\"User\",\"key_identifier\":\"123\"}"
+        },
+        "url": "{{base_url}}/key/create"
+      },
+      "response": []
+    },
+    {
+      "name": "Encrypt Data",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Decrypt Data - Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var response = pm.response.json();",
+              "",
+              "pm.environment.set(\"value\", response.data.value);",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenant_id}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          },
+          "raw": "{\"data_identifier\":\"User\",\"key_identifier\":\"123\",\"data\":{\"value\":\"U2VjcmV0RGF0YQo=\"}}"
+        },
+        "url": "{{base_url}}/data/encrypt"
+      },
+      "response": []
+    },
+    {
+      "name": "Decrypt Data",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Decrypt Data - Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenant_id}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          },
+          "raw": "{\"data_identifier\":\"User\",\"key_identifier\":\"123\",\"data\":{\"value\":\"{{value}}\"}}"
+        },
+        "url": "{{base_url}}/data/decrypt"
+      },
+      "response": []
+    },
+    {
+      "name": "Rotate Key",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Decrypt Data - Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenant_id}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          },
+          "raw": "{\"data_identifier\":\"User\",\"key_identifier\":\"123\"}"
+        },
+        "url": "{{base_url}}/key/rotate"
+      },
+      "response": []
+    },
+    {
+      "name": "Transfer Key",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Decrypt Data - Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenant_id}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          },
+          "raw": "{\"data_identifier\":\"User\",\"key_identifier\":\"123\",\"key\":\"VGhpcyBpcyAzMiBieXRlcyBmb3Igc3VyZSBub3chISE=\"}"
+        },
+        "url": "{{base_url}}/key/transfer"
+      },
+      "response": []
+    }
+  ],
+  "info": {
+    "_postman_id": "811976d7-1bd9-4e8d-ab77-4f903d6652f7",
+    "name": "collection-dir",
+    "schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+    "_exporter_id": "17145261"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "tenant_id",
+      "value": "public",
+      "type": "text"
+    }
+  ]
+}
