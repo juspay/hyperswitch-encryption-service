@@ -68,7 +68,6 @@ jobs:
           features: postgres
           args: "--no-default-features"
 
-
       - name: Diesel migration run
         if: ${{ env.RUN_TESTS == 'true' }}
         shell: bash
