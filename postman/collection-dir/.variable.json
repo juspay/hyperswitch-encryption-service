@@ -1,0 +1,14 @@
+{
+	"variable":[
+		{
+			"key": "base_url",
+			"value": "http://localhost:5000",
+			"type": "string"
+		},
+		{
+			"key":"tenant_id",
+			"value":"public",
+			"type":"text"
+		}
+	]
+}
