@@ -11,7 +11,8 @@ use crate::{
     multitenancy::TenantState,
     storage::types::{DataKey, DataKeyNew},
     types::{
-        key::Version, DecryptedData, DecryptedDataGroup, EncryptedData, EncryptedDataGroup, Identifier, Key, MultipleDecryptionDataGroup, MultipleEncryptionDataGroup
+        key::Version, DecryptedData, DecryptedDataGroup, EncryptedData, EncryptedDataGroup,
+        Identifier, Key, MultipleDecryptionDataGroup, MultipleEncryptionDataGroup,
     },
 };
 
@@ -174,41 +175,50 @@ impl DataDecrypter<MultipleDecryptionDataGroup> for MultipleEncryptionDataGroup 
 
         if identifier.is_entity() {
             let provided_token = custodian.into_access_token(state);
-            let all_tokens_match = decrypted_keys
-                .values()
-                .all(|k| k.token.eq(&provided_token));
-            ensure!(
-                all_tokens_match,
-                errors::CryptoError::AuthenticationFailed
-            );
+            let all_tokens_match = decrypted_keys.values().all(|k| k.token.eq(&provided_token));
+            ensure!(all_tokens_match, errors::CryptoError::AuthenticationFailed);
         }
+        let chunk_size = std::cmp::max(self.0.len() / state.thread_pool.current_num_threads(), 1);
 
-        let decrypted_groups = state.thread_pool.install(|| {
-            self.0
-                .into_par_iter()
-                .map(|encrypted_group| {
-                    let decrypted_entries = encrypted_group
-                        .0
-                        .into_par_iter()
-                        .map(|(hash_key, data)| {
-                            let version = data.version;
-                            let decrypted_key = decrypted_keys.get(&version).ok_or(
-                                error_stack::report!(errors::CryptoError::DecryptionFailed("AES")),
-                            )?;
-                            let key = GcmAes256::new(decrypted_key.key.clone())?;
-                            let decrypted_data = key.decrypt(data.inner())?;
-                            Ok::<_, error_stack::Report<errors::CryptoError>>((
-                                hash_key,
-                                DecryptedData::from_data(decrypted_data),
-                            ))
-                        })
-                        .collect::<errors::CustomResult<FxHashMap<_, _>, _>>()?;
-                    Ok(DecryptedDataGroup(decrypted_entries))
-                })
+        // Helper closure to decrypt a single entity from an encrypted group.
+        let decrypt_entity = |(hash_key, data): (String, EncryptedData)| -> errors::CustomResult<(String, DecryptedData), _> {
+            let version = data.version;
+            let decrypted_key = decrypted_keys.get(&version)
+            .ok_or_else(|| error_stack::report!(errors::CryptoError::DecryptionFailed("AES")))?;
+            let key = GcmAes256::new(decrypted_key.key.clone())?;
+            let decrypted_data = key.decrypt(data.inner())?;
+            Ok((hash_key, DecryptedData::from_data(decrypted_data)))
+        };
+
+        // Helper closure to decrypt an entire group.
+        let decrypt_group = |encrypted_group: EncryptedDataGroup| -> errors::CustomResult<DecryptedDataGroup, _> {
+            let decrypted_entities = encrypted_group.0
+            .into_par_iter()
+            .map(decrypt_entity)
+            .collect::<errors::CustomResult<FxHashMap<_, _>, _>>()?;
+            Ok(DecryptedDataGroup(decrypted_entities))
+        };
+
+        // Process groups in parallel in chunks.
+        let multiple_groups = state.thread_pool.install(|| {
+            self.0.into_par_iter()
+            .chunks(chunk_size)
+            .map(|chunk| {
+                chunk.into_par_iter()
+                .map(decrypt_group)
                 .collect::<errors::CustomResult<Vec<_>, _>>()
+                .map(MultipleDecryptionDataGroup)
+            })
+            .collect::<errors::CustomResult<Vec<_>, _>>()
         })?;
 
-        Ok(MultipleDecryptionDataGroup(decrypted_groups))
+        // "Unchunk" all decrypted groups.
+        let all_decrypted_groups = multiple_groups
+            .into_iter()
+            .flat_map(|group| group.0)
+            .collect();
+
+        Ok(MultipleDecryptionDataGroup(all_decrypted_groups))
     }
 }
 
