@@ -3,6 +3,8 @@
     "Create Key",
     "Encrypt Data",
     "Decrypt Data",
+    "Encrypt Multiple Objects",
+    "Decrypt Multiple Objects",
     "Rotate Key",
     "Transfer Key"
   ]

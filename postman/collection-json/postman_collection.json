@@ -7,14 +7,14 @@
           "listen": "test",
           "script": {
             "exec": [
-              "pm.test(\"Create Key - Status code is 200\", function () {",
-              "    pm.response.to.have.status(200);",
-              "});",
-              "",
-              "(function () {",
-              "    let jsonData = pm.response.json();",
-              "    pm.environment.set(\"key_version\", jsonData.key_version);",
-              "    pm.environment.set(\"identifier\", JSON.stringify(jsonData.identifier));",
+              "pm.test(\"Create Key - Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "(function () {\r",
+              "    let jsonData = pm.response.json();\r",
+              "    pm.environment.set(\"key_version\", jsonData.key_version);\r",
+              "    pm.environment.set(\"identifier\", JSON.stringify(jsonData.identifier));\r",
               "})();"
             ],
             "type": "text/javascript"
@@ -53,12 +53,12 @@
           "listen": "test",
           "script": {
             "exec": [
-              "pm.test(\"Decrypt Data - Status code is 200\", function () {",
-              "    pm.response.to.have.status(200);",
-              "});",
-              "var response = pm.response.json();",
-              "",
-              "pm.environment.set(\"value\", response.data.value);",
+              "pm.test(\"Decrypt Data - Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "var response = pm.response.json();\r",
+              "\r",
+              "pm.environment.set(\"value\", response.data.value);\r",
               ""
             ],
             "type": "text/javascript"
@@ -97,10 +97,10 @@
           "listen": "test",
           "script": {
             "exec": [
-              "pm.test(\"Decrypt Data - Status code is 200\", function () {",
-              "    pm.response.to.have.status(200);",
-              "});",
-              "",
+              "pm.test(\"Decrypt Data - Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
               ""
             ],
             "type": "text/javascript"
@@ -133,16 +133,117 @@
       "response": []
     },
     {
+      "name": "Encrypt Multiple Objects",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Decrypt Data - Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "var response = pm.response.json();\r",
+              "\r",
+              "pm.environment.set(\"value1\", response.data[0].value1);\r",
+              "pm.environment.set(\"value2\", response.data[0].value2);\r",
+              "pm.environment.set(\"value3\", response.data[1].value3);\r",
+              "pm.environment.set(\"value4\", response.data[1].value4);\r",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenant_id}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          },
+          "raw": "{\"data_identifier\":\"User\",\"key_identifier\":\"123\",\"data\":[{\"value1\":\"VmFpYmhhdgo=\",\"value2\":\"S2hpbnZhc2FyYQ==\"},{\"value3\":\"TXVsdGlwbGVFbmNyeXB0aW9uT2JqZWN0cw==\",\"value4\":\"ZXhhbXBsZQ==\"}]}"
+        },
+        "url": {
+          "raw": "{{base_url}}/data/encrypt",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "data",
+            "encrypt"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Decrypt Multiple Objects",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Decrypt Data - Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              ""
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenant_id}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          },
+          "raw": "{\"data_identifier\":\"User\",\"key_identifier\":\"123\",\"data\":[{\"value1\":\"{{value1}}\",\"value2\":\"{{value2}}\"},{\"value3\":\"{{value3}}\",\"value4\":\"{{value4}}\"}]}"
+        },
+        "url": {
+          "raw": "{{base_url}}/data/decrypt",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "data",
+            "decrypt"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
       "name": "Rotate Key",
       "event": [
         {
           "listen": "test",
           "script": {
             "exec": [
-              "pm.test(\"Decrypt Data - Status code is 200\", function () {",
-              "    pm.response.to.have.status(200);",
-              "});",
-              "",
+              "pm.test(\"Decrypt Data - Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
               ""
             ],
             "type": "text/javascript"
@@ -181,10 +282,10 @@
           "listen": "test",
           "script": {
             "exec": [
-              "pm.test(\"Decrypt Data - Status code is 200\", function () {",
-              "    pm.response.to.have.status(200);",
-              "});",
-              "",
+              "pm.test(\"Decrypt Data - Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
               ""
             ],
             "type": "text/javascript"
