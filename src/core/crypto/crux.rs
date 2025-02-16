@@ -12,7 +12,7 @@ use crate::{
     storage::types::{DataKey, DataKeyNew},
     types::{
         key::Version, DecryptedData, DecryptedDataGroup, EncryptedData, EncryptedDataGroup,
-        Identifier, Key,
+        Identifier, Key, MultipleDecryptionDataGroup, MultipleEncryptionDataGroup,
     },
 };
 
@@ -104,6 +104,146 @@ pub trait DataDecrypter<ToType> {
         identifier: &Identifier,
         custodian: Custodian,
     ) -> errors::CustomResult<ToType, errors::CryptoError>;
+}
+
+#[async_trait::async_trait]
+impl DataEncrypter<MultipleEncryptionDataGroup> for MultipleDecryptionDataGroup {
+    async fn encrypt(
+        self,
+        state: &TenantState,
+        identifier: &Identifier,
+        custodian: Custodian,
+    ) -> errors::CustomResult<MultipleEncryptionDataGroup, errors::CryptoError> {
+        let version = Version::get_latest(identifier, state).await;
+        let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
+
+        let stored_token = decrypted_key.token;
+        let provided_token = custodian.into_access_token(state);
+
+        ensure!(
+            !identifier.is_entity() || (stored_token.eq(&provided_token)),
+            errors::CryptoError::AuthenticationFailed
+        );
+
+        let key = GcmAes256::new(decrypted_key.key)?;
+        let chunk_size = std::cmp::max(self.0.len() / state.thread_pool.current_num_threads(), 1);
+
+        // Helper closure to encrypt a single DecryptedDataGroup into an EncryptedDataGroup.
+        let encrypt_data_group = |group: DecryptedDataGroup| -> errors::CustomResult<
+            EncryptedDataGroup,
+            errors::CryptoError,
+        > {
+            group
+                .0
+                .into_par_iter()
+                .map(|(hash_key, data)| {
+                    let encrypted_data = key.encrypt(data.inner())?;
+                    Ok((
+                        hash_key,
+                        EncryptedData {
+                            version: decrypted_key.version,
+                            data: encrypted_data,
+                        },
+                    ))
+                })
+                .collect::<errors::CustomResult<FxHashMap<_, _>, _>>()
+                .map(EncryptedDataGroup)
+        };
+
+        let multiple_groups = state.thread_pool.install(|| {
+            self.0
+                .into_par_iter()
+                .chunks(chunk_size)
+                .map(|chunk| {
+                    // Encrypt each group within the chunk.
+                    let groups = chunk
+                        .into_par_iter()
+                        .map(encrypt_data_group)
+                        .collect::<errors::CustomResult<Vec<_>, _>>()?;
+                    Ok(MultipleEncryptionDataGroup(groups))
+                })
+                .collect::<errors::CustomResult<Vec<_>, _>>()
+        })?;
+
+        // "Unchunking" all encrypted groups
+        let all_encrypted_groups = multiple_groups
+            .into_iter()
+            .flat_map(|group| group.0)
+            .collect();
+
+        Ok(MultipleEncryptionDataGroup(all_encrypted_groups))
+    }
+}
+
+#[async_trait::async_trait]
+impl DataDecrypter<MultipleDecryptionDataGroup> for MultipleEncryptionDataGroup {
+    async fn decrypt(
+        self,
+        state: &TenantState,
+        identifier: &Identifier,
+        custodian: Custodian,
+    ) -> errors::CustomResult<MultipleDecryptionDataGroup, errors::CryptoError> {
+        let versions = self
+            .0
+            .iter()
+            .flat_map(|group| group.0.values().map(|data| data.version))
+            .collect::<FxHashSet<_>>();
+
+        let decrypted_keys = Key::get_multiple_keys(state, identifier, versions)
+            .await
+            .switch()?;
+
+        if identifier.is_entity() {
+            let provided_token = custodian.into_access_token(state);
+            let all_tokens_match = decrypted_keys.values().all(|k| k.token.eq(&provided_token));
+            ensure!(all_tokens_match, errors::CryptoError::AuthenticationFailed);
+        }
+        let chunk_size = std::cmp::max(self.0.len() / state.thread_pool.current_num_threads(), 1);
+
+        // Helper closure to decrypt a single entity from an encrypted group.
+        let decrypt_entity = |(hash_key, data): (String, EncryptedData)| -> errors::CustomResult<(String, DecryptedData), _> {
+            let version = data.version;
+            let decrypted_key = decrypted_keys.get(&version)
+            .ok_or_else(|| error_stack::report!(errors::CryptoError::DecryptionFailed("AES")))?;
+            let key = GcmAes256::new(decrypted_key.key.clone())?;
+            let decrypted_data = key.decrypt(data.inner())?;
+            Ok((hash_key, DecryptedData::from_data(decrypted_data)))
+        };
+
+        // Helper closure to decrypt an entire group.
+        let decrypt_group =
+            |encrypted_group: EncryptedDataGroup| -> errors::CustomResult<DecryptedDataGroup, _> {
+                let decrypted_entities = encrypted_group
+                    .0
+                    .into_par_iter()
+                    .map(decrypt_entity)
+                    .collect::<errors::CustomResult<FxHashMap<_, _>, _>>()?;
+                Ok(DecryptedDataGroup(decrypted_entities))
+            };
+
+        // Process groups in parallel in chunks.
+        let multiple_groups = state.thread_pool.install(|| {
+            self.0
+                .into_par_iter()
+                .chunks(chunk_size)
+                .map(|chunk| {
+                    chunk
+                        .into_par_iter()
+                        .map(decrypt_group)
+                        .collect::<errors::CustomResult<Vec<_>, _>>()
+                        .map(MultipleDecryptionDataGroup)
+                })
+                .collect::<errors::CustomResult<Vec<_>, _>>()
+        })?;
+
+        // "Unchunk" all decrypted groups.
+        let all_decrypted_groups = multiple_groups
+            .into_iter()
+            .flat_map(|group| group.0)
+            .collect();
+
+        Ok(MultipleDecryptionDataGroup(all_decrypted_groups))
+    }
 }
 
 #[async_trait::async_trait]

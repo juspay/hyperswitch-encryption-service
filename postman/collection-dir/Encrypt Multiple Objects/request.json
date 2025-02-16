@@ -1,0 +1,42 @@
+{
+  "method": "POST",
+  "header": [
+    {
+      "key": "X-Tenant-ID",
+      "value": "{{tenant_id}}",
+      "type": "text"
+    }
+  ],
+  "body": {
+    "mode": "raw",
+    "options": {
+      "raw": {
+        "language": "json"
+      }
+    },
+    "raw_json_formatted": {
+      "data_identifier": "User",
+      "key_identifier": "123",
+      "data": [
+        {
+          "value1": "VmFpYmhhdgo=",
+          "value2": "S2hpbnZhc2FyYQ=="
+        },
+        {
+          "value3": "TXVsdGlwbGVFbmNyeXB0aW9uT2JqZWN0cw==",
+          "value4": "ZXhhbXBsZQ=="
+        }
+      ]
+    }
+  },
+  "url": {
+    "raw": "{{base_url}}/data/encrypt",
+    "host": [
+      "{{base_url}}"
+    ],
+    "path": [
+      "data",
+      "encrypt"
+    ]
+  }
+}
