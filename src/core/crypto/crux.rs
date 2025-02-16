@@ -238,7 +238,7 @@ impl DataDecrypter<MultipleDecryptionDataGroup> for MultipleEncryptionDataGroup 
 
         // "Unchunk" all decrypted groups.
         let all_decrypted_groups = multiple_groups
-            .into_par_iter()
+            .into_iter()
             .flat_map(|group| group.0)
             .collect();
 
