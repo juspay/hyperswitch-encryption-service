@@ -126,32 +126,51 @@ impl DataEncrypter<MultipleEncryptionDataGroup> for MultipleDecryptionDataGroup 
         );
 
         let key = GcmAes256::new(decrypted_key.key)?;
-        let key_version = decrypted_key.version;
+        let chunk_size = std::cmp::max(self.0.len() / state.thread_pool.current_num_threads(), 1);
 
-        let encrypted_groups = state.thread_pool.install(|| {
+        // Helper closure to encrypt a single DecryptedDataGroup into an EncryptedDataGroup.
+        let encrypt_data_group = |group: DecryptedDataGroup| -> errors::CustomResult<
+            EncryptedDataGroup,
+            errors::CryptoError,
+        > {
+            group
+                .0
+                .into_par_iter()
+                .map(|(hash_key, data)| {
+                    let encrypted_data = key.encrypt(data.inner())?;
+                    Ok((
+                        hash_key,
+                        EncryptedData {
+                            version: decrypted_key.version,
+                            data: encrypted_data,
+                        },
+                    ))
+                })
+                .collect::<errors::CustomResult<FxHashMap<_, _>, _>>()
+                .map(EncryptedDataGroup)
+        };
+
+        let multiple_groups = state.thread_pool.install(|| {
             self.0
                 .into_par_iter()
-                .map(|decrypted_group| {
-                    let encrypted_entries = decrypted_group
-                        .0
+                .chunks(chunk_size)
+                .map(|chunk| {
+                    // Encrypt each group within the chunk.
+                    let groups = chunk
                         .into_par_iter()
-                        .map(|(hash_key, data)| {
-                            let encrypted_data = key.encrypt(data.inner())?;
-                            Ok::<_, error_stack::Report<errors::CryptoError>>((
-                                hash_key,
-                                EncryptedData {
-                                    version: key_version,
-                                    data: encrypted_data,
-                                },
-                            ))
-                        })
-                        .collect::<errors::CustomResult<FxHashMap<_, _>, _>>()?;
-                    Ok(EncryptedDataGroup(encrypted_entries))
+                        .map(encrypt_data_group)
+                        .collect::<errors::CustomResult<Vec<_>, _>>()?;
+                    Ok(MultipleEncryptionDataGroup(groups))
                 })
                 .collect::<errors::CustomResult<Vec<_>, _>>()
         })?;
 
-        Ok(MultipleEncryptionDataGroup(encrypted_groups))
+        let all_encrypted_groups = multiple_groups
+            .into_iter()
+            .flat_map(|group| group.0)
+            .collect();
+
+        Ok(MultipleEncryptionDataGroup(all_encrypted_groups))
     }
 }
 
@@ -191,30 +210,34 @@ impl DataDecrypter<MultipleDecryptionDataGroup> for MultipleEncryptionDataGroup 
         };
 
         // Helper closure to decrypt an entire group.
-        let decrypt_group = |encrypted_group: EncryptedDataGroup| -> errors::CustomResult<DecryptedDataGroup, _> {
-            let decrypted_entities = encrypted_group.0
-            .into_par_iter()
-            .map(decrypt_entity)
-            .collect::<errors::CustomResult<FxHashMap<_, _>, _>>()?;
-            Ok(DecryptedDataGroup(decrypted_entities))
-        };
+        let decrypt_group =
+            |encrypted_group: EncryptedDataGroup| -> errors::CustomResult<DecryptedDataGroup, _> {
+                let decrypted_entities = encrypted_group
+                    .0
+                    .into_par_iter()
+                    .map(decrypt_entity)
+                    .collect::<errors::CustomResult<FxHashMap<_, _>, _>>()?;
+                Ok(DecryptedDataGroup(decrypted_entities))
+            };
 
         // Process groups in parallel in chunks.
         let multiple_groups = state.thread_pool.install(|| {
-            self.0.into_par_iter()
-            .chunks(chunk_size)
-            .map(|chunk| {
-                chunk.into_par_iter()
-                .map(decrypt_group)
+            self.0
+                .into_par_iter()
+                .chunks(chunk_size)
+                .map(|chunk| {
+                    chunk
+                        .into_par_iter()
+                        .map(decrypt_group)
+                        .collect::<errors::CustomResult<Vec<_>, _>>()
+                        .map(MultipleDecryptionDataGroup)
+                })
                 .collect::<errors::CustomResult<Vec<_>, _>>()
-                .map(MultipleDecryptionDataGroup)
-            })
-            .collect::<errors::CustomResult<Vec<_>, _>>()
         })?;
 
         // "Unchunk" all decrypted groups.
         let all_decrypted_groups = multiple_groups
-            .into_iter()
+            .into_par_iter()
             .flat_map(|group| group.0)
             .collect();
 
