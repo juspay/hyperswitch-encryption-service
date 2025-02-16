@@ -165,6 +165,7 @@ impl DataEncrypter<MultipleEncryptionDataGroup> for MultipleDecryptionDataGroup 
                 .collect::<errors::CustomResult<Vec<_>, _>>()
         })?;
 
+        // "Unchunking" all encrypted groups
         let all_encrypted_groups = multiple_groups
             .into_iter()
             .flat_map(|group| group.0)
