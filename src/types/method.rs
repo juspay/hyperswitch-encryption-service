@@ -10,7 +10,7 @@ use crate::{
 pub enum EncryptionType {
     Single(super::DecryptedData),
     Batch(super::DecryptedDataGroup),
-    MultiBatch(super::MultipleDecryptionDataGroup)
+    MultiBatch(super::MultipleDecryptionDataGroup),
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
@@ -18,7 +18,7 @@ pub enum EncryptionType {
 pub enum DecryptionType {
     Single(super::EncryptedData),
     Batch(super::EncryptedDataGroup),
-    MultiBatch(super::MultipleEncryptionDataGroup)
+    MultiBatch(super::MultipleEncryptionDataGroup),
 }
 
 impl DecryptionType {
