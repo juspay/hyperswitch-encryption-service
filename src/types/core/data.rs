@@ -9,6 +9,9 @@ use serde::{
 };
 use std::fmt;
 
+#[derive(Eq, PartialEq, Serialize, serde::Deserialize, Debug, Clone)]
+pub struct MultipleDecryptionDataGroup(pub Vec<DecryptedDataGroup>);
+
 #[derive(Eq, PartialEq, Debug, Serialize, serde::Deserialize, Clone)]
 pub struct DecryptedDataGroup(pub FxHashMap<String, DecryptedData>);
 
@@ -65,6 +68,9 @@ impl<'de> Deserialize<'de> for DecryptedData {
         deserializer.deserialize_str(DecryptedDataVisitor)
     }
 }
+
+#[derive(Eq, PartialEq, Serialize, serde::Deserialize, Debug, Clone)]
+pub struct MultipleEncryptionDataGroup(pub Vec<EncryptedDataGroup>);
 
 #[derive(Eq, PartialEq, Serialize, serde::Deserialize, Debug, Clone)]
 pub struct EncryptedDataGroup(pub FxHashMap<String, EncryptedData>);
