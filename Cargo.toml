@@ -47,7 +47,7 @@ async-trait = "0.1.80"
 hex = "0.4.3"
 charybdis = { git = "https://github.com/dracarys18/charybdis.git", rev = "1637c263f512adf7840705e3ab405a113437a6e3" }
 scylla = { git = "https://github.com/juspay/scylla-rust-driver.git",rev = "5700aa2847b25437cdd4fcf34d707aa90dca8b89", features = ["time-03"]}
-ring = { version = "0.17.8", features = ["std"] }
+ring = { version = "0.17.12", features = ["std"] }
 strum = { version = "0.26", features = ["derive"] }
 futures = "0.3.30"
 time = { version = "0.3.36", features = ["parsing"]}
