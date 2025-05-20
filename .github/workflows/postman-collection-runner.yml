@@ -59,11 +59,11 @@ jobs:
 
       - name: Build and Cache Rust Dependencies
         if: ${{ env.RUN_TESTS == 'true' }}
-        uses: Swatinem/rust-cache@v2.7.0
+        uses: Swatinem/rust-cache@v2.7.8
 
       - name: Install Diesel CLI with Postgres Support
         if: ${{ env.RUN_TESTS == 'true' }}
-        uses: baptiste0928/cargo-install@v2.2.0
+        uses: baptiste0928/cargo-install@v3.3.0
         with:
           crate: diesel_cli
           features: postgres
