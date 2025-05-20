@@ -95,6 +95,7 @@ async fn spawn_metrics_server(state: Arc<AppState>) {
     );
 
     let app = Router::new()
+        .nest("/health", Health::server(state.clone()))
         .nest("/metrics", Metrics::server(state.clone()))
         .with_state(state);
 
