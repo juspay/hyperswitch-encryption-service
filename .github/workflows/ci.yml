@@ -29,6 +29,8 @@ jobs:
           tool: cargo-hack
           checksum: true
 
+      - uses: Swatinem/rust-cache@v2.7.8
+
       - name: Check compilation
         run: cargo hack check --all-features --all-targets
 
