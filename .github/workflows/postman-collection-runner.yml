@@ -8,7 +8,8 @@ on:
       - "releases/*"
   pull_request:
   merge_group:
-    types: [checks_requested]
+    types:
+      - checks_requested
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,7 +33,7 @@ jobs:
           POSTGRES_USER: db_user
           POSTGRES_PASSWORD: db_pass
           POSTGRES_DB: encryption_db
-          
+
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -58,11 +59,11 @@ jobs:
 
       - name: Build and Cache Rust Dependencies
         if: ${{ env.RUN_TESTS == 'true' }}
-        uses: Swatinem/rust-cache@v2.7.0
+        uses: Swatinem/rust-cache@v2.7.8
 
       - name: Install Diesel CLI with Postgres Support
         if: ${{ env.RUN_TESTS == 'true' }}
-        uses: baptiste0928/cargo-install@v2.2.0
+        uses: baptiste0928/cargo-install@v3.3.0
         with:
           crate: diesel_cli
           features: postgres
