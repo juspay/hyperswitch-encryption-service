@@ -33,17 +33,18 @@ impl<T> super::SwitchError<T, DatabaseError> for super::CustomResult<T, Connecti
 
 impl<T> super::SwitchError<T, DatabaseError> for Result<T, diesel::result::Error> {
     fn switch(self) -> super::CustomResult<T, DatabaseError> {
-        self.map_err(|err| {
-            let err = match err {
-                diesel_error::NotFound => DatabaseError::NotFound,
-                diesel_error::DatabaseError(db_error, _) => match db_error {
-                    DatabaseErrorKind::UniqueViolation => DatabaseError::UniqueViolation,
-                    DatabaseErrorKind::NotNullViolation => DatabaseError::NotNullViolation,
-                    _ => DatabaseError::Others,
-                },
-                _ => DatabaseError::Others,
-            };
-            report!(err)
+        self.map_err(|err| match err {
+            diesel_error::NotFound => report!(err).change_context(DatabaseError::NotFound),
+            diesel_error::DatabaseError(db_error, _) => match db_error {
+                DatabaseErrorKind::UniqueViolation => {
+                    report!(err).change_context(DatabaseError::UniqueViolation)
+                }
+                DatabaseErrorKind::NotNullViolation => {
+                    report!(err).change_context(DatabaseError::NotNullViolation)
+                }
+                _ => report!(err).change_context(DatabaseError::Others),
+            },
+            _ => report!(err).change_context(DatabaseError::Others),
         })
     }
 }
