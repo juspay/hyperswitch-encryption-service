@@ -137,6 +137,8 @@ impl<T> ToContainerError<T> for super::CustomResult<T, ApplicationErrorResponse>
 
 impl IntoResponse for ApiErrorContainer {
     fn into_response(self) -> Response {
+        crate::env::observability::error!(error = ?self.error, "An error occurred");
+
         match self.error.current_context() {
             err @ ApplicationErrorResponse::InternalServerError(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
