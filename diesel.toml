@@ -3,3 +3,5 @@ file = "src/schema.rs"
 import_types = ["diesel::sql_types::*"]
 generate_missing_sql_type_definitions = false
 
+[migrations_directory]
+dir = "migrations"

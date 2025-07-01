@@ -1,0 +1,113 @@
+volumes:
+  pg_data:
+
+networks:
+  cripta_net:
+
+services:
+  ### Dependencies
+  pg:
+    image: postgres:latest
+    ports:
+      - "5433:5432"
+    networks:
+      - cripta_net
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=db_user
+      - POSTGRES_PASSWORD=db_pass
+      - POSTGRES_DB=encryption_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 5s
+      retries: 3
+      start_period: 5s
+      timeout: 5s
+
+  migration_runner:
+    image: rust:latest
+    command: >
+      bash -c "
+      set -e &&
+      echo 'Installing system dependencies...' &&
+      apt-get update && apt-get install -y libpq-dev &&
+      echo 'Installing diesel_cli with cargo...' &&
+      cargo install diesel_cli --no-default-features --features postgres &&
+      echo 'Checking diesel setup...' &&
+      diesel --version &&
+      echo 'Running migrations...' &&
+      diesel migration run &&
+      echo 'Migrations completed successfully!'"
+    working_dir: /app
+    networks:
+      - cripta_net
+    volumes:
+      - ../../:/app
+    environment:
+      - DATABASE_URL=postgresql://db_user:db_pass@pg:5432/encryption_db
+    depends_on:
+      pg:
+        condition: service_healthy
+
+  ### Application services
+  cripta-server:
+    build:
+      context: ../../
+      dockerfile: docker/local/Dockerfile.local
+    command: /local/bin/cripta
+    ports:
+      - "5000:5000"
+      - "6128:6128"
+    networks:
+      - cripta_net
+    volumes:
+      - ../../config:/local/config
+    environment:
+      - CONFIG_DIR=/local/config
+      - CONFIG_FILE=devlopment.toml
+      - RUN_ENV=Dev
+      - RUST_LOG=debug
+      - AWS_ACCESS_KEY_ID=dummy_key
+      - AWS_SECRET_ACCESS_KEY=dummy_secret
+      - AWS_DEFAULT_REGION=us-east-1
+    depends_on:
+      pg:
+        condition: service_healthy
+      migration_runner:
+        condition: service_completed_successfully
+    healthcheck:
+      test: curl --fail http://localhost:5000/health || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 5s
+
+  ### Monitoring (optional profile)
+  prometheus:
+    image: prom/prometheus:latest
+    networks:
+      - cripta_net
+    profiles:
+      - monitoring
+    volumes:
+      - ../../config/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    networks:
+      - cripta_net
+    profiles:
+      - monitoring
+    restart: unless-stopped
+    environment:
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_BASIC_ENABLED=false
+    volumes:
+      - ../../config/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yml
