@@ -30,11 +30,11 @@ impl Identifier {
 impl core::fmt::Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::User(s) => f.write_str(&format!("User_{s}")),
-            Self::Merchant(s) => f.write_str(&format!("Merchant_{s}")),
-            Self::UserAuth(s) => f.write_str(&format!("UserAuth_{s}")),
-            Self::Entity(s) => f.write_str(&format!("Entity_{s}")),
-            Self::ReconMerchant(s) => f.write_str(&format!("ReconMerchant_{s}")),
+            Self::User(s) => write!(f, "User_{s}"),
+            Self::Merchant(s) => write!(f, "Merchant_{s}"),
+            Self::UserAuth(s) => write!(f, "UserAuth_{s}"),
+            Self::Entity(s) => write!(f, "Entity_{s}"),
+            Self::ReconMerchant(s) => write!(f, "ReconMerchant_{s}"),
         }
     }
 }
