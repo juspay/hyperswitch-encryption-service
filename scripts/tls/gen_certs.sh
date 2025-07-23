@@ -1,4 +1,7 @@
-#!/bin/bash
+#! /usr/bin/env bash
+
+# Additional domains
+DOMAINS=()
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -13,6 +16,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --service)
       SERVICE="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --domain)
+      DOMAINS+=("$2")
       shift # past argument
       shift # past value
       ;;
@@ -32,6 +40,11 @@ else
     CA_SUBJECT="/C=US/ST=CA/O=Cripta CA/CN=Cripta CA"
     SUBJECT="/C=US/ST=CA/O=Cripta/CN=localhost"
 fi
+
+# Append additional domains to ALT
+for domain in "${DOMAINS[@]}"; do
+    ALT="${ALT},DNS:${domain}"
+done
 
 function gen_ca() {
   openssl genrsa -out ca_key.pem 2048
