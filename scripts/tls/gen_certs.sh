@@ -24,6 +24,11 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
+    --client-name)
+      CLIENT_NAME="$2"
+      shift # past argument
+      shift # past value
+      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -56,8 +61,24 @@ function gen_ca_if_non_existent() {
   if ! [ -f ./ca_cert.pem ]; then gen_ca; fi
 }
 
-function gen_client_key() {
-    cat rsa_sha256_cert.pem rsa_sha256_key.pem  > client.pem
+function gen_client_cert_key_pair() {
+    local client_name="${1:-client}"  # Default to "client" if no name provided
+
+    # Generate client private key and CSR
+    openssl req -newkey rsa:2048 -nodes -sha256 -keyout "client_${client_name}_key.pem" \
+        -subj "/C=US/ST=CA/O=Cripta Client/CN=${client_name}" \
+        -out "client_${client_name}.csr"
+
+    # Sign client certificate with CA
+    openssl x509 -req -sha256 -days 3650 \
+        -CA ca_cert.pem -CAkey ca_key.pem -CAcreateserial \
+        -in "client_${client_name}.csr" -out "client_${client_name}_cert.pem"
+
+    # Combine client cert and key
+    cat "client_${client_name}_cert.pem" "client_${client_name}_key.pem" > "client_${client_name}.pem"
+
+    # Clean up serial and CSR files
+    rm "ca_cert.srl" "client_${client_name}.csr"
 }
 
 function gen_rsa_sha256() {
@@ -73,6 +94,9 @@ function gen_rsa_sha256() {
   rm ca_cert.srl server.csr
 }
 
+# Generate server certificate and private key
 gen_rsa_sha256
-gen_client_key
+
+# Generate client certificate with provided name or default to "client"
+gen_client_cert_key_pair "${CLIENT_NAME:-client}"
 
