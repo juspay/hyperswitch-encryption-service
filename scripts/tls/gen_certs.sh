@@ -29,6 +29,10 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
+    --force-server)
+      FORCE_SERVER="true"
+      shift # past argument
+      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -94,9 +98,13 @@ function gen_rsa_sha256() {
   rm ca_cert.srl server.csr
 }
 
-# Generate server certificate and private key
-gen_rsa_sha256
+# Generate server certificate and private key (only if they don't exist or if forced)
+if [[ ! -f "rsa_sha256_cert.pem" || "$FORCE_SERVER" == "true" ]]; then
+    gen_rsa_sha256
+fi
 
-# Generate client certificate with provided name or default to "client"
+# Ensure CA exists for client cert signing
+gen_ca_if_non_existent
+# Generate client certificate with provided name (or default to "client")
 gen_client_cert_key_pair "${CLIENT_NAME:-client}"
 
