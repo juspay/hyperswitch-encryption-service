@@ -8,6 +8,7 @@ pub enum Identifier {
     Merchant(String),
     UserAuth(String),
     Entity(String),
+    ReconMerchant(String),
 }
 
 impl Identifier {
@@ -17,6 +18,7 @@ impl Identifier {
             Self::Merchant(id) => (String::from("Merchant"), id.clone()),
             Self::UserAuth(id) => (String::from("UserAuth"), id.clone()),
             Self::Entity(id) => (String::from("Entity"), id.clone()),
+            Self::ReconMerchant(id) => (String::from("ReconMerchant"), id.clone()),
         }
     }
 
@@ -28,10 +30,11 @@ impl Identifier {
 impl core::fmt::Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::User(s) => f.write_str(&format!("User_{}", s)),
-            Self::Merchant(s) => f.write_str(&format!("Merchant_{}", s)),
-            Self::UserAuth(s) => f.write_str(&format!("UserAuth_{}", s)),
-            Self::Entity(s) => f.write_str(&format!("Entity_{}", s)),
+            Self::User(s) => write!(f, "User_{s}"),
+            Self::Merchant(s) => write!(f, "Merchant_{s}"),
+            Self::UserAuth(s) => write!(f, "UserAuth_{s}"),
+            Self::Entity(s) => write!(f, "Entity_{s}"),
+            Self::ReconMerchant(s) => write!(f, "ReconMerchant_{s}"),
         }
     }
 }
@@ -47,6 +50,7 @@ impl TryFrom<(String, String)> for Identifier {
             ("Merchant", kid) => Ok(Self::Merchant(kid)),
             ("UserAuth", kid) => Ok(Self::UserAuth(kid)),
             ("Entity", kid) => Ok(Self::Entity(kid)),
+            ("ReconMerchant", kid) => Ok(Self::ReconMerchant(kid)),
             (_, _) => Err(error_stack::Report::from(
                 errors::ParsingError::ParsingFailed(String::from("Failed to parse Identifier")),
             )),
