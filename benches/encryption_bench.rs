@@ -119,7 +119,7 @@ pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
 fn generate_batch_data(size: u64) -> DecryptedDataGroup {
     let mut batch_map = FxHashMap::default();
     for i in 0..size {
-        let key = format!("key_{}", i);
+        let key = format!("key_{i}");
         let value = DecryptedData::from_data(
             (0..1024)
                 .map(|_| rand::random::<u8>())
@@ -205,7 +205,7 @@ pub fn criterion_batch_data_encryption_decryption(c: &mut Criterion) {
 fn generate_multi_batch_data(size: u64) -> MultipleDecryptionDataGroup {
     let mut batch_map = FxHashMap::default();
     for i in 0..size {
-        let key = format!("key_{}", i);
+        let key = format!("key_{i}");
         let value = DecryptedData::from_data(
             (0..1024)
                 .map(|_| rand::random::<u8>())
