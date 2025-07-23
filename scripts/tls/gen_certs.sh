@@ -40,7 +40,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [ "$PROD" == "true" ]; then
+# Check required arguments for production mode
+if [[ "$PROD" == "true" && (-z "$NAMESPACE" || -z "$SERVICE") ]]; then
+    echo "Error: --namespace and --service are required when using --prod"
+    exit 1
+fi
+
+# Check client name for invalid characters
+if [[ -n "$CLIENT_NAME" && ! "$CLIENT_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    echo "Error: Client name can only contain letters, numbers, hyphens, and underscores"
+    exit 1
+fi
+
+if [[ "$PROD" == "true" ]]; then
     ALT=$(printf "DNS:%s.%s.svc.cluster.local" $SERVICE $NAMESPACE)
     CA_SUBJECT="/C=US/ST=CA/O=Cripta CA/CN=Cripta CA"
     SUBJECT=$(printf "/C=US/ST=CA/O=Cripta/CN=%s.%s.svc.cluster.local" $SERVICE $NAMESPACE)
@@ -67,6 +79,10 @@ function gen_ca_if_non_existent() {
 
 function gen_client_cert_key_pair() {
     local client_name="${1:-client}"  # Default to "client" if no name provided
+
+    if [[ -f "client_${client_name}.pem" ]]; then
+        echo "Warning: Overwriting existing client certificate files for '${client_name}'"
+    fi
 
     # Generate client private key and CSR
     openssl req -newkey rsa:2048 -nodes -sha256 -keyout "client_${client_name}_key.pem" \
@@ -100,7 +116,12 @@ function gen_rsa_sha256() {
 
 # Generate server certificate and private key (only if they don't exist or if forced)
 if [[ ! -f "rsa_sha256_cert.pem" || "$FORCE_SERVER" == "true" ]]; then
+    if [[ -f "rsa_sha256_cert.pem" && "$FORCE_SERVER" == "true" ]]; then
+        echo "Warning: Overwriting existing server certificate files"
+    fi
     gen_rsa_sha256
+else
+    echo "Info: Server certificate files already exist, skipping generation (use --force-server to overwrite)"
 fi
 
 # Ensure CA exists for client cert signing
