@@ -51,7 +51,7 @@ impl Key {
 
         cache::get_or_populate_cache(
             state,
-            format!("key_{}:{}", identifier, version),
+            format!("key_{identifier}:{version}"),
             &cache::KEY_CACHE,
             get_and_decrypt_key(),
         )
@@ -74,7 +74,7 @@ impl Key {
                 v,
                 cache::get_or_populate_cache(
                     state,
-                    format!("key_{}:{}", identifier, v),
+                    format!("key_{identifier}:{v}"),
                     &cache::KEY_CACHE,
                     get_and_decrypt_key(v),
                 )
@@ -172,7 +172,7 @@ impl Version {
         let latest_version = db.get_latest_version(identifier);
         let v = cache::get_or_populate_cache(
             state,
-            format!("latest_version_{}", identifier),
+            format!("latest_version_{identifier}"),
             &cache::VERSION_CACHE,
             latest_version,
         )

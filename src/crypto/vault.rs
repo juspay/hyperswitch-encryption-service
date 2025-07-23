@@ -70,7 +70,7 @@ impl Crypto for Vault {
             .decode(response.random_bytes)
             .map_err(|err| report!(err).change_context(CryptoError::KeyGeneration))?;
         let buffer: [u8; 32] = key.try_into().map_err(|err: Vec<u8>| {
-            let err_bytes = format!("{:?}", err);
+            let err_bytes = format!("{err:?}");
             logger::debug!(err_bytes);
             report!(CryptoError::KeyGeneration)
         })?;
