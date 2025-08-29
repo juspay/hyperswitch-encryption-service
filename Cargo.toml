@@ -32,7 +32,7 @@ ulid = "1.1.2"
 tower = "0.4.13"
 trace = "0.1.7"
 tracing = "0.1.40"
-tracing-subscriber = {version = "0.3.18", default-features = true, features = ["env-filter", "json", "registry"] }
+tracing-subscriber = {version = "0.3.20", default-features = true, features = ["env-filter", "json", "registry"] }
 tracing-appender = "0.2.3"
 opentelemetry = { version = "0.23.0", features = ["metrics"] }
 opentelemetry_sdk = { version = "0.23.0", features = ["metrics"] }
