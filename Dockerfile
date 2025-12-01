@@ -1,4 +1,4 @@
-FROM rust:slim-bookworm as builder
+FROM rust:slim-trixie as builder
 
 
 RUN apt-get update \
@@ -10,7 +10,7 @@ COPY . .
 RUN cargo build --release --features release
 
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ARG CONFIG_DIR=/local/config
 ARG BIN_DIR=/local/bin
