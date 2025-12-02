@@ -112,14 +112,14 @@ impl SecretContainer {
             .expect("Failed while decrypting vault encrypted secret")
             .plaintext;
 
-            return masking::Secret::new(
+            masking::Secret::new(
                 String::from_utf8(
                     crate::consts::base64::BASE64_ENGINE
                         .decode(b64_encoded_str)
                         .expect("Failed to base64 decode the vault data"),
                 )
                 .expect("Invalid secret"),
-            );
+            )
         } else {
             self.0.clone()
         }
