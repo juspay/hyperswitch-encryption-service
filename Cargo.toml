@@ -4,9 +4,6 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.78"
 
-[patch.crates-io]
-tokio-rustls = { git = "https://github.com/rustls/tokio-rustls", rev = "3a153acec6c4d189eb5de501b2155b4484b8651b" } # main
-
 # All the AES,AWS,Vault features will be used as a runtime feature flag rather than compiletime
 [features]
 aes = []
@@ -22,7 +19,7 @@ async-trait = "0.1.80"
 aws-config = { version = "1.5.0" }
 aws-sdk-kms = { version = "1.29.0" }
 axum = { version = "0.7.5", features = ["macros"] }
-axum-server = {git = "https://github.com/dracarys18/axum-server.git",rev ="5430efefd14b43cbbc8e4faa50ff9274b8b8b7aa"}
+axum-server = "0.7.3"
 base64 = "0.22.1"
 blake3 = "1.5.4"
 cargo_metadata = "0.18.1"
@@ -104,4 +101,3 @@ unreachable = "warn"
 unwrap_in_result = "warn"
 unwrap_used = "warn"
 use_self = "warn"
-
