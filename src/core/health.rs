@@ -1,6 +1,8 @@
-use crate::{app::AppState, env::observability as logger, metrics};
-use axum::extract::State;
 use std::sync::Arc;
+
+use axum::extract::State;
+
+use crate::{app::AppState, env::observability as logger, metrics};
 
 pub(crate) async fn heath_check(
     State(_): State<Arc<AppState>>,

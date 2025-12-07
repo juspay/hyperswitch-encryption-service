@@ -1,6 +1,8 @@
-use super::DbState;
+use diesel::{BoolExpressionMethods, ExpressionMethods, QueryDsl, associations::HasTable};
+use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::bb8::Pool};
 use error_stack::ResultExt;
 
+use super::DbState;
 use crate::{
     errors::{self, CustomResult, SwitchError},
     schema::data_key_store::*,
@@ -9,10 +11,8 @@ use crate::{
         dek::DataKeyStorageInterface,
         types::{DataKey, DataKeyNew},
     },
-    types::{key::Version, Identifier},
+    types::{Identifier, key::Version},
 };
-use diesel::{associations::HasTable, BoolExpressionMethods, ExpressionMethods, QueryDsl};
-use diesel_async::{pooled_connection::bb8::Pool, AsyncPgConnection, RunQueryDsl};
 
 #[async_trait::async_trait]
 impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {

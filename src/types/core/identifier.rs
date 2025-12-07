@@ -1,5 +1,6 @@
-use crate::errors;
 use serde::{Deserialize, Serialize};
+
+use crate::errors;
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 #[serde(tag = "data_identifier", content = "key_identifier")]

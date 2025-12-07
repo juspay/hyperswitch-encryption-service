@@ -3,13 +3,13 @@ pub(crate) mod cache;
 pub(crate) mod dek;
 pub(crate) mod types;
 
+use diesel_async::{AsyncPgConnection, pooled_connection::bb8::PooledConnection};
+
+use self::adapter::{DbAdapter, DbAdapterType};
 use crate::{
     config::Config,
     errors::{self, CustomResult},
 };
-use diesel_async::{pooled_connection::bb8::PooledConnection, AsyncPgConnection};
-
-use self::adapter::{DbAdapter, DbAdapterType};
 
 #[derive(Clone)]
 pub struct DbState<C, T: DbAdapterType> {

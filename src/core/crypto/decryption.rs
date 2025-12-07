@@ -1,3 +1,6 @@
+use opentelemetry::KeyValue;
+
+use super::custodian::Custodian;
 use crate::{
     env::observability as logger,
     errors::{self, SwitchError},
@@ -5,9 +8,6 @@ use crate::{
     multitenancy::TenantState,
     types::{requests::DecryptionRequest, response::DecryptionResponse},
 };
-use opentelemetry::KeyValue;
-
-use super::custodian::Custodian;
 
 pub(super) async fn decryption(
     state: TenantState,

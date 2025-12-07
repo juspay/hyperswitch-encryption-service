@@ -1,6 +1,6 @@
 mod dek;
 
-use crate::storage::{adapter::Cassandra, errors, Config, DbState};
+use crate::storage::{Config, DbState, adapter::Cassandra, errors};
 
 #[async_trait::async_trait]
 impl super::DbAdapter for DbState<scylla::CachingSession, Cassandra> {

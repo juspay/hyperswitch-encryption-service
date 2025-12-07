@@ -1,11 +1,10 @@
+pub use tracing::{debug, error, info, trace, warn};
+
+pub use super::logger::{LogConfig, LogLevel, OnRequest, OnResponse};
 use super::{
     logger::{self, LogGuard},
     metrics::{self, MetricsGuard},
 };
-
-pub use super::logger::{LogConfig, LogLevel, OnRequest, OnResponse};
-
-pub use tracing::{debug, error, info, trace, warn};
 
 pub struct Guards {
     _log_guard: LogGuard,

@@ -1,7 +1,8 @@
-use crate::env::observability as logger;
 use diesel::result::{DatabaseErrorKind, Error as diesel_error};
-use error_stack::{report, ResultExt};
+use error_stack::{ResultExt, report};
 use thiserror::Error;
+
+use crate::env::observability as logger;
 
 #[derive(Error, Debug)]
 pub enum ConnectionError {

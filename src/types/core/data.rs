@@ -1,13 +1,14 @@
-use rustc_hash::FxHashMap;
+use std::fmt;
 
-use crate::{consts::base64::BASE64_ENGINE, types::key::Version};
 use base64::engine::Engine;
 use masking::PeekInterface;
+use rustc_hash::FxHashMap;
 use serde::{
-    de::{self, Deserialize, Deserializer, Unexpected, Visitor},
     Serialize,
+    de::{self, Deserialize, Deserializer, Unexpected, Visitor},
 };
-use std::fmt;
+
+use crate::{consts::base64::BASE64_ENGINE, types::key::Version};
 
 #[derive(Eq, PartialEq, Serialize, serde::Deserialize, Debug, Clone)]
 pub struct MultipleDecryptionDataGroup(pub Vec<DecryptedDataGroup>);
@@ -151,9 +152,8 @@ impl<'de> Deserialize<'de> for EncryptedData {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::core::key::Version;
-
     use super::*;
+    use crate::types::core::key::Version;
 
     #[allow(clippy::panic, clippy::unwrap_used)]
     #[test]

@@ -1,5 +1,5 @@
-use aws_config::{meta::region::RegionProviderChain, BehaviorVersion};
-use aws_sdk_kms::{config::Region, Client};
+use aws_config::{BehaviorVersion, meta::region::RegionProviderChain};
+use aws_sdk_kms::{Client, config::Region};
 
 /// Configuration parameters required for constructing a [`AwsKmsClient`].
 #[derive(Clone, Debug, Default, serde::Deserialize, PartialEq, Eq)]

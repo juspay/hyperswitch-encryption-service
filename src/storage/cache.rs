@@ -1,11 +1,10 @@
 mod core;
 mod statics;
 
-pub use core::*;
-pub use statics::*;
-
-use crate::multitenancy::TenantState;
 use moka::future::Cache as MokCache;
+
+pub use self::{core::*, statics::*};
+use crate::multitenancy::TenantState;
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct Key {

@@ -2,6 +2,10 @@ pub mod create;
 mod rotate;
 mod transfer;
 
+use axum::Json;
+use opentelemetry::KeyValue;
+
+use self::{create::*, rotate::*};
 use crate::{
     core::custodian::Custodian,
     env::observability as logger,
@@ -13,10 +17,6 @@ use crate::{
         response::DataKeyCreateResponse,
     },
 };
-use axum::Json;
-use create::*;
-use opentelemetry::KeyValue;
-use rotate::*;
 
 pub async fn create_data_key(
     state: TenantState,

@@ -1,5 +1,6 @@
-use crate::types::{key::Version, Identifier};
 use serde::{Deserialize, Serialize};
+
+use crate::types::{Identifier, key::Version};
 
 #[derive(Deserialize, Serialize)]
 pub struct DataKeyCreateResponse {

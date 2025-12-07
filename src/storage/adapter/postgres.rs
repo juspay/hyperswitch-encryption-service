@@ -1,15 +1,15 @@
 mod dek;
 
-use error_stack::ResultExt;
-
-use crate::storage::{adapter::PostgreSQL, errors, Config, Connection, DbState};
-use masking::PeekInterface;
-
 #[cfg(feature = "postgres_ssl")]
 use diesel::ConnectionError;
+use diesel_async::{
+    AsyncPgConnection,
+    pooled_connection::{AsyncDieselConnectionManager, ManagerConfig, bb8::Pool},
+};
+use error_stack::ResultExt;
+use masking::PeekInterface;
 
-use diesel_async::pooled_connection::{bb8::Pool, AsyncDieselConnectionManager, ManagerConfig};
-use diesel_async::AsyncPgConnection;
+use crate::storage::{Config, Connection, DbState, adapter::PostgreSQL, errors};
 
 #[async_trait::async_trait]
 impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {

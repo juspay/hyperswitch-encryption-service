@@ -1,3 +1,5 @@
+use opentelemetry::KeyValue;
+
 use super::custodian::Custodian;
 use crate::{
     env::observability as logger,
@@ -6,7 +8,6 @@ use crate::{
     multitenancy::TenantState,
     types::{requests::EncryptDataRequest, response::EncryptionResponse},
 };
-use opentelemetry::KeyValue;
 
 pub(super) async fn encryption(
     state: TenantState,

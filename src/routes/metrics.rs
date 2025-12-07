@@ -1,6 +1,8 @@
-use crate::{app::AppState, core::gather};
-use axum::{routing::get, Router};
 use std::sync::Arc;
+
+use axum::{Router, routing::get};
+
+use crate::{app::AppState, core::gather};
 
 pub struct Metrics;
 

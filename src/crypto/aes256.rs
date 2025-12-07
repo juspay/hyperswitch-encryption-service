@@ -1,19 +1,14 @@
-use error_stack::ResultExt;
-
 use core::fmt;
+
+use error_stack::ResultExt;
+use masking::{PeekInterface, StrongSecret};
+use ring::aead::{self, BoundKey, OpeningKey, SealingKey, UnboundKey};
+use serde::de::{self, Deserialize, Deserializer, Unexpected, Visitor};
 
 use crate::{
     crypto::{Crypto, Source},
     errors::{self, CustomResult, SwitchError},
 };
-
-use serde::de::{self, Deserialize, Deserializer, Unexpected, Visitor};
-
-use masking::PeekInterface;
-
-use ring::aead::{self, BoundKey, OpeningKey, SealingKey, UnboundKey};
-
-use masking::StrongSecret;
 
 #[derive(Debug, Clone, Default)]
 pub struct GcmAes256 {

@@ -1,3 +1,4 @@
+use base64::Engine;
 use error_stack::ResultExt;
 
 use crate::{
@@ -8,9 +9,8 @@ use crate::{
     errors::{self, SwitchError},
     multitenancy::TenantState,
     storage::dek::DataKeyStorageInterface,
-    types::{key::Version, requests::TransferKeyRequest, response::DataKeyCreateResponse, Key},
+    types::{Key, key::Version, requests::TransferKeyRequest, response::DataKeyCreateResponse},
 };
-use base64::Engine;
 
 pub async fn transfer_data_key(
     state: TenantState,

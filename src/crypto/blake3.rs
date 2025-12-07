@@ -1,5 +1,6 @@
-use crate::config::Config;
 use masking::{PeekInterface, Secret, StrongSecret};
+
+use crate::config::Config;
 
 pub struct Blake3(StrongSecret<[u8; 32]>);
 

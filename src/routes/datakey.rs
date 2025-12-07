@@ -1,5 +1,6 @@
-use axum::{routing::post, Router};
 use std::sync::Arc;
+
+use axum::{Router, routing::post};
 
 use crate::{app::AppState, core};
 pub struct DataKey;

@@ -1,22 +1,21 @@
+use std::str::FromStr;
+
 use error_stack::ensure;
 use masking::PeekInterface;
 use rayon::prelude::*;
-
 use rustc_hash::{FxHashMap, FxHashSet};
-use std::str::FromStr;
 
+use super::custodian::Custodian;
 use crate::{
-    crypto::{aes256::GcmAes256, Crypto, Source},
+    crypto::{Crypto, Source, aes256::GcmAes256},
     errors::{self, SwitchError},
     multitenancy::TenantState,
     storage::types::{DataKey, DataKeyNew},
     types::{
-        key::Version, DecryptedData, DecryptedDataGroup, EncryptedData, EncryptedDataGroup,
-        Identifier, Key, MultipleDecryptionDataGroup, MultipleEncryptionDataGroup,
+        DecryptedData, DecryptedDataGroup, EncryptedData, EncryptedDataGroup, Identifier, Key,
+        MultipleDecryptionDataGroup, MultipleEncryptionDataGroup, key::Version,
     },
 };
-
-use super::custodian::Custodian;
 
 #[async_trait::async_trait]
 pub trait KeyEncrypter<ToType> {

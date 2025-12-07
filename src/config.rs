@@ -1,31 +1,25 @@
-use crate::crypto::aes256::GcmAes256;
-use crate::{
-    crypto::KeyManagerClient,
-    env::observability::LogConfig,
-    errors::{self, CustomResult},
-};
-
-use std::num::NonZeroUsize;
-
-use config::File;
-use rustc_hash::FxHashMap;
-use serde::Deserialize;
-use std::sync::Arc;
-
-use crate::services::aws::{AwsKmsClient, AwsKmsConfig};
+use std::{num::NonZeroUsize, path::PathBuf, sync::Arc};
 
 use aws_sdk_kms::primitives::Blob;
-
+use config::File;
 use masking::PeekInterface;
-
-use crate::crypto::vault::{Vault, VaultSettings};
-
+use rustc_hash::FxHashMap;
+use serde::Deserialize;
 use vaultrs::{
     client::{VaultClient, VaultClientSettingsBuilder},
     transit,
 };
 
-use std::path::PathBuf;
+use crate::{
+    crypto::{
+        KeyManagerClient,
+        aes256::GcmAes256,
+        vault::{Vault, VaultSettings},
+    },
+    env::observability::LogConfig,
+    errors::{self, CustomResult},
+    services::aws::{AwsKmsClient, AwsKmsConfig},
+};
 
 pub mod vars {
     pub const RUN_ENV: &str = "RUN_ENV";
@@ -112,14 +106,14 @@ impl SecretContainer {
             .expect("Failed while decrypting vault encrypted secret")
             .plaintext;
 
-            return masking::Secret::new(
+            masking::Secret::new(
                 String::from_utf8(
                     crate::consts::base64::BASE64_ENGINE
                         .decode(b64_encoded_str)
                         .expect("Failed to base64 decode the vault data"),
                 )
                 .expect("Invalid secret"),
-            );
+            )
         } else {
             self.0.clone()
         }

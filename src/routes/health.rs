@@ -1,5 +1,6 @@
-use axum::{routing::get, Router};
 use std::sync::Arc;
+
+use axum::{Router, routing::get};
 
 use crate::{app::AppState, core};
 pub struct Health;

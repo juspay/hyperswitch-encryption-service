@@ -1,5 +1,5 @@
 use opentelemetry::global;
-use opentelemetry_sdk::{metrics::SdkMeterProvider, Resource};
+use opentelemetry_sdk::{Resource, metrics::SdkMeterProvider};
 use prometheus::default_registry;
 
 pub(super) struct MetricsGuard {

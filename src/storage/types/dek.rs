@@ -1,8 +1,9 @@
-use crate::{schema::data_key_store, types::key::Version};
 use charybdis::macros::charybdis_model;
 use diesel::{Identifiable, Insertable, Queryable};
 use masking::StrongSecret;
 use time::PrimitiveDateTime;
+
+use crate::{schema::data_key_store, types::key::Version};
 
 #[derive(Insertable)]
 #[diesel(table_name = data_key_store)]
