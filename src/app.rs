@@ -1,23 +1,19 @@
 #[cfg(feature = "mtls")]
 pub mod tls;
 
-use crate::storage::adapter;
-use crate::{
-    config::{Config, TenantConfig},
-    crypto::blake3::Blake3,
-    crypto::KeyManagerClient,
-    multitenancy::{MultiTenant, TenantId, TenantState},
-    storage::DbState,
-};
 use std::sync::Arc;
 
 #[cfg(not(feature = "cassandra"))]
-use diesel_async::pooled_connection::bb8::Pool;
-#[cfg(not(feature = "cassandra"))]
-use diesel_async::AsyncPgConnection;
-
+use diesel_async::{AsyncPgConnection, pooled_connection::bb8::Pool};
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use rustc_hash::FxHashMap;
+
+use crate::{
+    config::{Config, TenantConfig},
+    crypto::{KeyManagerClient, blake3::Blake3},
+    multitenancy::{MultiTenant, TenantId, TenantState},
+    storage::{DbState, adapter},
+};
 
 #[cfg(not(feature = "cassandra"))]
 pub(crate) type StorageState = DbState<Pool<AsyncPgConnection>, adapter::PostgreSQL>;

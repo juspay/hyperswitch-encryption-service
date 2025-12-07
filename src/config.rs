@@ -1,31 +1,25 @@
-use crate::crypto::aes256::GcmAes256;
-use crate::{
-    crypto::KeyManagerClient,
-    env::observability::LogConfig,
-    errors::{self, CustomResult},
-};
-
-use std::num::NonZeroUsize;
-
-use config::File;
-use rustc_hash::FxHashMap;
-use serde::Deserialize;
-use std::sync::Arc;
-
-use crate::services::aws::{AwsKmsClient, AwsKmsConfig};
+use std::{num::NonZeroUsize, path::PathBuf, sync::Arc};
 
 use aws_sdk_kms::primitives::Blob;
-
+use config::File;
 use masking::PeekInterface;
-
-use crate::crypto::vault::{Vault, VaultSettings};
-
+use rustc_hash::FxHashMap;
+use serde::Deserialize;
 use vaultrs::{
     client::{VaultClient, VaultClientSettingsBuilder},
     transit,
 };
 
-use std::path::PathBuf;
+use crate::{
+    crypto::{
+        KeyManagerClient,
+        aes256::GcmAes256,
+        vault::{Vault, VaultSettings},
+    },
+    env::observability::LogConfig,
+    errors::{self, CustomResult},
+    services::aws::{AwsKmsClient, AwsKmsConfig},
+};
 
 pub mod vars {
     pub const RUN_ENV: &str = "RUN_ENV";

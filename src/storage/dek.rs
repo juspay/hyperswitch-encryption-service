@@ -1,7 +1,7 @@
 use crate::{
     errors::{self, CustomResult},
     storage::types::{DataKey, DataKeyNew},
-    types::{key::Version, Identifier},
+    types::{Identifier, key::Version},
 };
 
 #[async_trait::async_trait]

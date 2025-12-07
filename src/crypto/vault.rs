@@ -1,15 +1,22 @@
-use crate::consts::base64::BASE64_ENGINE;
-use crate::crypto::{Crypto, Source};
-use crate::env::observability as logger;
-use crate::errors::{self, CryptoError, CustomResult};
+use std::pin::Pin;
+
 use base64::Engine;
 use error_stack::report;
 use futures::Future;
 use masking::{PeekInterface, StrongSecret};
 use serde::Deserialize;
-use std::pin::Pin;
-use vaultrs::client::{VaultClient, VaultClientSettingsBuilder};
-use vaultrs::{api, transit};
+use vaultrs::{
+    api,
+    client::{VaultClient, VaultClientSettingsBuilder},
+    transit,
+};
+
+use crate::{
+    consts::base64::BASE64_ENGINE,
+    crypto::{Crypto, Source},
+    env::observability as logger,
+    errors::{self, CryptoError, CustomResult},
+};
 
 #[derive(Debug, Deserialize, Clone, Default, PartialEq, Eq)]
 pub struct VaultSettings {

@@ -1,3 +1,22 @@
+use core::{fmt, fmt::Display};
+
+use charybdis::scylla::SerializeValue;
+use diesel::{
+    Queryable,
+    backend::Backend,
+    deserialize::{self, FromSql},
+    expression::AsExpression,
+    serialize::ToSql,
+    sql_types,
+};
+use masking::{Deserialize, Serialize, StrongSecret};
+use rustc_hash::{FxHashMap, FxHashSet};
+use scylla::{
+    deserialize::{DeserializeValue, FrameSlice},
+    frame::response::result::ColumnType,
+};
+use serde::de::{self, Deserializer, Unexpected, Visitor};
+
 use crate::{
     core::KeyDecrypter,
     crypto::Source,
@@ -7,26 +26,6 @@ use crate::{
     storage::{cache, dek::DataKeyStorageInterface},
     types::Identifier,
 };
-use core::fmt::Display;
-use diesel::{
-    backend::Backend,
-    deserialize::{self, FromSql},
-    expression::AsExpression,
-    serialize::ToSql,
-    sql_types, Queryable,
-};
-use rustc_hash::{FxHashMap, FxHashSet};
-
-use core::fmt;
-
-use charybdis::scylla::SerializeValue;
-use masking::StrongSecret;
-use masking::{Deserialize, Serialize};
-use scylla::{
-    deserialize::{DeserializeValue, FrameSlice},
-    frame::response::result::ColumnType,
-};
-use serde::de::{self, Deserializer, Unexpected, Visitor};
 
 #[derive(Clone)]
 pub struct Key {

@@ -1,11 +1,13 @@
+use std::{io::BufWriter, sync::Arc};
+
+use axum::extract::State;
+use error_stack::ResultExt;
+use prometheus::{Encoder, TextEncoder, default_registry};
+
 use crate::{
     app::AppState,
     errors::{self, ToContainerError},
 };
-use axum::extract::State;
-use error_stack::ResultExt;
-use prometheus::{default_registry, Encoder, TextEncoder};
-use std::{io::BufWriter, sync::Arc};
 
 pub async fn gather(State(_): State<Arc<AppState>>) -> errors::ApiResponseResult<Vec<u8>> {
     let registry = default_registry();

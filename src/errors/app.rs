@@ -1,6 +1,7 @@
-use super::SwitchError;
 use axum::response::{IntoResponse, Response};
 use hyper::StatusCode;
+
+use super::SwitchError;
 
 pub type ApiResponseResult<T> = Result<T, ApiErrorContainer>;
 
@@ -54,9 +55,7 @@ pub enum ApplicationErrorResponse {
     NotFound(&'static str),
     #[error("Invalid request provided {0}")]
     ParsingFailed(String),
-    #[error(
-        "Unique violation occurred. Please try to create the data with another key/identifier"
-    )]
+    #[error("Unique violation occurred. Please try to create the data with another key/identifier")]
     UniqueViolation,
     #[error("Authentication failed")]
     Unauthorized,

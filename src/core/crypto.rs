@@ -3,8 +3,11 @@ pub mod custodian;
 mod decryption;
 mod encryption;
 
+use axum::extract::Json;
 pub use crux::*;
+use opentelemetry::KeyValue;
 
+use self::custodian::Custodian;
 use crate::{
     errors, metrics,
     multitenancy::TenantState,
@@ -14,10 +17,6 @@ use crate::{
     },
     utils,
 };
-use axum::extract::Json;
-use opentelemetry::KeyValue;
-
-use self::custodian::Custodian;
 
 pub async fn encrypt_data(
     state: TenantState,

@@ -1,13 +1,14 @@
+use std::sync::Arc;
+
+use error_stack::ResultExt;
+use hyper::header;
+use rustc_hash::FxHashMap;
+
 use crate::{
     app::{AppState, SessionState, StorageState},
     consts::TENANT_HEADER,
     errors::{self, ApiErrorContainer, SwitchError, ToContainerError},
 };
-use error_stack::ResultExt;
-use hyper::header;
-use std::sync::Arc;
-
-use rustc_hash::FxHashMap;
 
 pub type MultiTenant<T> = FxHashMap<TenantId, T>;
 

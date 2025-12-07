@@ -4,7 +4,7 @@ use crate::{
     errors::{self, SwitchError},
     multitenancy::TenantState,
     storage::dek::DataKeyStorageInterface,
-    types::{requests::RotateDataKeyRequest, response::DataKeyCreateResponse, Key},
+    types::{Key, requests::RotateDataKeyRequest, response::DataKeyCreateResponse},
 };
 
 pub async fn generate_and_rotate_data_key(

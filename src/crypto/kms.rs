@@ -1,16 +1,14 @@
 use std::pin::Pin;
 
+use aws_sdk_kms::primitives::Blob;
 use futures::Future;
+use masking::{PeekInterface, StrongSecret};
 
 use crate::{
     crypto::{Crypto, Source},
     errors::{self, CustomResult, SwitchError},
     services::aws::AwsKmsClient,
 };
-
-use aws_sdk_kms::primitives::Blob;
-
-use masking::{PeekInterface, StrongSecret};
 
 #[async_trait::async_trait]
 impl Crypto for AwsKmsClient {

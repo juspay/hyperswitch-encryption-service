@@ -1,5 +1,6 @@
-use crate::types::Identifier;
 use serde::{Deserialize, Serialize};
+
+use crate::types::Identifier;
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateDataKeyRequest {

@@ -1,21 +1,18 @@
-use masking::StrongSecret;
-use strum::{Display, EnumString};
+pub(crate) mod aes256;
+pub(crate) mod blake3;
+pub(crate) mod kms;
+pub(crate) mod vault;
 
 use std::{ops::Deref, sync::Arc};
 
-use crate::errors::{self, CustomResult};
+use masking::StrongSecret;
+use strum::{Display, EnumString};
 
-pub(crate) mod aes256;
-
-pub(crate) mod blake3;
-
-use crate::crypto::aes256::GcmAes256;
-use crate::services::aws::AwsKmsClient;
-
-pub(crate) mod kms;
-
-pub(crate) mod vault;
-use crate::crypto::vault::Vault;
+use crate::{
+    crypto::{aes256::GcmAes256, vault::Vault},
+    errors::{self, CustomResult},
+    services::aws::AwsKmsClient,
+};
 
 #[derive(Clone, EnumString, Display)]
 pub enum Source {

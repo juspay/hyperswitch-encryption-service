@@ -12,9 +12,9 @@ pub struct EncryptDataRequest {
 #[cfg(test)]
 mod tests {
     use base64::Engine;
-
     use rustc_hash::FxHashMap;
 
+    use super::*;
     use crate::{
         consts::base64::BASE64_ENGINE,
         types::{
@@ -22,8 +22,6 @@ mod tests {
             method::EncryptionType,
         },
     };
-
-    use super::*;
 
     #[allow(clippy::panic, clippy::unwrap_used)]
     #[test]

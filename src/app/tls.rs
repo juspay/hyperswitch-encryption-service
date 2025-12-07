@@ -1,9 +1,9 @@
-use crate::config::Config;
-use masking::PeekInterface;
+use std::{io, sync::Arc};
 
-use rustls::{pki_types::CertificateDer, server::WebPkiClientVerifier, ServerConfig};
-use std::io;
-use std::sync::Arc;
+use masking::PeekInterface;
+use rustls::{ServerConfig, pki_types::CertificateDer, server::WebPkiClientVerifier};
+
+use crate::config::Config;
 
 pub async fn from_config(config: &Config) -> io::Result<ServerConfig> {
     let certs = config.certs.clone();

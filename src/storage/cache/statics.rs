@@ -1,6 +1,7 @@
-use super::Cache;
-use crate::types::{key::Version, Key};
 use once_cell::sync::Lazy;
+
+use super::Cache;
+use crate::types::{Key, key::Version};
 
 const TIME_TO_LIVE: u64 = 30;
 const TIME_TO_IDLE: u64 = 30;

@@ -1,7 +1,7 @@
-use charybdis::operations::Insert;
+use charybdis::{operations::Insert, options::Consistency};
+use error_stack::ResultExt;
 
 use super::DbState;
-
 use crate::{
     env::observability as logger,
     errors::{self, CustomResult, DatabaseError, SwitchError},
@@ -10,11 +10,8 @@ use crate::{
         dek::DataKeyStorageInterface,
         types::{DataKey, DataKeyNew},
     },
-    types::{key::Version, Identifier},
+    types::{Identifier, key::Version},
 };
-
-use charybdis::options::Consistency;
-use error_stack::ResultExt;
 
 #[async_trait::async_trait]
 impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {

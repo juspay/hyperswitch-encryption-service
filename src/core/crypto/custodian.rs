@@ -1,16 +1,17 @@
 use std::sync::Arc;
 
-use axum::extract::FromRequestParts;
-use axum::http::request;
+use axum::{extract::FromRequestParts, http::request};
 use base64::Engine;
-use error_stack::{ensure, ResultExt};
+use error_stack::{ResultExt, ensure};
 use hyper::header;
 use masking::{PeekInterface, Secret, StrongSecret};
 
-use crate::app::AppState;
-use crate::consts::base64::BASE64_ENGINE;
-use crate::errors::{ApiErrorContainer, CustomResult, ParsingError, SwitchError, ToContainerError};
-use crate::multitenancy::TenantState;
+use crate::{
+    app::AppState,
+    consts::base64::BASE64_ENGINE,
+    errors::{ApiErrorContainer, CustomResult, ParsingError, SwitchError, ToContainerError},
+    multitenancy::TenantState,
+};
 
 #[derive(Clone)]
 pub struct Custodian {

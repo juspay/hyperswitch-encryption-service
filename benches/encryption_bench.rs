@@ -9,7 +9,7 @@ use cripta::{
         requests::CreateDataKeyRequest,
     },
 };
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use rustc_hash::FxHashMap;
 use tokio::runtime::Runtime;
 

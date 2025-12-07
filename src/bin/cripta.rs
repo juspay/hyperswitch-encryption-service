@@ -1,22 +1,19 @@
 #![allow(clippy::panic, clippy::expect_used)]
 
-use axum::{body::Body, Router};
-use hyper::Request;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 
-use tower::ServiceBuilder;
-use tower_http::{trace::TraceLayer, ServiceBuilderExt};
-
+use axum::{Router, body::Body};
 use cripta::{
     app::AppState,
     config,
     consts::{TENANT_HEADER, X_REQUEST_ID},
-    env::observability,
-    env::observability as logger,
+    env::{observability, observability as logger},
     request_id::MakeUlid,
     routes::*,
 };
-use std::sync::Arc;
+use hyper::Request;
+use tower::ServiceBuilder;
+use tower_http::{ServiceBuilderExt, trace::TraceLayer};
 
 #[tokio::main]
 async fn main() {

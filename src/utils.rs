@@ -1,10 +1,10 @@
-use crate::errors::{self, ToContainerError};
-use axum::Json;
-use once_cell::sync::Lazy;
-use opentelemetry::metrics::Histogram;
 use std::time;
 
-use opentelemetry::KeyValue;
+use axum::Json;
+use once_cell::sync::Lazy;
+use opentelemetry::{KeyValue, metrics::Histogram};
+
+use crate::errors::{self, ToContainerError};
 
 pub(crate) async fn record_api_operation<F, T>(
     fut: F,
