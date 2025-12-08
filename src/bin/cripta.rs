@@ -26,7 +26,7 @@ async fn main() {
         .parse()
         .expect("Unable to parse host");
 
-    logger::info!("Application starting [{:?}] [{:?}]", config.server, config);
+    logger::info!(?config, "Application starting");
 
     let state = Arc::new(AppState::from_config(config).await);
 
