@@ -15,7 +15,7 @@ pub(super) fn setup_metrics_pipeline() -> MetricsGuard {
         .build()
         .expect("Failed to build metrics pipeline");
 
-    let resource = Resource::default();
+    let resource = Resource::builder().build();
     let meter_provider = SdkMeterProvider::builder()
         .with_resource(resource)
         .with_reader(exporter)
