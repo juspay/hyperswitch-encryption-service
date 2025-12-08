@@ -1,7 +1,7 @@
 mod core;
 mod statics;
 
-use moka::future::Cache as MokCache;
+use moka::future::Cache as MokaCache;
 
 pub use self::{core::*, statics::*};
 use crate::multitenancy::TenantState;
@@ -27,7 +27,7 @@ pub struct Cache<V: Send + Sync + Clone>
 where
     V: Send + Sync + Clone,
 {
-    inner: MokCache<Key, V>,
+    inner: MokaCache<Key, V>,
 }
 
 impl<V> Cache<V>
@@ -35,7 +35,7 @@ where
     V: Send + Sync + Clone + 'static,
 {
     fn new(time_to_live: u64, time_to_idle: u64, max_capacity: Option<u64>) -> Self {
-        let mut cache_builder = MokCache::builder()
+        let mut cache_builder = MokaCache::builder()
             .time_to_idle(std::time::Duration::from_secs(time_to_live))
             .time_to_idle(std::time::Duration::from_secs(time_to_idle));
 

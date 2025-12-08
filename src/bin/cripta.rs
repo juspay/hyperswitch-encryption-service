@@ -20,13 +20,13 @@ async fn main() {
     let config = config::Config::with_config_path(config::Environment::which(), None);
     config.validate();
 
-    let _guard = observability::setup(&config.log, []);
+    let _guard = observability::setup(&config.log, [], env!("CARGO_BIN_NAME"));
 
     let host: SocketAddr = format!("{}:{}", &config.server.host, config.server.port)
         .parse()
         .expect("Unable to parse host");
 
-    logger::info!("Application starting [{:?}] [{:?}]", config.server, config);
+    logger::info!(?config, "Application starting");
 
     let state = Arc::new(AppState::from_config(config).await);
 
@@ -58,6 +58,10 @@ async fn main() {
     {
         use axum_server::tls_rustls::RustlsConfig;
         use cripta::app::tls;
+
+        rustls::crypto::aws_lc_rs::default_provider()
+            .install_default()
+            .expect("unable to install default crypto provider");
 
         let tls = tls::from_config(&state.conf)
             .await
