@@ -1,5 +1,6 @@
 use base64::Engine;
 use error_stack::ResultExt;
+use masking::PeekInterface;
 
 use crate::{
     consts::base64::BASE64_ENGINE,
@@ -17,8 +18,8 @@ pub async fn transfer_data_key(
     custodian: Custodian,
     req: TransferKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
-    let db = &state.get_db_pool();
-    let key = BASE64_ENGINE.decode(req.key).change_context(
+    let db = state.get_db_pool();
+    let key = BASE64_ENGINE.decode(req.key.peek()).change_context(
         errors::ApplicationErrorResponse::InternalServerError("Failed to decode the base64 key"),
     )?;
     let key = <[u8; 32]>::try_from(key).map_err(|_| {
