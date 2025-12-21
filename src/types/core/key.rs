@@ -62,7 +62,7 @@ impl Key {
         identifier: &Identifier,
         version: FxHashSet<Version>,
     ) -> errors::CustomResult<FxHashMap<Version, Self>, errors::DatabaseError> {
-        let db = &state.get_db_pool();
+        let db = state.get_db_pool();
         let get_and_decrypt_key = |v: Version| async move {
             let key = db.get_key(v, identifier).await?;
             key.decrypt(state).await.switch()
