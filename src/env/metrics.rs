@@ -7,7 +7,7 @@ pub(super) struct MetricsGuard {
 }
 
 #[allow(clippy::expect_used)]
-pub(super) fn setup_metrics_pipeline() -> MetricsGuard {
+pub(super) fn setup_metrics_pipeline(service_name: &'static str) -> MetricsGuard {
     let registry = default_registry();
 
     let exporter = opentelemetry_prometheus::exporter()
@@ -15,7 +15,7 @@ pub(super) fn setup_metrics_pipeline() -> MetricsGuard {
         .build()
         .expect("Failed to build metrics pipeline");
 
-    let resource = Resource::default();
+    let resource = Resource::builder().with_service_name(service_name).build();
     let meter_provider = SdkMeterProvider::builder()
         .with_resource(resource)
         .with_reader(exporter)

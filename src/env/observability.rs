@@ -11,9 +11,13 @@ pub struct Guards {
     _metrics_guard: MetricsGuard,
 }
 
-pub fn setup(log_config: &LogConfig, crates_to_filter: impl AsRef<[&'static str]>) -> Guards {
+pub fn setup(
+    log_config: &LogConfig,
+    crates_to_filter: impl AsRef<[&'static str]>,
+    service_name: &'static str,
+) -> Guards {
     let log_guard = logger::setup_logging_pipeline(log_config, crates_to_filter);
-    let metrics_guard = metrics::setup_metrics_pipeline();
+    let metrics_guard = metrics::setup_metrics_pipeline(service_name);
 
     Guards {
         _log_guard: log_guard,
