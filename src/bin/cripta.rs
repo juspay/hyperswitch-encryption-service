@@ -28,6 +28,11 @@ async fn main() {
 
     logger::info!(?config, "Application starting");
 
+    #[cfg(any(feature = "mtls", feature = "postgres_ssl"))]
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("unable to install default crypto provider");
+
     let state = Arc::new(AppState::from_config(config).await);
 
     let middleware = ServiceBuilder::new()
@@ -58,10 +63,6 @@ async fn main() {
     {
         use axum_server::tls_rustls::RustlsConfig;
         use cripta::app::tls;
-
-        rustls::crypto::aws_lc_rs::default_provider()
-            .install_default()
-            .expect("unable to install default crypto provider");
 
         let tls = tls::from_config(&state.conf)
             .await
