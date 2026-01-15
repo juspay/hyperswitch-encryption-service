@@ -1,7 +1,6 @@
-use charybdis::operations::Insert;
 #[cfg(feature = "aws")]
 use charybdis::operations::Update;
-use charybdis::options::Consistency;
+use charybdis::{operations::Insert, options::Consistency};
 use error_stack::ResultExt;
 
 use super::DbState;
