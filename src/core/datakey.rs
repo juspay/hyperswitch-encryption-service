@@ -11,7 +11,10 @@ use crate::{
     errors::{self, ToContainerError},
     multitenancy::TenantState,
     types::{
-        requests::{CreateDataKeyRequest, ReEncryptDataKeysRequest, RotateDataKeyRequest, TransferKeyRequest},
+        requests::{
+            CreateDataKeyRequest, ReEncryptDataKeysRequest, RotateDataKeyRequest,
+            TransferKeyRequest,
+        },
         response::{DataKeyCreateResponse, ReEncryptDataKeysResponse},
     },
 };
