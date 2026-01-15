@@ -67,10 +67,7 @@ impl SecretContainer {
                 .expect("Unable to base64 decode secret");
 
             let plaintext_blob = Blob::new(data);
-            let mut decrypt_request = kms
-                .inner_client()
-                .decrypt()
-                .ciphertext_blob(plaintext_blob);
+            let mut decrypt_request = kms.inner_client().decrypt().ciphertext_blob(plaintext_blob);
 
             // Respect skip_key_id_on_decrypt flag for config secrets too
             if !kms.skip_key_id_on_decrypt() {
