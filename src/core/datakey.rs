@@ -1,4 +1,5 @@
 pub mod create;
+#[cfg(feature = "aws")]
 mod reencrypt;
 mod rotate;
 mod transfer;
@@ -6,7 +7,9 @@ mod transfer;
 use axum::Json;
 use opentelemetry::KeyValue;
 
-use self::{create::*, reencrypt::*, rotate::*};
+#[cfg(feature = "aws")]
+use self::reencrypt::*;
+use self::{create::*, rotate::*};
 use crate::{
     core::custodian::Custodian,
     env::observability as logger,
@@ -89,12 +92,26 @@ pub async fn reencrypt_data_keys_handler(
     state: TenantState,
     Json(req): Json<ReEncryptDataKeysRequest>,
 ) -> errors::ApiResponseResult<Json<ReEncryptDataKeysResponse>> {
-    reencrypt_data_keys(state, req)
-        .await
-        .map(Json)
-        .map_err(|err| {
-            logger::error!(reencrypt_failure=?err);
-            err
-        })
+    #[cfg(feature = "aws")]
+    {
+        reencrypt_data_keys(state, req)
+            .await
+            .map(Json)
+            .map_err(|err| {
+                logger::error!(reencrypt_failure=?err);
+                err
+            })
+            .to_container_error()
+    }
+
+    #[cfg(not(feature = "aws"))]
+    {
+        let _ = (state, req);
+        Err(error_stack::report!(
+            errors::ApplicationErrorResponse::InternalServerError(
+                "Re-encryption is only available when using AWS KMS"
+            )
+        ))
         .to_container_error()
+    }
 }

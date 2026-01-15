@@ -1,7 +1,7 @@
-use charybdis::{
-    operations::{Insert, Update},
-    options::Consistency,
-};
+use charybdis::operations::Insert;
+#[cfg(feature = "aws")]
+use charybdis::operations::Update;
+use charybdis::options::Consistency;
 use error_stack::ResultExt;
 
 use super::DbState;
@@ -84,6 +84,7 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
         Ok(data_key)
     }
 
+    #[cfg(feature = "aws")]
     async fn get_all_keys_for_identifier(
         &self,
         identifier: &Identifier,
@@ -103,6 +104,7 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
         Ok(data_keys)
     }
 
+    #[cfg(feature = "aws")]
     async fn get_all_keys(&self) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
         // Note: Cassandra doesn't support efficient full table scans
         // This is a limitation of the database design and should be used carefully
@@ -110,6 +112,7 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
             .attach_printable("get_all_keys is not supported for Cassandra due to inefficient full table scans. Use get_all_keys_for_identifier instead."))
     }
 
+    #[cfg(feature = "aws")]
     async fn update_key(&self, key: &DataKey) -> CustomResult<(), errors::DatabaseError> {
         let connection = self.get_conn().await.switch()?;
 

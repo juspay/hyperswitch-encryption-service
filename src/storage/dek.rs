@@ -19,10 +19,13 @@ pub trait DataKeyStorageInterface {
         v: Version,
         identifier: &Identifier,
     ) -> CustomResult<DataKey, errors::DatabaseError>;
+    #[cfg(feature = "aws")]
     async fn get_all_keys_for_identifier(
         &self,
         identifier: &Identifier,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError>;
+    #[cfg(feature = "aws")]
     async fn get_all_keys(&self) -> CustomResult<Vec<DataKey>, errors::DatabaseError>;
+    #[cfg(feature = "aws")]
     async fn update_key(&self, key: &DataKey) -> CustomResult<(), errors::DatabaseError>;
 }

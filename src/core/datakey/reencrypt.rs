@@ -46,28 +46,49 @@ pub async fn reencrypt_data_keys(
         "Starting re-encryption of data keys"
     );
 
-    for data_key in data_keys {
-        let identifier_str = format!(
-            "{}:{}:{}",
-            data_key.data_identifier, data_key.key_identifier, data_key.version
-        );
+    // Process DEKs with bounded concurrency to respect KMS rate limits
+    // and improve performance for large datasets
+    const MAX_CONCURRENT_REENCRYPTIONS: usize = 10;
 
-        match reencrypt_single_key(&state, data_key).await {
-            Ok(()) => {
-                success_count += 1;
-                logger::info!(
-                    identifier = identifier_str.as_str(),
-                    "Successfully re-encrypted DEK"
+    use futures::stream::{self, StreamExt};
+
+    let results = stream::iter(data_keys)
+        .map(|data_key| {
+            let state = state.clone();
+            async move {
+                let identifier_str = format!(
+                    "{}:{}:{}",
+                    data_key.data_identifier, data_key.key_identifier, data_key.version
                 );
+
+                match reencrypt_single_key(&state, data_key).await {
+                    Ok(()) => {
+                        logger::info!(
+                            identifier = identifier_str.as_str(),
+                            "Successfully re-encrypted DEK"
+                        );
+                        Ok(())
+                    }
+                    Err(err) => {
+                        logger::error!(
+                            identifier = identifier_str.as_str(),
+                            error = ?err,
+                            "Failed to re-encrypt DEK"
+                        );
+                        Err(())
+                    }
+                }
             }
-            Err(err) => {
-                failure_count += 1;
-                logger::error!(
-                    identifier = identifier_str.as_str(),
-                    error = ?err,
-                    "Failed to re-encrypt DEK"
-                );
-            }
+        })
+        .buffer_unordered(MAX_CONCURRENT_REENCRYPTIONS)
+        .collect::<Vec<_>>()
+        .await;
+
+    // Count successes and failures
+    for result in results {
+        match result {
+            Ok(()) => success_count += 1,
+            Err(()) => failure_count += 1,
         }
     }
 
