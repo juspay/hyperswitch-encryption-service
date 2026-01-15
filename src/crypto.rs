@@ -47,6 +47,9 @@ pub trait KeyManagement {
         &self,
         input: StrongSecret<Vec<u8>>,
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError>;
+
+    /// Support downcasting for type-specific operations
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 #[async_trait::async_trait]
@@ -85,6 +88,10 @@ impl KeyManagement for AwsKmsClient {
         )
         .await
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 #[async_trait::async_trait]
 impl KeyManagement for GcmAes256 {
@@ -121,6 +128,10 @@ impl KeyManagement for GcmAes256 {
             metrics::KeyManagerOperation::Decrypt,
         )
         .await
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -159,6 +170,10 @@ impl KeyManagement for Vault {
             metrics::KeyManagerOperation::Decrypt,
         )
         .await
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

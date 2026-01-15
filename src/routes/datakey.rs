@@ -11,6 +11,7 @@ impl DataKey {
             .route("/create", post(core::create_data_key))
             .route("/rotate", post(core::rotate_data_key))
             .route("/transfer", post(core::transfer_data_key))
+            .route("/reencrypt", post(core::reencrypt_data_keys_handler))
             .with_state(state)
     }
 }
