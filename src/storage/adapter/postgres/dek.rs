@@ -103,12 +103,11 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     async fn update_key(&self, key: &DataKey) -> CustomResult<(), errors::DatabaseError> {
         let mut connection = self.get_conn().await.switch()?;
 
-        let query = diesel::update(DataKey::table().find(key.id))
-            .set((
-                encryption_key.eq(&key.encryption_key),
-                source.eq(&key.source),
-                token.eq(&key.token),
-            ));
+        let query = diesel::update(DataKey::table().find(key.id)).set((
+            encryption_key.eq(&key.encryption_key),
+            source.eq(&key.source),
+            token.eq(&key.token),
+        ));
 
         query.execute(&mut connection).await.switch()?;
         Ok(())

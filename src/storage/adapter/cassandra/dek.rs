@@ -1,4 +1,7 @@
-use charybdis::{operations::{Insert, Update}, options::Consistency};
+use charybdis::{
+    operations::{Insert, Update},
+    options::Consistency,
+};
 use error_stack::ResultExt;
 
 use super::DbState;
@@ -88,12 +91,11 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
         let (data_id, key_id) = identifier.get_identifier();
         let connection = self.get_conn().await.switch()?;
 
-        let data_keys_stream =
-            DataKey::find_by_key_identifier_and_data_identifier(key_id, data_id)
-                .consistency(scylla::statement::Consistency::LocalQuorum)
-                .execute(connection)
-                .await
-                .switch()?;
+        let data_keys_stream = DataKey::find_by_key_identifier_and_data_identifier(key_id, data_id)
+            .consistency(scylla::statement::Consistency::LocalQuorum)
+            .execute(connection)
+            .await
+            .switch()?;
 
         // Collect the stream into a Vec
         let data_keys: Vec<DataKey> = data_keys_stream.try_collect().await.switch()?;

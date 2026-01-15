@@ -14,7 +14,10 @@ use crate::{
     metrics,
     multitenancy::TenantState,
     types::{
-        requests::{CreateDataKeyRequest, ReEncryptDataKeysRequest, RotateDataKeyRequest, TransferKeyRequest},
+        requests::{
+            CreateDataKeyRequest, ReEncryptDataKeysRequest, RotateDataKeyRequest,
+            TransferKeyRequest,
+        },
         response::{DataKeyCreateResponse, ReEncryptDataKeysResponse},
     },
 };

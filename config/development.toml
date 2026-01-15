@@ -31,7 +31,12 @@ schema = "global"
 log_level = "debug"
 log_format = "console"
 
-[secrets.kms_config]
-key_id = "arn:aws:kms:eu-central-1:701342709052:key/f2a87638-cbcd-4109-95a7-43bdd238eeb1"
-region = "eu-central-1"
-skip_key_id_on_decrypt = true
+[secrets]
+master_key = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"
+access_token = "secret123"
+hash_context = "keymanager:hyperswitch"
+
+# [secrets.kms_config]
+# key_id = ""
+# region = ""
+# skip_key_id_on_decrypt = false # Optional

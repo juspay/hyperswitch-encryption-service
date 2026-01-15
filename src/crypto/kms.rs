@@ -76,10 +76,7 @@ impl Crypto for AwsKmsClient {
                 decrypt_request = decrypt_request.key_id(self.key_id());
             }
 
-            let encrypted_output = decrypt_request
-                .send()
-                .await
-                .switch()?;
+            let encrypted_output = decrypt_request.send().await.switch()?;
 
             let output = encrypted_output.plaintext.ok_or(error_stack::report!(
                 errors::CryptoError::EncryptionFailed("KMS")
