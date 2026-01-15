@@ -10,6 +10,9 @@ pub struct AwsKmsConfig {
 
     /// The AWS region to send KMS requests to.
     pub region: String,
+
+    /// When true, omits key_id from decryption requests, allowing KMS to determine the key from ciphertext metadata.
+    pub skip_key_id_on_decrypt: bool,
 }
 
 /// Client for AWS KMS operations.
@@ -17,6 +20,7 @@ pub struct AwsKmsConfig {
 pub struct AwsKmsClient {
     inner_client: Client,
     key_id: String,
+    skip_key_id_on_decrypt: bool,
 }
 
 impl AwsKmsClient {
@@ -30,6 +34,7 @@ impl AwsKmsClient {
         Self {
             inner_client: Client::new(&sdk_config),
             key_id: config.key_id.clone(),
+            skip_key_id_on_decrypt: config.skip_key_id_on_decrypt,
         }
     }
 
@@ -39,5 +44,9 @@ impl AwsKmsClient {
 
     pub fn key_id(&self) -> &str {
         &self.key_id
+    }
+
+    pub fn skip_key_id_on_decrypt(&self) -> bool {
+        self.skip_key_id_on_decrypt
     }
 }
