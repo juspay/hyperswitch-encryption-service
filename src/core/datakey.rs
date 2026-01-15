@@ -1,11 +1,12 @@
 pub mod create;
+mod reencrypt;
 mod rotate;
 mod transfer;
 
 use axum::Json;
 use opentelemetry::KeyValue;
 
-use self::{create::*, rotate::*};
+use self::{create::*, reencrypt::*, rotate::*};
 use crate::{
     core::custodian::Custodian,
     env::observability as logger,
@@ -13,8 +14,8 @@ use crate::{
     metrics,
     multitenancy::TenantState,
     types::{
-        requests::{CreateDataKeyRequest, RotateDataKeyRequest, TransferKeyRequest},
-        response::DataKeyCreateResponse,
+        requests::{CreateDataKeyRequest, ReEncryptDataKeysRequest, RotateDataKeyRequest, TransferKeyRequest},
+        response::{DataKeyCreateResponse, ReEncryptDataKeysResponse},
     },
 };
 
@@ -78,5 +79,19 @@ pub async fn transfer_data_key(
     transfer::transfer_data_key(state, custodian, req)
         .await
         .map(Json)
+        .to_container_error()
+}
+
+pub async fn reencrypt_data_keys_handler(
+    state: TenantState,
+    Json(req): Json<ReEncryptDataKeysRequest>,
+) -> errors::ApiResponseResult<Json<ReEncryptDataKeysResponse>> {
+    reencrypt_data_keys(state, req)
+        .await
+        .map(Json)
+        .map_err(|err| {
+            logger::error!(reencrypt_failure=?err);
+            err
+        })
         .to_container_error()
 }
