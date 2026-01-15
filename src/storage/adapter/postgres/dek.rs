@@ -130,6 +130,7 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
             .switch()
     }
 
+    #[cfg(feature = "aws")]
     async fn get_all_keys_for_identifier(
         &self,
         identifier: &Identifier,
@@ -145,6 +146,7 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
         query.get_results(&mut connection).await.switch()
     }
 
+    #[cfg(feature = "aws")]
     async fn get_all_keys(&self) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
         let mut connection = self.get_conn().await.switch()?;
 
@@ -153,6 +155,7 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
         query.get_results(&mut connection).await.switch()
     }
 
+    #[cfg(feature = "aws")]
     async fn update_key(&self, key: &DataKey) -> CustomResult<(), errors::DatabaseError> {
         let mut connection = self.get_conn().await.switch()?;
 
