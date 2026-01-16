@@ -65,14 +65,18 @@ impl Crypto for AwsKmsClient {
     fn decrypt(&self, input: StrongSecret<Vec<u8>>) -> Self::DataReturn<'_> {
         Box::pin(async move {
             let plaintext_blob = Blob::new(input.peek().to_vec());
-            let encrypted_output = self
+            let mut decrypt_request = self
                 .inner_client()
                 .decrypt()
-                .key_id(self.key_id())
-                .ciphertext_blob(plaintext_blob)
-                .send()
-                .await
-                .switch()?;
+                .ciphertext_blob(plaintext_blob);
+
+            // Only include key_id in decrypt if skip_key_id_on_decrypt is false
+            // When true, KMS determines the key from the ciphertext metadata
+            if !self.skip_key_id_on_decrypt() {
+                decrypt_request = decrypt_request.key_id(self.key_id());
+            }
+
+            let encrypted_output = decrypt_request.send().await.switch()?;
 
             let output = encrypted_output.plaintext.ok_or(error_stack::report!(
                 errors::CryptoError::EncryptionFailed("KMS")
