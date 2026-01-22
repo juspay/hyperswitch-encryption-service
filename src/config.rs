@@ -67,11 +67,13 @@ impl SecretContainer {
                 .expect("Unable to base64 decode secret");
 
             let plaintext_blob = Blob::new(data);
-            let decrypted_output = kms
-                .inner_client()
-                .decrypt()
-                .key_id(kms.key_id())
-                .ciphertext_blob(plaintext_blob)
+            let mut decrypt_request = kms.inner_client().decrypt().ciphertext_blob(plaintext_blob);
+
+            if !kms.skip_key_id_on_decrypt() {
+                decrypt_request = decrypt_request.key_id(kms.key_id());
+            }
+
+            let decrypted_output = decrypt_request
                 .send()
                 .await
                 .expect("Unable to decrypt KMS encrypted secret")
