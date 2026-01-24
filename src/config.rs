@@ -69,7 +69,6 @@ impl SecretContainer {
             let plaintext_blob = Blob::new(data);
             let mut decrypt_request = kms.inner_client().decrypt().ciphertext_blob(plaintext_blob);
 
-            // Respect skip_key_id_on_decrypt flag for config secrets too
             if !kms.skip_key_id_on_decrypt() {
                 decrypt_request = decrypt_request.key_id(kms.key_id());
             }
