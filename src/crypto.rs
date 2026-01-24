@@ -6,6 +6,7 @@ pub(crate) mod vault;
 use std::{ops::Deref, sync::Arc};
 
 use masking::StrongSecret;
+use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
 use crate::{
@@ -14,7 +15,7 @@ use crate::{
     services::aws::AwsKmsClient,
 };
 
-#[derive(Clone, EnumString, Display)]
+#[derive(Clone, EnumString, Display, Deserialize, Serialize)]
 pub enum Source {
     KMS,
     AESLocal,

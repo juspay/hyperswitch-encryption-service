@@ -2,15 +2,18 @@
 
 use std::{net::SocketAddr, sync::Arc};
 
-use axum::{Router, body::Body};
+use axum::{Router, body::Body, routing::post};
 use cripta::{
     app::AppState,
     config,
     consts::{TENANT_HEADER, X_REQUEST_ID},
+    core::datakey::list_data_keys_handler,
     env::{observability, observability as logger},
     request_id::MakeUlid,
     routes::*,
 };
+#[cfg(feature = "aws")]
+use cripta::core::datakey::reencrypt_data_keys_handler;
 use hyper::Request;
 use tower::ServiceBuilder;
 use tower_http::{ServiceBuilderExt, trace::TraceLayer};
@@ -96,10 +99,33 @@ async fn spawn_metrics_server(state: Arc<AppState>) {
         &state.conf.metrics_server
     );
 
-    let app = Router::new()
+    let middleware = ServiceBuilder::new()
+        .set_x_request_id(MakeUlid)
+        .propagate_x_request_id()
+        .layer(
+            TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
+                let tenant_id = request.headers().get(TENANT_HEADER).and_then(|r| r.to_str().ok()).unwrap_or("invalid_tenant");
+                let request_id = request.headers().get(X_REQUEST_ID).and_then(|r| r.to_str().ok()).unwrap_or("unknown_id");
+
+                tracing::debug_span!("request",request_id = %request_id,method = %request.method(), uri=%request.uri(), tenant_id=%tenant_id)
+            })
+            .on_request(logger::OnRequest::with_level(logger::LogLevel::Info))
+            .on_response(logger::OnResponse::with_level(logger::LogLevel::Info))
+        );
+
+    let mut app = Router::new()
         .nest("/health", Health::server(state.clone()))
         .nest("/metrics", Metrics::server(state.clone()))
-        .with_state(state);
+        .route("/key/list", post(list_data_keys_handler));
+
+    #[cfg(feature = "aws")]
+    {
+        app = app.route("/key/reencrypt", post(reencrypt_data_keys_handler));
+    }
+
+    app = app.layer(middleware);
+
+    let app = app.with_state(state);
 
     axum_server::bind(host)
         .serve(app.into_make_service())

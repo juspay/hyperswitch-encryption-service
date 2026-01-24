@@ -1,7 +1,5 @@
 use crate::{
-    errors::{self, CustomResult},
-    storage::types::{DataKey, DataKeyNew},
-    types::{Identifier, key::Version},
+    crypto::Source, errors::{self, CustomResult}, storage::types::{DataKey, DataKeyNew}, types::{Identifier, key::Version}
 };
 
 #[async_trait::async_trait]
@@ -19,6 +17,11 @@ pub trait DataKeyStorageInterface {
         v: Version,
         identifier: &Identifier,
     ) -> CustomResult<DataKey, errors::DatabaseError>;
+    async fn get_keys_by_filter(
+        &self,
+        key_source: Option<Source>,
+    ) -> CustomResult<Vec<DataKey>, errors::DatabaseError>;
+    // TODO: refactor
     #[cfg(feature = "aws")]
     async fn get_all_keys_for_identifier(
         &self,
