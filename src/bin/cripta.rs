@@ -3,6 +3,8 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use axum::{Router, body::Body, routing::post};
+#[cfg(feature = "aws")]
+use cripta::core::datakey::reencrypt_data_keys_handler;
 use cripta::{
     app::AppState,
     config,
@@ -12,8 +14,6 @@ use cripta::{
     request_id::MakeUlid,
     routes::*,
 };
-#[cfg(feature = "aws")]
-use cripta::core::datakey::reencrypt_data_keys_handler;
 use hyper::Request;
 use tower::ServiceBuilder;
 use tower_http::{ServiceBuilderExt, trace::TraceLayer};

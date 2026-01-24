@@ -4,11 +4,15 @@ use error_stack::ResultExt;
 
 use super::DbState;
 use crate::{
-    crypto::Source as KeySource, errors::{self, CustomResult, SwitchError}, schema::data_key_store::*, storage::{
+    crypto::Source as KeySource,
+    errors::{self, CustomResult, SwitchError},
+    schema::data_key_store::*,
+    storage::{
         adapter::PostgreSQL,
         dek::DataKeyStorageInterface,
         types::{DataKey, DataKeyNew},
-    }, types::{Identifier, key::Version}
+    },
+    types::{Identifier, key::Version},
 };
 
 #[async_trait::async_trait]

@@ -1,5 +1,8 @@
 use crate::{
-    crypto::Source, errors::{self, CustomResult}, storage::types::{DataKey, DataKeyNew}, types::{Identifier, key::Version}
+    crypto::Source,
+    errors::{self, CustomResult},
+    storage::types::{DataKey, DataKeyNew},
+    types::{Identifier, key::Version},
 };
 
 #[async_trait::async_trait]
