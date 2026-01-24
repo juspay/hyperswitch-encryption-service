@@ -5,7 +5,10 @@ use error_stack::ResultExt;
 
 use super::DbState;
 use crate::{
-    crypto::Source, env::observability as logger, errors::{self, CustomResult, DatabaseError, SwitchError}, storage::{
+    crypto::Source,
+    env::observability as logger,
+    errors::{self, CustomResult, DatabaseError, SwitchError},
+    storage::{
         adapter::Cassandra,
         dek::DataKeyStorageInterface,
         metrics,
@@ -91,7 +94,8 @@ impl DataKeyStorageInterface
         &self,
         _key_source: Option<Source>,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
-        Err(error_stack::report!(errors::DatabaseError::Others).attach_printable("get_keys_by_filter is not supported for Cassandra"))
+        Err(error_stack::report!(errors::DatabaseError::Others)
+            .attach_printable("get_keys_by_filter is not supported for Cassandra"))
     }
 
     #[cfg(feature = "aws")]
