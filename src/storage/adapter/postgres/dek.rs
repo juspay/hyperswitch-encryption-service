@@ -4,15 +4,12 @@ use error_stack::ResultExt;
 
 use super::DbState;
 use crate::{
-    errors::{self, CustomResult, SwitchError},
-    schema::data_key_store::*,
-    storage::{
+    crypto::Source as KeySource, errors::{self, CustomResult, SwitchError}, schema::data_key_store::*, storage::{
         adapter::PostgreSQL,
         dek::DataKeyStorageInterface,
         metrics,
         types::{DataKey, DataKeyNew},
-    },
-    types::{Identifier, key::Version},
+    }, types::{Identifier, key::Version}
 };
 
 #[async_trait::async_trait]
@@ -128,6 +125,21 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
         metrics::record_db_query::<table, _, _, _>(query.get_result(&mut connection), db_op, pool)
             .await
             .switch()
+    }
+
+    async fn get_keys_by_filter(
+        &self,
+        key_source: Option<KeySource>,
+    ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
+        let mut connection = self.get_conn().await.switch()?;
+
+        let mut query = DataKey::table().into_boxed();
+
+        if let Some(k_src) = key_source {
+            query = query.filter(source.eq(k_src.to_string()));
+        }
+
+        query.get_results(&mut connection).await.switch()
     }
 
     #[cfg(feature = "aws")]

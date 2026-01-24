@@ -1,4 +1,5 @@
 pub mod create;
+mod list;
 #[cfg(feature = "aws")]
 mod reencrypt;
 mod rotate;
@@ -8,17 +9,17 @@ use axum::Json;
 
 #[cfg(feature = "aws")]
 use self::reencrypt::*;
-use self::{create::*, rotate::*};
+use self::{create::*, list::*, rotate::*};
 use crate::{
     env::{metrics, observability as logger},
     errors::{self, ToContainerError},
     multitenancy::TenantState,
     types::{
         requests::{
-            CreateDataKeyRequest, ReEncryptDataKeysRequest, RotateDataKeyRequest,
+            CreateDataKeyRequest, ListKeysRequest, ReEncryptDataKeysRequest, RotateDataKeyRequest,
             TransferKeyRequest,
         },
-        response::{DataKeyCreateResponse, ReEncryptDataKeysResponse},
+        response::{DataKeyCreateResponse, ListKeysResponse, ReEncryptDataKeysResponse},
     },
 };
 
@@ -75,6 +76,21 @@ pub async fn transfer_data_key(
     .to_container_error()
 }
 
+pub async fn list_data_keys_handler(
+    state: TenantState,
+    Json(req): Json<ListKeysRequest>,
+) -> errors::ApiResponseResult<Json<ListKeysResponse>> {
+    list_data_keys(state, req)
+        .await
+        .map(Json)
+        .map_err(|err| {
+            logger::error!(key_list_failure=?err);
+            err
+        })
+        .to_container_error()
+}
+
+// TODO: refactor
 pub async fn reencrypt_data_keys_handler(
     state: TenantState,
     Json(req): Json<ReEncryptDataKeysRequest>,

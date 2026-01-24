@@ -1,6 +1,7 @@
 use charybdis::macros::charybdis_model;
 use diesel::{Identifiable, Insertable, Queryable};
 use hyperswitch_masking::StrongSecret;
+use serde::{Deserialize, Serialize};
 use time::{OffsetDateTime, PrimitiveDateTime};
 
 use crate::{schema::data_key_store, types::key::Version};
@@ -92,4 +93,11 @@ impl From<DataKeyNew> for DataKey {
             source: value.source,
         }
     }
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub struct ListKeyInfo {
+    pub data_identifier: String,
+    pub key_identifier: String,
+    pub version: Version,
 }
