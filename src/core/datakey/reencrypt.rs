@@ -80,6 +80,14 @@ pub async fn reencrypt_data_keys(
                         );
                         ReencryptStatus::Skipped
                     }
+                    Ok(ReencryptStatus::Failed(id)) => {
+                        logger::error!(
+                            identifier = identifier_str.as_str(),
+                            key_id = id,
+                            "Failed to re-encrypt DEK"
+                        );
+                        ReencryptStatus::Failed(id)
+                    }
                     Err(err) => {
                         logger::error!(
                             identifier = identifier_str.as_str(),
