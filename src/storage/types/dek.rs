@@ -95,9 +95,8 @@ impl From<DataKeyNew> for DataKey {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
-pub struct ListKeyInfo {
-    pub data_identifier: String,
-    pub key_identifier: String,
-    pub version: Version,
+#[cfg(feature = "aws")]
+pub struct UpdateReEncryptedKey {
+    pub id: i32,
+    pub encryption_key: StrongSecret<Vec<u8>>,
 }
