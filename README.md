@@ -38,19 +38,32 @@ skip_key_id_on_decrypt = true  # Required for migration
 1. **Enable the flag**: Set `skip_key_id_on_decrypt = true` in config
 2. **Update KMS key**: Change `key_id` to your new KMS key ARN
 3. **Restart service**: Deploy with the new configuration
-4. **Re-encrypt DEKs**: Call the re-encryption API
+4. **List Keys**: List the `key_ids` with filter `"key_source": "KMS"`
+
+```bash
+# List KMS encrypted Key IDs
+curl -X POST http://localhost:6128/key/list \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: public" \
+  -d '{"key_source": "KMS"}'
+
+# Get batched response
+curl -X POST http://localhost:6128/key/list \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: public" \
+  -d '{"batch_size": 10}'
+```
+5. **Re-encrypt DEKs**: Call the re-encryption API
 
 ```bash
 # Re-encrypt specific identifier
-curl -X POST http://localhost:5000/key/reencrypt \
+curl -X POST http://localhost:6128/key/reencrypt \
   -H "Content-Type: application/json" \
   -H "X-Tenant-ID: public" \
-  -d '{"data_identifier": "User", "key_identifier": "123"}'
-
-# Response: {"total_keys":1,"success_count":1,"failure_count":0}
+  -d '{"key_ids": []}'
 
 # Re-encrypt ALL DEKs
-curl -X POST http://localhost:5000/key/reencrypt \
+curl -X POST http://localhost:6128/key/reencrypt \
   -H "Content-Type: application/json" \
   -H "X-Tenant-ID: public" \
   -d '{}'
