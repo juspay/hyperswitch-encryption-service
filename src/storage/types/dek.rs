@@ -1,7 +1,6 @@
 use charybdis::macros::charybdis_model;
 use diesel::{Identifiable, Insertable, Queryable};
 use masking::StrongSecret;
-use serde::{Deserialize, Serialize};
 use time::PrimitiveDateTime;
 
 use crate::{schema::data_key_store, types::key::Version};
@@ -55,9 +54,8 @@ impl From<DataKeyNew> for DataKey {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
-pub struct ListKeyInfo {
-    pub data_identifier: String,
-    pub key_identifier: String,
-    pub version: Version,
+#[cfg(feature = "aws")]
+pub struct UpdateReEncryptedKey {
+    pub id: i32,
+    pub encryption_key: StrongSecret<Vec<u8>>,
 }

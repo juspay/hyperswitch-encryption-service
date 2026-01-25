@@ -11,6 +11,8 @@ use opentelemetry::KeyValue;
 #[cfg(feature = "aws")]
 use self::reencrypt::*;
 use self::{create::*, list::*, rotate::*};
+#[cfg(feature = "aws")]
+use crate::types::{requests::ReEncryptDataKeysRequest, response::ReEncryptDataKeysResponse};
 use crate::{
     core::custodian::Custodian,
     env::observability as logger,
@@ -19,10 +21,9 @@ use crate::{
     multitenancy::TenantState,
     types::{
         requests::{
-            CreateDataKeyRequest, ListKeysRequest, ReEncryptDataKeysRequest, RotateDataKeyRequest,
-            TransferKeyRequest,
+            CreateDataKeyRequest, ListKeysRequest, RotateDataKeyRequest, TransferKeyRequest,
         },
-        response::{DataKeyCreateResponse, ListKeysResponse, ReEncryptDataKeysResponse},
+        response::{DataKeyCreateResponse, ListKeysResponse},
     },
 };
 
@@ -103,12 +104,11 @@ pub async fn list_data_keys_handler(
         .to_container_error()
 }
 
-// TODO: refactor
+#[cfg(feature = "aws")]
 pub async fn reencrypt_data_keys_handler(
     state: TenantState,
     Json(req): Json<ReEncryptDataKeysRequest>,
 ) -> errors::ApiResponseResult<Json<ReEncryptDataKeysResponse>> {
-    #[cfg(feature = "aws")]
     {
         reencrypt_data_keys(state, req)
             .await
@@ -118,16 +118,5 @@ pub async fn reencrypt_data_keys_handler(
                 err
             })
             .to_container_error()
-    }
-
-    #[cfg(not(feature = "aws"))]
-    {
-        let _ = (state, req);
-        Err(error_stack::report!(
-            errors::ApplicationErrorResponse::InternalServerError(
-                "Re-encryption is only available when using AWS KMS"
-            )
-        ))
-        .to_container_error()
     }
 }

@@ -86,3 +86,32 @@ impl Crypto for AwsKmsClient {
         })
     }
 }
+
+#[cfg(feature = "aws")]
+impl AwsKmsClient {
+    /// Decrypt and return both the plaintext and the key ID used for decryption
+    pub async fn decrypt_with_metadata(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<(StrongSecret<Vec<u8>>, Option<String>), errors::CryptoError> {
+        let plaintext_blob = Blob::new(input.peek().to_vec());
+        let mut decrypt_request = self
+            .inner_client()
+            .decrypt()
+            .ciphertext_blob(plaintext_blob);
+
+        if !self.skip_key_id_on_decrypt() {
+            decrypt_request = decrypt_request.key_id(self.key_id());
+        }
+
+        let decrypt_output = decrypt_request.send().await.switch()?;
+
+        let key_id = decrypt_output.key_id().map(|s| s.to_string());
+
+        let plaintext = decrypt_output.plaintext.ok_or(error_stack::report!(
+            errors::CryptoError::DecryptionFailed("KMS")
+        ))?;
+
+        Ok((plaintext.into_inner().into(), key_id))
+    }
+}

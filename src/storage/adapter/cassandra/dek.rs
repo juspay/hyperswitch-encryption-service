@@ -1,9 +1,9 @@
-#[cfg(feature = "aws")]
-use charybdis::operations::Update;
 use charybdis::{operations::Insert, options::Consistency};
 use error_stack::ResultExt;
 
 use super::DbState;
+#[cfg(feature = "aws")]
+use crate::storage::types::UpdateReEncryptedKey;
 use crate::{
     crypto::Source,
     env::observability as logger,
@@ -93,44 +93,20 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
     }
 
     #[cfg(feature = "aws")]
-    async fn get_all_keys_for_identifier(
+    async fn get_keys_by_ids(
         &self,
-        identifier: &Identifier,
+        _ids: Option<&Vec<i32>>,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
-        let (data_id, key_id) = identifier.get_identifier();
-        let connection = self.get_conn().await.switch()?;
-
-        let data_keys_stream = DataKey::find_by_key_identifier_and_data_identifier(key_id, data_id)
-            .consistency(scylla::statement::Consistency::LocalQuorum)
-            .execute(connection)
-            .await
-            .switch()?;
-
-        // Collect the stream into a Vec
-        let data_keys: Vec<DataKey> = data_keys_stream.try_collect().await.switch()?;
-
-        Ok(data_keys)
-    }
-
-    #[cfg(feature = "aws")]
-    async fn get_all_keys(&self) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
-        // Note: Cassandra doesn't support efficient full table scans
-        // This is a limitation of the database design and should be used carefully
         Err(error_stack::report!(errors::DatabaseError::Others)
-            .attach_printable("get_all_keys is not supported for Cassandra due to inefficient full table scans. Use get_all_keys_for_identifier instead."))
+            .attach_printable("get_keys_by_ids is not supported for Cassandra"))
     }
 
     #[cfg(feature = "aws")]
-    async fn update_key(&self, key: &DataKey) -> CustomResult<(), errors::DatabaseError> {
-        let connection = self.get_conn().await.switch()?;
-
-        // For Cassandra, we need to use Insert with same partition/clustering keys to update
-        key.update()
-            .consistency(Consistency::EachQuorum)
-            .execute(connection)
-            .await
-            .switch()?;
-
-        Ok(())
+    async fn update_key(
+        &self,
+        _key: &UpdateReEncryptedKey,
+    ) -> CustomResult<(), errors::DatabaseError> {
+        Err(error_stack::report!(errors::DatabaseError::Others)
+            .attach_printable("update_key is not supported for Cassandra"))
     }
 }

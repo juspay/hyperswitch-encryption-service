@@ -3,6 +3,8 @@ use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::bb8::Pool}
 use error_stack::ResultExt;
 
 use super::DbState;
+#[cfg(feature = "aws")]
+use crate::storage::types::UpdateReEncryptedKey;
 use crate::{
     crypto::Source as KeySource,
     errors::{self, CustomResult, SwitchError},
@@ -90,43 +92,44 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
             query = query.filter(source.eq(k_src.to_string()));
         }
 
-        query.get_results(&mut connection).await.switch()
+        query
+            .order(id.asc())
+            .get_results(&mut connection)
+            .await
+            .switch()
     }
 
     #[cfg(feature = "aws")]
-    async fn get_all_keys_for_identifier(
+    async fn get_keys_by_ids(
         &self,
-        identifier: &Identifier,
+        ids: Option<&Vec<i32>>,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
         let mut connection = self.get_conn().await.switch()?;
 
-        let (d_id, k_id) = identifier.get_identifier();
+        let mut query = DataKey::table().into_boxed();
 
-        let query = DataKey::table()
-            .filter(data_identifier.eq(d_id).and(key_identifier.eq(k_id)))
-            .order_by(version.desc());
+        if let Some(key_ids) = ids {
+            if !key_ids.is_empty() {
+                query = query.filter(id.eq_any(key_ids));
+            }
+        }
 
-        query.get_results(&mut connection).await.switch()
+        query
+            .order(id.asc())
+            .get_results(&mut connection)
+            .await
+            .switch()
     }
 
     #[cfg(feature = "aws")]
-    async fn get_all_keys(&self) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
+    async fn update_key(
+        &self,
+        key: &UpdateReEncryptedKey,
+    ) -> CustomResult<(), errors::DatabaseError> {
         let mut connection = self.get_conn().await.switch()?;
 
-        let query = DataKey::table().order_by((data_identifier, key_identifier, version.desc()));
-
-        query.get_results(&mut connection).await.switch()
-    }
-
-    #[cfg(feature = "aws")]
-    async fn update_key(&self, key: &DataKey) -> CustomResult<(), errors::DatabaseError> {
-        let mut connection = self.get_conn().await.switch()?;
-
-        let query = diesel::update(DataKey::table().find(key.id)).set((
-            encryption_key.eq(&key.encryption_key),
-            source.eq(&key.source),
-            token.eq(&key.token),
-        ));
+        let query = diesel::update(DataKey::table().find(key.id))
+            .set((encryption_key.eq(&key.encryption_key),));
 
         query.execute(&mut connection).await.switch()?;
         Ok(())
