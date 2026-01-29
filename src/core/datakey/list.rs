@@ -1,7 +1,7 @@
 use crate::{
     errors::{self, SwitchError},
     multitenancy::TenantState,
-    storage::dek::DataKeyStorageInterface,
+    storage::{dek::DataKeyStorageInterface, types::ListKeyInfo},
     types::{requests::ListKeysRequest, response::ListKeysResponse},
 };
 
@@ -11,32 +11,36 @@ pub async fn list_data_keys(
 ) -> errors::CustomResult<ListKeysResponse, errors::ApplicationErrorResponse> {
     let db = state.get_db_pool();
 
-    let keys = db
-        .get_keys_by_filter(req.key_source.clone())
-        .await
-        .switch()?;
+    let keys = db.get_keys_by_filter(req.key_source).await.switch()?;
 
     let total_keys = keys.len();
 
-    let k_ids: Vec<i32> = keys.into_iter().map(|key| key.id).collect();
+    let keys_info: Vec<ListKeyInfo> = keys
+        .into_iter()
+        .map(|key| ListKeyInfo {
+            version: key.version,
+            key_identifier: key.key_identifier,
+            data_identifier: key.data_identifier,
+        })
+        .collect();
 
     // If batch_size is specified and valid, chunk the keys into batches
     if let Some(batch_size) = req.batch_size.filter(|&size| size > 0) {
-        let batched_keys: Vec<Vec<i32>> = k_ids
+        let batched_keys: Vec<Vec<ListKeyInfo>> = keys_info
             .chunks(batch_size)
             .map(|chunk| chunk.to_vec())
             .collect();
 
         Ok(ListKeysResponse {
             total_keys,
-            key_ids: None,
-            batched_key_ids: Some(batched_keys),
+            keys: None,
+            batched_keys: Some(batched_keys),
         })
     } else {
         Ok(ListKeysResponse {
             total_keys,
-            key_ids: Some(k_ids),
-            batched_key_ids: None,
+            keys: Some(keys_info),
+            batched_keys: None,
         })
     }
 }

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{crypto::Source, types::Identifier};
+use crate::{crypto::Source, storage::types::ListKeyInfo, types::Identifier};
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateDataKeyRequest {
@@ -29,5 +29,5 @@ pub struct ListKeysRequest {
 
 #[derive(Deserialize, Serialize)]
 pub struct ReEncryptDataKeysRequest {
-    pub key_ids: Option<Vec<i32>>,
+    pub keys: Option<Vec<ListKeyInfo>>,
 }
