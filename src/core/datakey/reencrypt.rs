@@ -69,7 +69,7 @@ pub async fn reencrypt_data_keys(
                 let key_info = ListKeyInfo {
                     key_identifier: data_key.key_identifier.clone(),
                     data_identifier: data_key.data_identifier.clone(),
-                    version: data_key.version.clone(),
+                    version: data_key.version,
                 };
                 let identifier_str = format!(
                     "{}:{}:{}",
