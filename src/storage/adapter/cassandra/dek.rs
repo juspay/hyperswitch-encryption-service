@@ -3,7 +3,7 @@ use error_stack::ResultExt;
 
 use super::DbState;
 #[cfg(feature = "aws")]
-use crate::storage::types::UpdateReEncryptedKey;
+use crate::storage::types::{ListKeyInfo, UpdateReEncryptedKey};
 use crate::{
     crypto::Source,
     env::observability as logger,
@@ -93,12 +93,12 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
     }
 
     #[cfg(feature = "aws")]
-    async fn get_keys_by_ids(
+    async fn get_keys_by_unique_index(
         &self,
-        _ids: Option<&Vec<i32>>,
+        _key_infos: Option<&Vec<ListKeyInfo>>,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
         Err(error_stack::report!(errors::DatabaseError::Others)
-            .attach_printable("get_keys_by_ids is not supported for Cassandra"))
+            .attach_printable("get_keys_by_unique_index is not supported for Cassandra"))
     }
 
     #[cfg(feature = "aws")]

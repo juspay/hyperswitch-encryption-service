@@ -15,7 +15,7 @@ use crate::{
     services::aws::AwsKmsClient,
 };
 
-#[derive(Clone, EnumString, Display, Deserialize, Serialize)]
+#[derive(Copy, Clone, EnumString, Display, Deserialize, Serialize)]
 pub enum Source {
     KMS,
     AESLocal,

@@ -18,6 +18,24 @@ use hyper::Request;
 use tower::ServiceBuilder;
 use tower_http::{ServiceBuilderExt, trace::TraceLayer};
 
+macro_rules! middleware {
+    () => {
+        ServiceBuilder::new()
+            .set_x_request_id(MakeUlid)
+            .propagate_x_request_id()
+            .layer(
+                TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
+                    let tenant_id = request.headers().get(TENANT_HEADER).and_then(|r| r.to_str().ok()).unwrap_or("invalid_tenant");
+                    let request_id = request.headers().get(X_REQUEST_ID).and_then(|r| r.to_str().ok()).unwrap_or("unknown_id");
+
+                    tracing::debug_span!("request",request_id = %request_id,method = %request.method(), uri=%request.uri(), tenant_id=%tenant_id)
+                })
+                .on_request(logger::OnRequest::with_level(logger::LogLevel::Info))
+                .on_response(logger::OnResponse::with_level(logger::LogLevel::Info))
+            )
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let config = config::Config::with_config_path(config::Environment::which(), None);
@@ -38,25 +56,11 @@ async fn main() {
 
     let state = Arc::new(AppState::from_config(config).await);
 
-    let middleware = ServiceBuilder::new()
-        .set_x_request_id(MakeUlid)
-        .propagate_x_request_id()
-        .layer(
-            TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
-                let tenant_id = request.headers().get(TENANT_HEADER).and_then(|r| r.to_str().ok()).unwrap_or("invalid_tenant");
-                let request_id = request.headers().get(X_REQUEST_ID).and_then(|r| r.to_str().ok()).unwrap_or("unknown_id");
-
-                tracing::debug_span!("request",request_id = %request_id,method = %request.method(), uri=%request.uri(), tenant_id=%tenant_id)
-            })
-            .on_request(logger::OnRequest::with_level(logger::LogLevel::Info))
-            .on_response(logger::OnResponse::with_level(logger::LogLevel::Info))
-        );
-
     let app = Router::new()
         .nest("/health", Health::server(state.clone()))
         .nest("/key", DataKey::server(state.clone()))
         .nest("/data", Crypto::server(state.clone()))
-        .layer(middleware)
+        .layer(middleware!())
         .with_state(state.clone());
 
     // Spawn metrics server without mtls in a seperate port
@@ -99,20 +103,6 @@ async fn spawn_metrics_server(state: Arc<AppState>) {
         &state.conf.metrics_server
     );
 
-    let middleware = ServiceBuilder::new()
-        .set_x_request_id(MakeUlid)
-        .propagate_x_request_id()
-        .layer(
-            TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
-                let tenant_id = request.headers().get(TENANT_HEADER).and_then(|r| r.to_str().ok()).unwrap_or("invalid_tenant");
-                let request_id = request.headers().get(X_REQUEST_ID).and_then(|r| r.to_str().ok()).unwrap_or("unknown_id");
-
-                tracing::debug_span!("request",request_id = %request_id,method = %request.method(), uri=%request.uri(), tenant_id=%tenant_id)
-            })
-            .on_request(logger::OnRequest::with_level(logger::LogLevel::Info))
-            .on_response(logger::OnResponse::with_level(logger::LogLevel::Info))
-        );
-
     let mut app = Router::new()
         .nest("/health", Health::server(state.clone()))
         .nest("/metrics", Metrics::server(state.clone()))
@@ -123,9 +113,7 @@ async fn spawn_metrics_server(state: Arc<AppState>) {
         app = app.route("/key/reencrypt", post(reencrypt_data_keys_handler));
     }
 
-    app = app.layer(middleware);
-
-    let app = app.with_state(state);
+    let app = app.layer(middleware!()).with_state(state);
 
     axum_server::bind(host)
         .serve(app.into_make_service())

@@ -5,14 +5,17 @@ use crate::{
     errors::{self, SwitchError},
     multitenancy::TenantState,
     services::aws::AwsKmsClient,
-    storage::{dek::DataKeyStorageInterface, types::UpdateReEncryptedKey},
+    storage::{
+        dek::DataKeyStorageInterface,
+        types::{ListKeyInfo, UpdateReEncryptedKey},
+    },
     types::{requests::ReEncryptDataKeysRequest, response::ReEncryptDataKeysResponse},
 };
 
 enum ReencryptStatus {
     Reencrypted,
     Skipped,
-    Failed(i32),
+    Failed(ListKeyInfo),
 }
 
 pub async fn reencrypt_data_keys(
@@ -36,12 +39,16 @@ pub async fn reencrypt_data_keys(
     }
 
     // Fetch DEKs to re-encrypt
-    let data_keys = db.get_keys_by_ids(req.key_ids.as_ref()).await.switch()?;
+    let data_keys = db
+        .get_keys_by_unique_index(req.keys.as_ref())
+        .await
+        .switch()?;
 
     let total_processed_keys = data_keys.len();
     let mut succeeded_keys = 0;
     let mut skipped_keys = 0;
-    let mut failed_key_ids = Vec::new();
+    let mut failed_keys = 0;
+    let mut failed_keys_info = Vec::new();
 
     logger::info!(
         total_keys = total_processed_keys,
@@ -59,7 +66,11 @@ pub async fn reencrypt_data_keys(
             let state = state.clone();
             let kms_key_id = kms_key_id.clone();
             async move {
-                let key_id = data_key.id;
+                let key_info = ListKeyInfo {
+                    key_identifier: data_key.key_identifier.clone(),
+                    data_identifier: data_key.data_identifier.clone(),
+                    version: data_key.version.clone(),
+                };
                 let identifier_str = format!(
                     "{}:{}:{}",
                     data_key.data_identifier, data_key.key_identifier, data_key.version
@@ -80,13 +91,13 @@ pub async fn reencrypt_data_keys(
                         );
                         ReencryptStatus::Skipped
                     }
-                    Ok(ReencryptStatus::Failed(id)) => {
+                    Ok(ReencryptStatus::Failed(failed_key_info)) => {
                         logger::error!(
                             identifier = identifier_str.as_str(),
-                            key_id = id,
+                            key_info = ?failed_key_info,
                             "Failed to re-encrypt DEK"
                         );
-                        ReencryptStatus::Failed(id)
+                        ReencryptStatus::Failed(failed_key_info)
                     }
                     Err(err) => {
                         logger::error!(
@@ -94,7 +105,7 @@ pub async fn reencrypt_data_keys(
                             error = ?err,
                             "Failed to re-encrypt DEK"
                         );
-                        ReencryptStatus::Failed(key_id)
+                        ReencryptStatus::Failed(key_info)
                     }
                 }
             }
@@ -108,7 +119,10 @@ pub async fn reencrypt_data_keys(
         match res {
             ReencryptStatus::Reencrypted => succeeded_keys += 1,
             ReencryptStatus::Skipped => skipped_keys += 1,
-            ReencryptStatus::Failed(id) => failed_key_ids.push(id),
+            ReencryptStatus::Failed(k_info) => {
+                failed_keys += 1;
+                failed_keys_info.push(k_info)
+            }
         }
     }
 
@@ -116,7 +130,8 @@ pub async fn reencrypt_data_keys(
         total = total_processed_keys,
         succeeded = succeeded_keys,
         skipped = skipped_keys,
-        failed = failed_key_ids.len(),
+        failed_keys = failed_keys,
+        failed = failed_keys_info.len(),
         "Completed re-encryption of data keys"
     );
 
@@ -124,7 +139,8 @@ pub async fn reencrypt_data_keys(
         total_processed_keys,
         succeeded_keys,
         skipped_keys,
-        failed_key_ids,
+        failed_keys,
+        failed_keys_info,
     })
 }
 
