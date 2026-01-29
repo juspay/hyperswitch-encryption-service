@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "aws")]
-use crate::storage::types::ListKeyInfo;
-use crate::types::{Identifier, key::Version};
+use crate::{
+    storage::types::ListKeyInfo,
+    types::{Identifier, key::Version},
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct DataKeyCreateResponse {
