@@ -103,15 +103,13 @@ async fn spawn_metrics_server(state: Arc<AppState>) {
         &state.conf.metrics_server
     );
 
-    let mut app = Router::new()
+    let app = Router::new()
         .nest("/health", Health::server(state.clone()))
         .nest("/metrics", Metrics::server(state.clone()))
         .route("/key/list", post(list_data_keys_handler));
 
     #[cfg(feature = "aws")]
-    {
-        app = app.route("/key/reencrypt", post(reencrypt_data_keys_handler));
-    }
+    let app = app.route("/key/reencrypt", post(reencrypt_data_keys_handler));
 
     let app = app.layer(middleware!()).with_state(state);
 

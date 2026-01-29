@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{crypto::Source, storage::types::ListKeyInfo, types::Identifier};
+#[cfg(feature = "aws")]
+use crate::storage::types::ListKeyInfo;
+use crate::{crypto::Source, types::Identifier};
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateDataKeyRequest {
@@ -27,6 +29,7 @@ pub struct ListKeysRequest {
     pub batch_size: Option<usize>,
 }
 
+#[cfg(feature = "aws")]
 #[derive(Deserialize, Serialize)]
 pub struct ReEncryptDataKeysRequest {
     pub keys: Option<Vec<ListKeyInfo>>,
