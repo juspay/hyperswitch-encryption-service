@@ -27,7 +27,7 @@ pub struct DataKeyNew {
           AND gc_grace_seconds = 86400
       "#
 )]
-#[derive(Queryable, Identifiable)]
+#[derive(Queryable, Identifiable, Clone)]
 #[diesel(table_name = data_key_store)]
 pub struct DataKey {
     pub id: i32,
@@ -60,6 +60,16 @@ pub struct ListKeyInfo {
     pub data_identifier: String,
     pub key_identifier: String,
     pub version: Version,
+}
+
+impl From<DataKey> for ListKeyInfo {
+    fn from(value: DataKey) -> Self {
+        Self {
+            data_identifier: value.data_identifier,
+            key_identifier: value.key_identifier,
+            version: value.version,
+        }
+    }
 }
 
 #[cfg(feature = "aws")]

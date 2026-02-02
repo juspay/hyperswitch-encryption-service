@@ -15,32 +15,18 @@ pub async fn list_data_keys(
 
     let total_keys = keys.len();
 
-    let keys_info: Vec<ListKeyInfo> = keys
-        .into_iter()
-        .map(|key| ListKeyInfo {
-            version: key.version,
-            key_identifier: key.key_identifier,
-            data_identifier: key.data_identifier,
-        })
+    let keys_info: Vec<ListKeyInfo> = keys.into_iter().map(Into::into).collect();
+    println!("{:?}", keys_info);
+
+    let batch_size = req.batch_size.filter(|&size| size > 0);
+
+    let batched_keys: Vec<Vec<ListKeyInfo>> = keys_info
+        .chunks(batch_size.unwrap_or(keys_info.len()))
+        .map(|chunk| chunk.to_vec())
         .collect();
 
-    // If batch_size is specified and valid, chunk the keys into batches
-    if let Some(batch_size) = req.batch_size.filter(|&size| size > 0) {
-        let batched_keys: Vec<Vec<ListKeyInfo>> = keys_info
-            .chunks(batch_size)
-            .map(|chunk| chunk.to_vec())
-            .collect();
-
-        Ok(ListKeysResponse {
-            total_keys,
-            keys: None,
-            batched_keys: Some(batched_keys),
-        })
-    } else {
-        Ok(ListKeysResponse {
-            total_keys,
-            keys: Some(keys_info),
-            batched_keys: None,
-        })
-    }
+    Ok(ListKeysResponse {
+        total_keys,
+        batched_keys,
+    })
 }
