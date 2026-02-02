@@ -1,7 +1,6 @@
 use charybdis::macros::charybdis_model;
 use diesel::{Identifiable, Insertable, Queryable};
 use masking::StrongSecret;
-use serde::{Deserialize, Serialize};
 use time::PrimitiveDateTime;
 
 use crate::{schema::data_key_store, types::key::Version};
@@ -27,7 +26,7 @@ pub struct DataKeyNew {
           AND gc_grace_seconds = 86400
       "#
 )]
-#[derive(Queryable, Identifiable, Clone)]
+#[derive(Queryable, Identifiable)]
 #[diesel(table_name = data_key_store)]
 pub struct DataKey {
     pub id: i32,
@@ -51,23 +50,6 @@ impl From<DataKeyNew> for DataKey {
             created_at: value.created_at,
             source: value.source,
             token: value.token,
-        }
-    }
-}
-
-#[derive(Clone, Deserialize, Serialize, Debug)]
-pub struct ListKeyInfo {
-    pub data_identifier: String,
-    pub key_identifier: String,
-    pub version: Version,
-}
-
-impl From<DataKey> for ListKeyInfo {
-    fn from(value: DataKey) -> Self {
-        Self {
-            data_identifier: value.data_identifier,
-            key_identifier: value.key_identifier,
-            version: value.version,
         }
     }
 }

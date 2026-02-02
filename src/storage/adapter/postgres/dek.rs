@@ -4,7 +4,7 @@ use error_stack::ResultExt;
 
 use super::DbState;
 #[cfg(feature = "aws")]
-use crate::storage::types::{ListKeyInfo, UpdateReEncryptedKey};
+use crate::storage::types::UpdateReEncryptedKey;
 use crate::{
     crypto::Source as KeySource,
     errors::{self, CustomResult, SwitchError},
@@ -100,46 +100,25 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     }
 
     #[cfg(feature = "aws")]
-    async fn get_keys_by_unique_index(
+    async fn get_keys_by_ids(
         &self,
-        key_infos: Option<&Vec<ListKeyInfo>>,
+        ids: Option<&Vec<i32>>,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
         let mut connection = self.get_conn().await.switch()?;
 
-        match key_infos {
-            // None = return all keys
-            None => DataKey::table()
-                .order(id.asc())
-                .get_results(&mut connection)
-                .await
-                .switch(),
-            // Some with empty array = return empty vector
-            Some(k_info) if k_info.is_empty() => Ok(vec![]),
-            // Some with data = filter by tuples
-            Some(k_info) => {
-                let mut query = DataKey::table().into_boxed();
+        let mut query = DataKey::table().into_boxed();
 
-                // Apply OR filters iteratively
-                for (index, info) in k_info.iter().enumerate() {
-                    let predicate = key_identifier
-                        .eq(&info.key_identifier)
-                        .and(data_identifier.eq(&info.data_identifier))
-                        .and(version.eq(&info.version));
-
-                    if index == 0 {
-                        query = query.filter(predicate);
-                    } else {
-                        query = query.or_filter(predicate);
-                    }
-                }
-
-                query
-                    .order(id.asc())
-                    .get_results(&mut connection)
-                    .await
-                    .switch()
+        if let Some(key_ids) = ids {
+            if !key_ids.is_empty() {
+                query = query.filter(id.eq_any(key_ids));
             }
         }
+
+        query
+            .order(id.asc())
+            .get_results(&mut connection)
+            .await
+            .switch()
     }
 
     #[cfg(feature = "aws")]

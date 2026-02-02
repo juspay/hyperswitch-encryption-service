@@ -1,5 +1,5 @@
 #[cfg(feature = "aws")]
-use crate::storage::types::{ListKeyInfo, UpdateReEncryptedKey};
+use crate::storage::types::UpdateReEncryptedKey;
 use crate::{
     crypto::Source,
     errors::{self, CustomResult},
@@ -27,9 +27,9 @@ pub trait DataKeyStorageInterface {
         key_source: Option<Source>,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError>;
     #[cfg(feature = "aws")]
-    async fn get_keys_by_unique_index(
+    async fn get_keys_by_ids(
         &self,
-        key_infos: Option<&Vec<ListKeyInfo>>,
+        ids: Option<&Vec<i32>>,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError>;
     #[cfg(feature = "aws")]
     async fn update_key(
