@@ -1,7 +1,7 @@
 use crate::{
     errors::{self, SwitchError},
     multitenancy::TenantState,
-    storage::{dek::DataKeyStorageInterface, types::ListKeyInfo},
+    storage::dek::DataKeyStorageInterface,
     types::{requests::ListKeysRequest, response::ListKeysResponse},
 };
 
@@ -15,18 +15,18 @@ pub async fn list_data_keys(
 
     let total_keys = keys.len();
 
-    let keys_info: Vec<ListKeyInfo> = keys.into_iter().map(Into::into).collect();
+    let keys_info: Vec<i32> = keys.into_iter().map(|key| key.id).collect();
     println!("{:?}", keys_info);
 
     let batch_size = req.batch_size.filter(|&size| size > 0);
 
-    let batched_keys: Vec<Vec<ListKeyInfo>> = keys_info
+    let batched_keys: Vec<Vec<i32>> = keys_info
         .chunks(batch_size.unwrap_or(keys_info.len()))
         .map(|chunk| chunk.to_vec())
         .collect();
 
     Ok(ListKeysResponse {
         total_keys,
-        batched_keys,
+        key_ids: batched_keys,
     })
 }

@@ -95,23 +95,6 @@ impl From<DataKeyNew> for DataKey {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize, Debug)]
-pub struct ListKeyInfo {
-    pub data_identifier: String,
-    pub key_identifier: String,
-    pub version: Version,
-}
-
-impl From<DataKey> for ListKeyInfo {
-    fn from(value: DataKey) -> Self {
-        Self {
-            data_identifier: value.data_identifier,
-            key_identifier: value.key_identifier,
-            version: value.version,
-        }
-    }
-}
-
 #[cfg(feature = "aws")]
 pub struct UpdateReEncryptedKey {
     pub id: i32,

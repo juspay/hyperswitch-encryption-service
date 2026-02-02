@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    storage::types::ListKeyInfo,
-    types::{Identifier, key::Version},
-};
+use crate::types::{Identifier, key::Version};
 
 #[derive(Deserialize, Serialize)]
 pub struct DataKeyCreateResponse {
@@ -15,7 +12,7 @@ pub struct DataKeyCreateResponse {
 #[derive(Deserialize, Serialize)]
 pub struct ListKeysResponse {
     pub total_keys: usize,
-    pub batched_keys: Vec<Vec<ListKeyInfo>>,
+    pub key_ids: Vec<Vec<i32>>,
 }
 
 #[cfg(feature = "aws")]
@@ -25,5 +22,5 @@ pub struct ReEncryptDataKeysResponse {
     pub succeeded_keys: usize,
     pub skipped_keys: usize,
     pub failed_keys: usize,
-    pub failed_keys_info: Vec<ListKeyInfo>,
+    pub failed_key_ids: Vec<i32>,
 }
