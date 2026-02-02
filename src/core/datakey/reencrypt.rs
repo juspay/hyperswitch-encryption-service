@@ -1,3 +1,4 @@
+use futures::stream::{self, StreamExt};
 use masking::StrongSecret;
 
 use crate::{
@@ -59,18 +60,12 @@ pub async fn reencrypt_data_keys(
     // and improve performance for large datasets
     const MAX_CONCURRENT_REENCRYPTIONS: usize = 10;
 
-    use futures::stream::{self, StreamExt};
-
     let results = stream::iter(data_keys)
         .map(|data_key| {
             let state = state.clone();
             let kms_key_id = kms_key_id.clone();
             async move {
-                let key_info = ListKeyInfo {
-                    key_identifier: data_key.key_identifier.clone(),
-                    data_identifier: data_key.data_identifier.clone(),
-                    version: data_key.version,
-                };
+                let key_info = ListKeyInfo::from(data_key.clone());
                 let identifier_str = format!(
                     "{}:{}:{}",
                     data_key.data_identifier, data_key.key_identifier, data_key.version

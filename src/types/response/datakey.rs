@@ -15,10 +15,7 @@ pub struct DataKeyCreateResponse {
 #[derive(Deserialize, Serialize)]
 pub struct ListKeysResponse {
     pub total_keys: usize,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub keys: Option<Vec<ListKeyInfo>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub batched_keys: Option<Vec<Vec<ListKeyInfo>>>,
+    pub batched_keys: Vec<Vec<ListKeyInfo>>,
 }
 
 #[cfg(feature = "aws")]
