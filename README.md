@@ -68,5 +68,5 @@ curl -X POST http://localhost:6128/key/reencrypt \
   -H "X-Tenant-ID: public" \
   -d '{}'
 ```
-
+**Note:** Use full Key ARN in config file during reencryption process.
 
