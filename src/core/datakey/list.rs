@@ -16,7 +16,6 @@ pub async fn list_data_keys(
     let total_keys = keys.len();
 
     let keys_info: Vec<i32> = keys.into_iter().map(|key| key.id).collect();
-    println!("{:?}", keys_info);
 
     let batch_size = req.batch_size.filter(|&size| size > 0);
 
