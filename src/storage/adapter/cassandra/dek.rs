@@ -95,7 +95,7 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
     #[cfg(feature = "aws")]
     async fn get_keys_by_ids(
         &self,
-        _ids: Option<&Vec<i32>>,
+        _ids: Option<&[i32]>,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
         Err(error_stack::report!(errors::DatabaseError::Others)
             .attach_printable("get_keys_by_ids is not supported for Cassandra"))

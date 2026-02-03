@@ -37,7 +37,7 @@ pub async fn reencrypt_data_keys(
     }
 
     // Fetch DEKs to re-encrypt
-    let data_keys = db.get_keys_by_ids(req.key_ids.as_ref()).await.switch()?;
+    let data_keys = db.get_keys_by_ids(req.key_ids.as_deref()).await.switch()?;
 
     let total_processed_keys = data_keys.len();
     let mut succeeded_keys = 0;
@@ -70,33 +70,19 @@ pub async fn reencrypt_data_keys(
 
                 match reencrypt_single_key(&state, data_key, kms_key_id).await {
                     Ok(ReencryptStatus::Reencrypted) => {
-                        logger::info!(
-                            identifier = identifier_str.as_str(),
-                            "Successfully re-encrypted DEK"
-                        );
+                        logger::info!(identifier = %identifier_str, "Successfully re-encrypted DEK");
                         ReencryptStatus::Reencrypted
                     }
                     Ok(ReencryptStatus::Skipped) => {
-                        logger::info!(
-                            identifier = identifier_str.as_str(),
-                            "Skipped re-encryption for DEK"
-                        );
+                        logger::info!(identifier = %identifier_str, "Skipped re-encryption for DEK");
                         ReencryptStatus::Skipped
                     }
                     Ok(ReencryptStatus::Failed(failed_key_id)) => {
-                        logger::error!(
-                            identifier = identifier_str.as_str(),
-                            key_id = ?failed_key_id,
-                            "Failed to re-encrypt DEK"
-                        );
+                        logger::error!(identifier = %identifier_str, key_id = ?failed_key_id, "Failed to re-encrypt DEK");
                         ReencryptStatus::Failed(failed_key_id)
                     }
                     Err(err) => {
-                        logger::error!(
-                            identifier = identifier_str.as_str(),
-                            error = ?err,
-                            "Failed to re-encrypt DEK"
-                        );
+                        logger::error!(identifier = %identifier_str, error = ?err, "Failed to re-encrypt DEK");
                         ReencryptStatus::Failed(key_id)
                     }
                 }

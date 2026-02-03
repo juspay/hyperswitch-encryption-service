@@ -29,7 +29,7 @@ pub trait DataKeyStorageInterface {
     #[cfg(feature = "aws")]
     async fn get_keys_by_ids(
         &self,
-        ids: Option<&Vec<i32>>,
+        ids: Option<&[i32]>,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError>;
     #[cfg(feature = "aws")]
     async fn update_key(

@@ -102,7 +102,7 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     #[cfg(feature = "aws")]
     async fn get_keys_by_ids(
         &self,
-        ids: Option<&Vec<i32>>,
+        ids: Option<&[i32]>,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
         let mut connection = self.get_conn().await.switch()?;
 
