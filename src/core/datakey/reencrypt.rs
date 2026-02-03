@@ -150,6 +150,7 @@ async fn reencrypt_single_key(
 
     // Check if already encrypted with current key by comparing key IDs
     if let Some(source_key) = source_key_id {
+        logger::info!(source_key_id = %source_key, current_key_id = %current_key_id);
         if source_key == current_key_id {
             return Ok(ReencryptStatus::Skipped);
         }
