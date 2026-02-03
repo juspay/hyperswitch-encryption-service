@@ -16,7 +16,7 @@ ARG CONFIG_DIR=/local/config
 ARG BIN_DIR=/local/bin
 
 RUN apt-get update \
-    && apt-get install -y ca-certificates tzdata libpq-dev curl procps
+    && apt-get install -y ca-certificates tzdata libpq-dev curl procps jq
 
 EXPOSE 5000
 
