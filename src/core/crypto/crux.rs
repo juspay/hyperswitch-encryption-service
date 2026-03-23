@@ -8,6 +8,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use super::custodian::Custodian;
 use crate::{
     crypto::{Crypto, Source, aes256::GcmAes256},
+    env::observability as logger,
     errors::{self, SwitchError},
     multitenancy::TenantState,
     storage::types::{DataKey, DataKeyNew},
@@ -42,7 +43,11 @@ impl KeyEncrypter<DataKeyNew> for Key {
         let encryption_key = state
             .keymanager_client
             .encrypt_key(self.key.peek().to_vec().into())
-            .await?;
+            .await
+            .map_err(|err| {
+                logger::error!(error=?err, "Failed to encrypt data key with key manager");
+                err
+            })?;
 
         let (data_identifier, key_identifier) = self.identifier.get_identifier();
         Ok(DataKeyNew {
@@ -66,15 +71,23 @@ impl KeyDecrypter<Key> for DataKey {
         let decrypted_key = state
             .keymanager_client
             .decrypt_key(self.encryption_key)
-            .await?;
+            .await
+            .map_err(|err| {
+                logger::error!(error=?err, "Failed to decrypt data key with key manager");
+                err
+            })?;
 
         let decrypted_key = <[u8; 32]>::try_from(decrypted_key.peek().to_vec())
-            .map_err(|_| error_stack::report!(errors::CryptoError::DecryptionFailed("KMS")))?;
+            .map_err(|_| {
+                logger::error!("Decrypted key has invalid length, expected 32 bytes");
+                error_stack::report!(errors::CryptoError::DecryptionFailed("KMS"))
+            })?;
 
         let identifier: errors::CustomResult<Identifier, errors::ParsingError> =
             (self.data_identifier, self.key_identifier).try_into();
 
         let source = Source::from_str(&self.source).switch()?;
+
         Ok(Key {
             identifier: identifier.switch()?,
             version: self.version,
@@ -114,11 +127,18 @@ impl DataEncrypter<MultipleEncryptionDataGroup> for MultipleDecryptionDataGroup 
         custodian: Custodian,
     ) -> errors::CustomResult<MultipleEncryptionDataGroup, errors::CryptoError> {
         let version = Version::get_latest(identifier, state).await;
-        let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
+        let decrypted_key = Key::get_key(state, identifier, version).await.switch()
+            .map_err(|err| {
+                logger::error!(error=?err, %identifier, "Failed to retrieve key for batch encryption");
+                err
+            })?;
 
         let stored_token = decrypted_key.token;
         let provided_token = custodian.into_access_token(state);
 
+        if identifier.is_entity() && !stored_token.eq(&provided_token) {
+            logger::error!(%identifier, "Authentication failed for batch encryption: token mismatch");
+        }
         ensure!(
             !identifier.is_entity() || (stored_token.eq(&provided_token)),
             errors::CryptoError::AuthenticationFailed
@@ -170,6 +190,8 @@ impl DataEncrypter<MultipleEncryptionDataGroup> for MultipleDecryptionDataGroup 
             .flat_map(|group| group.0)
             .collect();
 
+        logger::info!(%identifier, "Batch data encryption completed successfully");
+
         Ok(MultipleEncryptionDataGroup(all_encrypted_groups))
     }
 }
@@ -190,11 +212,18 @@ impl DataDecrypter<MultipleDecryptionDataGroup> for MultipleEncryptionDataGroup 
 
         let decrypted_keys = Key::get_multiple_keys(state, identifier, versions)
             .await
-            .switch()?;
+            .switch()
+            .map_err(|err| {
+                logger::error!(error=?err, %identifier, "Failed to retrieve keys for batch decryption");
+                err
+            })?;
 
         if identifier.is_entity() {
             let provided_token = custodian.into_access_token(state);
             let all_tokens_match = decrypted_keys.values().all(|k| k.token.eq(&provided_token));
+            if !all_tokens_match {
+                logger::error!(%identifier, "Authentication failed for batch decryption: token mismatch");
+            }
             ensure!(all_tokens_match, errors::CryptoError::AuthenticationFailed);
         }
         let chunk_size = std::cmp::max(self.0.len() / state.thread_pool.current_num_threads(), 1);
@@ -241,6 +270,8 @@ impl DataDecrypter<MultipleDecryptionDataGroup> for MultipleEncryptionDataGroup 
             .flat_map(|group| group.0)
             .collect();
 
+        logger::info!(%identifier, "Batch data decryption completed successfully");
+
         Ok(MultipleDecryptionDataGroup(all_decrypted_groups))
     }
 }
@@ -254,12 +285,19 @@ impl DataEncrypter<EncryptedDataGroup> for DecryptedDataGroup {
         custodian: Custodian,
     ) -> errors::CustomResult<EncryptedDataGroup, errors::CryptoError> {
         let version = Version::get_latest(identifier, state).await;
-        let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
+        let decrypted_key = Key::get_key(state, identifier, version).await.switch()
+            .map_err(|err| {
+                logger::error!(error=?err, %identifier, "Failed to retrieve key for group encryption");
+                err
+            })?;
         let key = GcmAes256::new(decrypted_key.key)?;
 
         let stored_token = decrypted_key.token;
         let provided_token = custodian.into_access_token(state);
 
+        if identifier.is_entity() && !stored_token.eq(&provided_token) {
+            logger::error!(%identifier, "Authentication failed for group encryption: token mismatch");
+        }
         ensure!(
             !identifier.is_entity() || (stored_token.eq(&provided_token)),
             errors::CryptoError::AuthenticationFailed
@@ -276,7 +314,10 @@ impl DataEncrypter<EncryptedDataGroup> for DecryptedDataGroup {
                     }))
                 })
                 .collect::<errors::CustomResult<FxHashMap<String, EncryptedData>,errors::CryptoError>>()
-        }).map(EncryptedDataGroup)
+        }).map(|group| {
+            logger::info!(%identifier, "Group data encryption completed successfully");
+            EncryptedDataGroup(group)
+        })
     }
 }
 
@@ -291,13 +332,20 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
         let version = FxHashSet::from_iter(self.0.values().map(|d| d.version));
         let decrypted_keys = Key::get_multiple_keys(state, identifier, version)
             .await
-            .switch()?;
+            .switch()
+            .map_err(|err| {
+                logger::error!(error=?err, %identifier, "Failed to retrieve keys for group decryption");
+                err
+            })?;
 
-        let mut stored_tokens = decrypted_keys.values().map(|k| &k.token);
         let provided_token = custodian.into_access_token(state);
+        let all_tokens_match = !identifier.is_entity() || decrypted_keys.values().all(|k| k.token.eq(&provided_token));
 
+        if !all_tokens_match {
+            logger::error!(%identifier, "Authentication failed for group decryption: token mismatch");
+        }
         ensure!(
-            !identifier.is_entity() || stored_tokens.all(|t| t.eq(&provided_token)),
+            all_tokens_match,
             errors::CryptoError::AuthenticationFailed
         );
 
@@ -320,7 +368,10 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
             })
             .collect::<errors::CustomResult<FxHashMap<String, DecryptedData>, errors::CryptoError>>(
             )
-        }).map(DecryptedDataGroup)
+        }).map(|group| {
+            logger::info!(%identifier, "Group data decryption completed successfully");
+            DecryptedDataGroup(group)
+        })
     }
 }
 
@@ -333,11 +384,18 @@ impl DataEncrypter<EncryptedData> for DecryptedData {
         custodian: Custodian,
     ) -> errors::CustomResult<EncryptedData, errors::CryptoError> {
         let version = Version::get_latest(identifier, state).await;
-        let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
+        let decrypted_key = Key::get_key(state, identifier, version).await.switch()
+            .map_err(|err| {
+                logger::error!(error=?err, %identifier, "Failed to retrieve key for encryption");
+                err
+            })?;
 
         let stored_token = decrypted_key.token;
         let provided_token = custodian.into_access_token(state);
 
+        if identifier.is_entity() && !stored_token.eq(&provided_token) {
+            logger::error!(%identifier, "Authentication failed for encryption: token mismatch");
+        }
         ensure!(
             !identifier.is_entity() || (stored_token.eq(&provided_token)),
             errors::CryptoError::AuthenticationFailed
@@ -346,6 +404,8 @@ impl DataEncrypter<EncryptedData> for DecryptedData {
         let key = GcmAes256::new(decrypted_key.key)?;
 
         let encrypted_data = key.encrypt(self.inner())?;
+
+        logger::info!(%identifier, "Data encryption completed successfully");
 
         Ok(EncryptedData {
             version: decrypted_key.version,
@@ -363,11 +423,18 @@ impl DataDecrypter<DecryptedData> for EncryptedData {
         custodian: Custodian,
     ) -> errors::CustomResult<DecryptedData, errors::CryptoError> {
         let version = self.version;
-        let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
+        let decrypted_key = Key::get_key(state, identifier, version).await.switch()
+            .map_err(|err| {
+                logger::error!(error=?err, %identifier, "Failed to retrieve key for decryption");
+                err
+            })?;
 
         let stored_token = decrypted_key.token;
         let provided_token = custodian.into_access_token(state);
 
+        if identifier.is_entity() && !stored_token.eq(&provided_token) {
+            logger::error!(%identifier, "Authentication failed for decryption: token mismatch");
+        }
         ensure!(
             !identifier.is_entity() || (stored_token.eq(&provided_token)),
             errors::CryptoError::AuthenticationFailed
@@ -376,6 +443,8 @@ impl DataDecrypter<DecryptedData> for EncryptedData {
         let key = GcmAes256::new(decrypted_key.key)?;
 
         let decrypted_data = key.decrypt(self.inner())?;
+
+        logger::info!(%identifier, "Data decryption completed successfully");
 
         Ok(DecryptedData::from_data(decrypted_data))
     }

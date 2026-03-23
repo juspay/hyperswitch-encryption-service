@@ -41,6 +41,10 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
                     .consistency(Consistency::EachQuorum)
                     .execute(connection)
                     .await
+                    .map_err(|err| {
+                        logger::error!(cassandra_insert_err=?err);
+                        err
+                    })
                     .switch()?;
                 Ok(key)
             }
@@ -54,11 +58,15 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
         let (data_id, key_id) = identifier.get_identifier();
         let connection = self.get_conn().await.switch()?;
 
-        let data_key = DataKey::find_first_by_key_identifier_and_data_identifier(key_id, data_id)
+        let data_key = DataKey::find_first_by_key_identifier_and_data_identifier(key_id.clone(), data_id.clone())
             .consistency(scylla::statement::Consistency::LocalQuorum)
             .execute(connection)
             .await
-            .switch()?;
+            .switch()
+            .map_err(|err| {
+                logger::error!(error=?err, data_identifier=%data_id, key_identifier=%key_id, "Failed to get latest key version from cassandra");
+                err
+            })?;
 
         Ok(data_key.version)
     }
@@ -72,11 +80,15 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
         let connection = self.get_conn().await.switch()?;
 
         let data_key =
-            DataKey::find_by_key_identifier_and_data_identifier_and_version(key_id, data_id, v)
+            DataKey::find_by_key_identifier_and_data_identifier_and_version(key_id.clone(), data_id.clone(), v)
                 .consistency(scylla::statement::Consistency::LocalQuorum)
                 .execute(connection)
                 .await
-                .switch()?;
+                .switch()
+                .map_err(|err| {
+                    logger::error!(error=?err, %v, data_identifier=%data_id, key_identifier=%key_id, "Failed to get data key from cassandra");
+                    err
+                })?;
 
         Ok(data_key)
     }

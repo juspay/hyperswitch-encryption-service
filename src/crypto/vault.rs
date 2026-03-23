@@ -72,22 +72,30 @@ impl Crypto for Vault {
             None,
         )
         .await
-        .map_err(|err| report!(err).change_context(errors::CryptoError::KeyGeneration))?;
+        .map_err(|err| {
+            logger::error!(error=?err, "Vault key generation failed");
+            report!(err).change_context(errors::CryptoError::KeyGeneration)
+        })?;
         let key = BASE64_ENGINE
             .decode(response.random_bytes)
-            .map_err(|err| report!(err).change_context(CryptoError::KeyGeneration))?;
+            .map_err(|err| {
+                logger::error!(error=?err, "Failed to decode Vault random bytes");
+                report!(err).change_context(CryptoError::KeyGeneration)
+            })?;
         let buffer: [u8; 32] = key.try_into().map_err(|err: Vec<u8>| {
             let err_bytes = format!("{err:?}");
             logger::debug!(err_bytes);
             report!(CryptoError::KeyGeneration)
         })?;
+        logger::info!("Vault key generated successfully");
+
         Ok((Source::HashicorpVault, buffer.into()))
     }
 
     fn encrypt(&self, input: StrongSecret<Vec<u8>>) -> Self::DataReturn<'_> {
         let b64_text = BASE64_ENGINE.encode(input.peek());
         Box::pin(async move {
-            Ok(transit::data::encrypt(
+            let result = transit::data::encrypt(
                 &self.inner_client,
                 &self.settings.mount_point,
                 &self.settings.encryption_key,
@@ -96,18 +104,24 @@ impl Crypto for Vault {
             )
             .await
             .map_err(|err| {
+                logger::error!(error=?err, "Vault encryption failed");
                 report!(err).change_context(CryptoError::EncryptionFailed("HashiCorp Vault"))
             })?
             .ciphertext
             .as_bytes()
             .to_vec()
-            .into())
+            .into();
+
+            logger::info!("Vault encryption completed successfully");
+
+            Ok(result)
         })
     }
 
     fn decrypt(&self, input: StrongSecret<Vec<u8>>) -> Self::DataReturn<'_> {
         Box::pin(async move {
             let cypher_text = String::from_utf8(input.peek().to_vec()).map_err(|err| {
+                logger::error!(error=?err, "Failed to convert Vault ciphertext to UTF-8");
                 report!(err).change_context(CryptoError::DecryptionFailed("Vault"))
             })?;
             let b64_encoded_str = transit::data::decrypt(
@@ -119,15 +133,21 @@ impl Crypto for Vault {
             )
             .await
             .map_err(|err| {
+                logger::error!(error=?err, "Vault decryption failed");
                 report!(err).change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))
             })?
             .plaintext;
-            Ok(BASE64_ENGINE
+            let result = BASE64_ENGINE
                 .decode(b64_encoded_str)
                 .map_err(|err| {
+                    logger::error!(error=?err, "Failed to decode Vault decrypted base64 data");
                     report!(err).change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))
                 })?
-                .into())
+                .into();
+
+            logger::info!("Vault decryption completed successfully");
+
+            Ok(result)
         })
     }
 }

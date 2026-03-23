@@ -16,11 +16,19 @@ pub async fn generate_and_rotate_data_key(
     let version = db
         .get_latest_version(&req.identifier)
         .await
-        .switch()?
+        .switch()
+        .map_err(|err| {
+            logger::error!(error=?err, "Failed to get latest key version during rotation");
+            err
+        })?
         .increment()
         .switch()?;
 
-    let (source, aes_key) = state.keymanager_client.generate_key().await.switch()?;
+    let (source, aes_key) = state.keymanager_client.generate_key().await.switch()
+        .map_err(|err| {
+            logger::error!(error=?err, "Failed to generate data key during rotation");
+            err
+        })?;
 
     let key = Key {
         version,
@@ -37,7 +45,14 @@ pub async fn generate_and_rotate_data_key(
         err
     })?;
 
-    let data_key = db.get_or_insert_data_key(key).await.switch()?;
+    let data_key = db.get_or_insert_data_key(key).await.switch()
+        .map_err(|err| {
+            logger::error!(error=?err, "Failed to store rotated data key in database");
+            err
+        })?;
+
+    logger::info!(%req.identifier, version=%data_key.version, "Data key rotated successfully");
+
     Ok(DataKeyCreateResponse {
         key_version: data_key.version,
         identifier: req.identifier,

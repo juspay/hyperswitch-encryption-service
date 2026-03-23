@@ -7,6 +7,7 @@ use rustc_hash::FxHashMap;
 use crate::{
     app::{AppState, SessionState, StorageState},
     consts::TENANT_HEADER,
+    env::observability as logger,
     errors::{self, ApiErrorContainer, SwitchError, ToContainerError},
 };
 
@@ -52,9 +53,12 @@ impl axum::extract::FromRequestParts<Arc<AppState>> for TenantState {
         parts
             .headers
             .get(TENANT_HEADER)
-            .ok_or(error_stack::Report::new(
-                errors::ApplicationErrorResponse::TenantIdNotFound,
-            ))
+            .ok_or_else(|| {
+                logger::error!("Tenant header is missing from request");
+                error_stack::Report::new(
+                    errors::ApplicationErrorResponse::TenantIdNotFound,
+                )
+            })
             .and_then(|header| extract_tenant(state, header).switch())
             .to_container_error()
     }
@@ -71,9 +75,12 @@ fn extract_tenant(
 
     state
         .tenant_states
-        .get(&TenantId::new(tenant))
+        .get(&TenantId::new(tenant.clone()))
         .cloned()
-        .ok_or(error_stack::Report::new(
-            errors::ParsingError::TenantIdNotFound,
-        ))
+        .ok_or_else(|| {
+            logger::error!(tenant_id=%tenant, "Tenant ID not found in configured tenants");
+            error_stack::Report::new(
+                errors::ParsingError::TenantIdNotFound,
+            )
+        })
 }

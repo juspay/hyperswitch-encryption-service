@@ -6,6 +6,7 @@ use masking::{PeekInterface, StrongSecret};
 
 use crate::{
     crypto::{Crypto, Source},
+    env::observability as logger,
     errors::{self, CustomResult, SwitchError},
     services::aws::AwsKmsClient,
 };
@@ -33,10 +34,18 @@ impl Crypto for AwsKmsClient {
 
         let plaintext_blob = <[u8; 32]>::try_from(
             resp.plaintext
-                .ok_or(error_stack::report!(errors::CryptoError::KeyGeneration))?
+                .ok_or_else(|| {
+                    logger::error!("KMS GenerateDataKey returned no plaintext");
+                    error_stack::report!(errors::CryptoError::KeyGeneration)
+                })?
                 .into_inner(),
         )
-        .map_err(|_| error_stack::report!(errors::CryptoError::KeyGeneration))?;
+        .map_err(|_| {
+            logger::error!("KMS generated key has invalid length, expected 32 bytes");
+            error_stack::report!(errors::CryptoError::KeyGeneration)
+        })?;
+
+        logger::info!("KMS data key generated successfully");
 
         Ok((Source::KMS, plaintext_blob.into()))
     }
@@ -55,9 +64,12 @@ impl Crypto for AwsKmsClient {
 
             let output = encrypted_output
                 .ciphertext_blob
-                .ok_or(error_stack::report!(errors::CryptoError::EncryptionFailed(
-                    "KMS"
-                )))?;
+                .ok_or_else(|| {
+                    logger::error!("KMS encrypt returned no ciphertext blob");
+                    error_stack::report!(errors::CryptoError::EncryptionFailed("KMS"))
+                })?;
+
+            logger::info!("KMS encryption completed successfully");
 
             Ok(output.into_inner().into())
         })
@@ -78,9 +90,12 @@ impl Crypto for AwsKmsClient {
 
             let encrypted_output = decrypt_request.send().await.switch()?;
 
-            let output = encrypted_output.plaintext.ok_or(error_stack::report!(
-                errors::CryptoError::EncryptionFailed("KMS")
-            ))?;
+            let output = encrypted_output.plaintext.ok_or_else(|| {
+                logger::error!("KMS decrypt returned no plaintext");
+                error_stack::report!(errors::CryptoError::DecryptionFailed("KMS"))
+            })?;
+
+            logger::info!("KMS decryption completed successfully");
 
             Ok(output.into_inner().into())
         })
