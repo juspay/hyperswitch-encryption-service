@@ -78,5 +78,9 @@ pub async fn transfer_data_key(
     transfer::transfer_data_key(state, custodian, req)
         .await
         .map(Json)
+        .map_err(|err| {
+            logger::error!(key_transfer_failure=?err);
+            err
+        })
         .to_container_error()
 }

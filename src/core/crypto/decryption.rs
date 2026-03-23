@@ -20,7 +20,7 @@ pub(super) async fn decryption(
         .decrypt(&state, &identifier, custodian)
         .await
         .map_err(|err| {
-            logger::error!(encryption_error=?err);
+            logger::error!(decryption_error=?err);
 
             let (data_identifier, key_identifier) = identifier.get_identifier();
             metrics::DECRYPTION_FAILURE.add(

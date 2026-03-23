@@ -2,6 +2,7 @@ use axum::response::{IntoResponse, Response};
 use hyper::StatusCode;
 
 use super::SwitchError;
+use crate::env::observability as logger;
 
 pub type ApiResponseResult<T> = Result<T, ApiErrorContainer>;
 
@@ -68,6 +69,7 @@ pub enum ApplicationErrorResponse {
 impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, ParsingError> {
     fn switch(self) -> super::CustomResult<T, ApplicationErrorResponse> {
         self.map_err(|err| {
+            logger::error!(parsing_error=?err, "Error during request parsing");
             let new_err = match err.current_context() {
                 ParsingError::ParsingFailed(s) => {
                     ApplicationErrorResponse::ParsingFailed(s.to_string())
@@ -86,6 +88,7 @@ impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, Pars
 impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, super::CryptoError> {
     fn switch(self) -> super::CustomResult<T, ApplicationErrorResponse> {
         self.map_err(|err| {
+            logger::error!(crypto_error=?err, "Crypto operation failed");
             let new_err = match err.current_context() {
                 super::CryptoError::EncryptionFailed(_) => {
                     ApplicationErrorResponse::InternalServerError("Encryption failed")
@@ -113,6 +116,7 @@ impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, supe
 impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, super::DatabaseError> {
     fn switch(self) -> super::CustomResult<T, ApplicationErrorResponse> {
         self.map_err(|err| {
+            logger::error!(database_error=?err, "Database operation failed");
             let new_err = match err.current_context() {
                 super::DatabaseError::NotFound => ApplicationErrorResponse::NotFound("Database"),
                 super::DatabaseError::ConnectionError(_)

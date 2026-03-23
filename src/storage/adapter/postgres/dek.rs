@@ -4,6 +4,7 @@ use error_stack::ResultExt;
 
 use super::DbState;
 use crate::{
+    env::observability as logger,
     errors::{self, CustomResult, SwitchError},
     schema::data_key_store::*,
     storage::{
@@ -32,6 +33,7 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
             Ok(result) => Ok(result),
             Err(err) => match err.current_context() {
                 errors::DatabaseError::UniqueViolation => {
+                    logger::warn!("Data key already exists, fetching existing key");
                     self.get_key(
                         v,
                         &identifier
@@ -40,7 +42,10 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
                     )
                     .await
                 }
-                _ => Err(err),
+                _ => {
+                    logger::error!(error=?err, "Failed to insert data key into database");
+                    Err(err)
+                }
             },
         }
     }
@@ -55,9 +60,16 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
         let query = DataKey::table()
             .select(version)
             .order_by(version.desc())
-            .filter(data_identifier.eq(d_id).and(key_identifier.eq(k_id)));
+            .filter(
+                data_identifier
+                    .eq(d_id.clone())
+                    .and(key_identifier.eq(k_id.clone())),
+            );
 
-        query.get_result(&mut connection).await.switch()
+        query.get_result(&mut connection).await.switch().map_err(|err| {
+            logger::error!(error=?err, data_identifier=%d_id, key_identifier=%k_id, "Failed to get latest key version from database");
+            err
+        })
     }
 
     async fn get_key(
@@ -70,10 +82,15 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
         let (d_id, k_id) = identifier.get_identifier();
 
         let query = DataKey::table().filter(
-            version
-                .eq(v)
-                .and(data_identifier.eq(d_id).and(key_identifier.eq(k_id))),
+            version.eq(v).and(
+                data_identifier
+                    .eq(d_id.clone())
+                    .and(key_identifier.eq(k_id.clone())),
+            ),
         );
-        query.get_result(&mut connection).await.switch()
+        query.get_result(&mut connection).await.switch().map_err(|err| {
+            logger::error!(error=?err, %v, data_identifier=%d_id, key_identifier=%k_id, "Failed to get data key from database");
+            err
+        })
     }
 }

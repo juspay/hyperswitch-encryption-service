@@ -15,7 +15,15 @@ pub async fn generate_and_create_data_key(
     let db = state.get_db_pool();
     let version = Version::get_latest(&req.identifier, &state).await;
 
-    let (source, aes_key) = state.keymanager_client.generate_key().await.switch()?;
+    let (source, aes_key) = state
+        .keymanager_client
+        .generate_key()
+        .await
+        .switch()
+        .map_err(|err| {
+            logger::error!(error=?err, "Failed to generate data key");
+            err
+        })?;
 
     let key = Key {
         version,
@@ -32,7 +40,17 @@ pub async fn generate_and_create_data_key(
         err
     })?;
 
-    let data_key = db.get_or_insert_data_key(key).await.switch()?;
+    let data_key = db
+        .get_or_insert_data_key(key)
+        .await
+        .switch()
+        .map_err(|err| {
+            logger::error!(error=?err, "Failed to store data key in database");
+            err
+        })?;
+
+    logger::info!(%req.identifier, version=%data_key.version, "Data key created successfully");
+
     Ok(DataKeyCreateResponse {
         key_version: data_key.version,
         identifier: req.identifier,
