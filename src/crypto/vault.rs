@@ -76,12 +76,10 @@ impl Crypto for Vault {
             logger::error!(error=?err, "Vault key generation failed");
             report!(err).change_context(errors::CryptoError::KeyGeneration)
         })?;
-        let key = BASE64_ENGINE
-            .decode(response.random_bytes)
-            .map_err(|err| {
-                logger::error!(error=?err, "Failed to decode Vault random bytes");
-                report!(err).change_context(CryptoError::KeyGeneration)
-            })?;
+        let key = BASE64_ENGINE.decode(response.random_bytes).map_err(|err| {
+            logger::error!(error=?err, "Failed to decode Vault random bytes");
+            report!(err).change_context(CryptoError::KeyGeneration)
+        })?;
         let buffer: [u8; 32] = key.try_into().map_err(|err: Vec<u8>| {
             let err_bytes = format!("{err:?}");
             logger::debug!(err_bytes);

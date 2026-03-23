@@ -42,7 +42,10 @@ pub async fn transfer_data_key(
         err
     })?;
 
-    let data_key = db.get_or_insert_data_key(key).await.switch()
+    let data_key = db
+        .get_or_insert_data_key(key)
+        .await
+        .switch()
         .map_err(|err| {
             logger::error!(error=?err, "Failed to store transferred data key in database");
             err

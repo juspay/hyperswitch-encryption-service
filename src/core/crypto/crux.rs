@@ -77,11 +77,10 @@ impl KeyDecrypter<Key> for DataKey {
                 err
             })?;
 
-        let decrypted_key = <[u8; 32]>::try_from(decrypted_key.peek().to_vec())
-            .map_err(|_| {
-                logger::error!("Decrypted key has invalid length, expected 32 bytes");
-                error_stack::report!(errors::CryptoError::DecryptionFailed("KMS"))
-            })?;
+        let decrypted_key = <[u8; 32]>::try_from(decrypted_key.peek().to_vec()).map_err(|_| {
+            logger::error!("Decrypted key has invalid length, expected 32 bytes");
+            error_stack::report!(errors::CryptoError::DecryptionFailed("KMS"))
+        })?;
 
         let identifier: errors::CustomResult<Identifier, errors::ParsingError> =
             (self.data_identifier, self.key_identifier).try_into();
@@ -339,15 +338,13 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
             })?;
 
         let provided_token = custodian.into_access_token(state);
-        let all_tokens_match = !identifier.is_entity() || decrypted_keys.values().all(|k| k.token.eq(&provided_token));
+        let all_tokens_match =
+            !identifier.is_entity() || decrypted_keys.values().all(|k| k.token.eq(&provided_token));
 
         if !all_tokens_match {
             logger::error!(%identifier, "Authentication failed for group decryption: token mismatch");
         }
-        ensure!(
-            all_tokens_match,
-            errors::CryptoError::AuthenticationFailed
-        );
+        ensure!(all_tokens_match, errors::CryptoError::AuthenticationFailed);
 
         state.thread_pool.install(|| {
             self
@@ -384,7 +381,9 @@ impl DataEncrypter<EncryptedData> for DecryptedData {
         custodian: Custodian,
     ) -> errors::CustomResult<EncryptedData, errors::CryptoError> {
         let version = Version::get_latest(identifier, state).await;
-        let decrypted_key = Key::get_key(state, identifier, version).await.switch()
+        let decrypted_key = Key::get_key(state, identifier, version)
+            .await
+            .switch()
             .map_err(|err| {
                 logger::error!(error=?err, %identifier, "Failed to retrieve key for encryption");
                 err
@@ -423,7 +422,9 @@ impl DataDecrypter<DecryptedData> for EncryptedData {
         custodian: Custodian,
     ) -> errors::CustomResult<DecryptedData, errors::CryptoError> {
         let version = self.version;
-        let decrypted_key = Key::get_key(state, identifier, version).await.switch()
+        let decrypted_key = Key::get_key(state, identifier, version)
+            .await
+            .switch()
             .map_err(|err| {
                 logger::error!(error=?err, %identifier, "Failed to retrieve key for decryption");
                 err

@@ -55,9 +55,7 @@ impl axum::extract::FromRequestParts<Arc<AppState>> for TenantState {
             .get(TENANT_HEADER)
             .ok_or_else(|| {
                 logger::error!("Tenant header is missing from request");
-                error_stack::Report::new(
-                    errors::ApplicationErrorResponse::TenantIdNotFound,
-                )
+                error_stack::Report::new(errors::ApplicationErrorResponse::TenantIdNotFound)
             })
             .and_then(|header| extract_tenant(state, header).switch())
             .to_container_error()
@@ -79,8 +77,6 @@ fn extract_tenant(
         .cloned()
         .ok_or_else(|| {
             logger::error!(tenant_id=%tenant, "Tenant ID not found in configured tenants");
-            error_stack::Report::new(
-                errors::ParsingError::TenantIdNotFound,
-            )
+            error_stack::Report::new(errors::ParsingError::TenantIdNotFound)
         })
 }

@@ -33,9 +33,7 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
             Ok(result) => Ok(result),
             Err(err) => match err.current_context() {
                 errors::DatabaseError::UniqueViolation => {
-                    logger::warn!(
-                        "Data key already exists, fetching existing key"
-                    );
+                    logger::warn!("Data key already exists, fetching existing key");
                     self.get_key(
                         v,
                         &identifier
@@ -62,7 +60,11 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
         let query = DataKey::table()
             .select(version)
             .order_by(version.desc())
-            .filter(data_identifier.eq(d_id.clone()).and(key_identifier.eq(k_id.clone())));
+            .filter(
+                data_identifier
+                    .eq(d_id.clone())
+                    .and(key_identifier.eq(k_id.clone())),
+            );
 
         query.get_result(&mut connection).await.switch().map_err(|err| {
             logger::error!(error=?err, data_identifier=%d_id, key_identifier=%k_id, "Failed to get latest key version from database");
@@ -80,9 +82,11 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
         let (d_id, k_id) = identifier.get_identifier();
 
         let query = DataKey::table().filter(
-            version
-                .eq(v)
-                .and(data_identifier.eq(d_id.clone()).and(key_identifier.eq(k_id.clone()))),
+            version.eq(v).and(
+                data_identifier
+                    .eq(d_id.clone())
+                    .and(key_identifier.eq(k_id.clone())),
+            ),
         );
         query.get_result(&mut connection).await.switch().map_err(|err| {
             logger::error!(error=?err, %v, data_identifier=%d_id, key_identifier=%k_id, "Failed to get data key from database");

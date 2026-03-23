@@ -24,7 +24,11 @@ pub async fn generate_and_rotate_data_key(
         .increment()
         .switch()?;
 
-    let (source, aes_key) = state.keymanager_client.generate_key().await.switch()
+    let (source, aes_key) = state
+        .keymanager_client
+        .generate_key()
+        .await
+        .switch()
         .map_err(|err| {
             logger::error!(error=?err, "Failed to generate data key during rotation");
             err
@@ -45,7 +49,10 @@ pub async fn generate_and_rotate_data_key(
         err
     })?;
 
-    let data_key = db.get_or_insert_data_key(key).await.switch()
+    let data_key = db
+        .get_or_insert_data_key(key)
+        .await
+        .switch()
         .map_err(|err| {
             logger::error!(error=?err, "Failed to store rotated data key in database");
             err

@@ -62,12 +62,10 @@ impl Crypto for AwsKmsClient {
                 .await
                 .switch()?;
 
-            let output = encrypted_output
-                .ciphertext_blob
-                .ok_or_else(|| {
-                    logger::error!("KMS encrypt returned no ciphertext blob");
-                    error_stack::report!(errors::CryptoError::EncryptionFailed("KMS"))
-                })?;
+            let output = encrypted_output.ciphertext_blob.ok_or_else(|| {
+                logger::error!("KMS encrypt returned no ciphertext blob");
+                error_stack::report!(errors::CryptoError::EncryptionFailed("KMS"))
+            })?;
 
             logger::info!("KMS encryption completed successfully");
 
