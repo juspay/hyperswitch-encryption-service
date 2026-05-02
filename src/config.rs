@@ -18,7 +18,7 @@ use crate::{
     },
     env::observability::LogConfig,
     errors::{self, CustomResult},
-    services::aws::{AwsKmsClient, AwsKmsConfig},
+    services::aws::{AwsKmsClient, AwsKmsDecryptionConfig, AwsKmsEncryptionConfig},
 };
 
 pub mod vars {
@@ -61,7 +61,7 @@ impl SecretContainer {
         if cfg!(feature = "aws") {
             use base64::Engine;
 
-            let kms = AwsKmsClient::new(&config.secrets.kms_config).await;
+            let kms = AwsKmsClient::new_for_decryption(&config.secrets.kms_decryption_config).await;
             let data = crate::consts::base64::BASE64_ENGINE
                 .decode(self.0.peek())
                 .expect("Unable to base64 decode secret");
@@ -189,7 +189,9 @@ pub struct Secrets {
     #[serde(default)]
     pub master_key: GcmAes256,
     #[serde(default)]
-    pub kms_config: AwsKmsConfig,
+    pub kms_encryption_config: AwsKmsEncryptionConfig,
+    #[serde(default)]
+    pub kms_decryption_config: AwsKmsDecryptionConfig,
     #[serde(default)]
     pub vault_config: VaultSettings,
     pub access_token: SecretContainer,
@@ -206,8 +208,16 @@ impl Secrets {
     fn validate(&self) -> CustomResult<(), errors::ParsingError> {
         if cfg!(feature = "aws") {
             error_stack::ensure!(
-                !self.kms_config.eq(&AwsKmsConfig::default()),
-                errors::ParsingError::DecodingFailed("AWS config is not provided".to_string())
+                !self.kms_encryption_config.eq(&AwsKmsEncryptionConfig::default()),
+                errors::ParsingError::DecodingFailed(
+                    "AWS encryption config is not provided".to_string()
+                )
+            );
+            error_stack::ensure!(
+                !self.kms_decryption_config.eq(&AwsKmsDecryptionConfig::default()),
+                errors::ParsingError::DecodingFailed(
+                    "AWS decryption config is not provided".to_string()
+                )
             )
         } else if cfg!(feature = "vault") {
             error_stack::ensure!(
@@ -318,14 +328,22 @@ impl Config {
 impl Secrets {
     pub async fn create_keymanager_client(self) -> KeyManagerClient {
         if cfg!(feature = "aws") {
-            let client = AwsKmsClient::new(&self.kms_config).await;
-            KeyManagerClient::new(Arc::new(client))
+            let encryption_client =
+                AwsKmsClient::new_for_encryption(&self.kms_encryption_config).await;
+            let decryption_client =
+                AwsKmsClient::new_for_decryption(&self.kms_decryption_config).await;
+            KeyManagerClient::new(
+                Arc::new(encryption_client),
+                Arc::new(decryption_client),
+            )
         } else if cfg!(feature = "vault") {
             let client = Vault::new(self.vault_config);
-            KeyManagerClient::new(Arc::new(client))
+            let client_arc = Arc::new(client);
+            KeyManagerClient::new(client_arc.clone(), client_arc)
         } else {
             let client = self.master_key;
-            KeyManagerClient::new(Arc::new(client))
+            let client_arc = Arc::new(client);
+            KeyManagerClient::new(client_arc.clone(), client_arc)
         }
     }
 }
