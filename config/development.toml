@@ -35,3 +35,12 @@ log_format = "console"
 master_key = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"
 access_token = "secret123"
 hash_context = "keymanager:hyperswitch"
+
+# [secrets.kms_encryption_config]
+# key_id = "arn:aws:kms:ap-south-1:123456789:key/encrypt-key-id"
+# region = "ap-south-1"
+#
+# [secrets.kms_decryption_config]
+# key_id = "arn:aws:kms:us-east-1:123456789:key/decrypt-key-id"
+# region = "us-east-1"
+# skip_key_id_on_decrypt = false

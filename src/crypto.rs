@@ -3,7 +3,7 @@ pub(crate) mod blake3;
 pub(crate) mod kms;
 pub(crate) mod vault;
 
-use std::{ops::Deref, sync::Arc};
+use std::sync::Arc;
 
 use masking::StrongSecret;
 use strum::{Display, EnumString};
@@ -115,24 +115,37 @@ pub type Backend = dyn KeyManagement + Send + Sync;
 
 #[derive(Clone)]
 pub struct KeyManagerClient {
-    client: Arc<Backend>,
+    encrypt_client: Arc<Backend>,
+    decrypt_client: Arc<Backend>,
 }
 
 impl KeyManagerClient {
-    pub fn new(client: Arc<Backend>) -> Self {
-        Self { client }
+    pub fn new(encrypt_client: Arc<Backend>, decrypt_client: Arc<Backend>) -> Self {
+        Self {
+            encrypt_client,
+            decrypt_client,
+        }
     }
 }
 
 impl KeyManagerClient {
-    pub fn client(&self) -> &Arc<Backend> {
-        &self.client
+    pub async fn generate_key(
+        &self,
+    ) -> CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError> {
+        self.encrypt_client.generate_key().await
     }
-}
 
-impl Deref for KeyManagerClient {
-    type Target = Arc<Backend>;
-    fn deref(&self) -> &Self::Target {
-        self.client()
+    pub async fn encrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+        self.encrypt_client.encrypt_key(input).await
+    }
+
+    pub async fn decrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+        self.decrypt_client.decrypt_key(input).await
     }
 }
