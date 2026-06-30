@@ -1,6 +1,5 @@
 use opentelemetry::KeyValue;
 
-use super::custodian::Custodian;
 use crate::{
     env::observability as logger,
     errors::{self, SwitchError},
@@ -11,13 +10,12 @@ use crate::{
 
 pub(super) async fn encryption(
     state: TenantState,
-    custodian: Custodian,
     req: EncryptDataRequest,
 ) -> errors::CustomResult<EncryptionResponse, errors::ApplicationErrorResponse> {
     let identifier = req.identifier.clone();
     let encrypted_data = req
         .data
-        .encrypt(&state, &identifier, custodian)
+        .encrypt(&state, &identifier)
         .await
         .map_err(|err| {
             logger::error!(encryption_error=?err);
