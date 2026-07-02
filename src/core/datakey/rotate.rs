@@ -26,6 +26,7 @@ pub async fn generate_and_rotate_data_key(
         identifier: req.identifier.clone(),
         key: aes_key,
         source,
+        token: None,
     }
     .encrypt(&state)
     .await

@@ -53,6 +53,7 @@ impl KeyEncrypter<DataKeyNew> for Key {
                 time::OffsetDateTime::now_utc().date(),
                 time::OffsetDateTime::now_utc().time(),
             ),
+            token: self.token,
         })
     }
 }
@@ -77,6 +78,7 @@ impl KeyDecrypter<Key> for DataKey {
             version: self.version,
             key: decrypted_key.into(),
             source,
+            token: self.token,
         })
     }
 }
