@@ -1,7 +1,7 @@
 use cripta::{
     app::AppState,
     config,
-    core::datakey::create::generate_and_create_data_key,
+    core::{crypto::custodian::Custodian, datakey::create::generate_and_create_data_key},
     multitenancy::TenantId,
     types::{
         core::{DecryptedData, DecryptedDataGroup, Identifier, MultipleDecryptionDataGroup},
@@ -33,6 +33,7 @@ criterion_group!(
 #[allow(clippy::expect_used)]
 pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
     let rt = Runtime::new().expect("error in runTime creation");
+    let custodian = Custodian::new(Some(("key".to_string(), "value".to_string())));
     let config = config::Config::with_config_path(config::Environment::Dev, None);
     let state = rt.block_on(async { AppState::from_config(config).await });
     // create a DataKey in data_key_store
@@ -47,7 +48,9 @@ pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
         .expect("Invalid tenant");
 
     rt.block_on(async {
-        let _ = generate_and_create_data_key(tenant_state.clone(), key_create_req).await;
+        let _ =
+            generate_and_create_data_key(tenant_state.clone(), custodian.clone(), key_create_req)
+                .await;
     });
 
     {
@@ -68,7 +71,7 @@ pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
                         black_box(rt.block_on(async {
                             bench_input
                                 .clone()
-                                .encrypt(&tenant_state, &identifier.clone())
+                                .encrypt(&tenant_state, &identifier.clone(), custodian.clone())
                                 .await
                                 .expect("Failed while encrypting")
                         }))
@@ -88,7 +91,7 @@ pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
             let bench_input = EncryptionType::Single(DecryptedData::from_data(value.into()));
             let encrypted_data = rt.block_on(async {
                 bench_input
-                    .encrypt(&tenant_state, &identifier)
+                    .encrypt(&tenant_state, &identifier, custodian.clone())
                     .await
                     .expect("Failed while encrypting")
             });
@@ -102,7 +105,7 @@ pub fn criterion_data_encryption_decryption(c: &mut Criterion) {
                         black_box(rt.block_on(async {
                             encrypted_data
                                 .clone()
-                                .decrypt(&tenant_state, &identifier.clone())
+                                .decrypt(&tenant_state, &identifier.clone(), custodian.clone())
                                 .await
                                 .expect("Failed while decrypting")
                         }))
@@ -135,6 +138,7 @@ fn generate_batch_data(size: u64) -> DecryptedDataGroup {
 #[allow(clippy::expect_used)]
 pub fn criterion_batch_data_encryption_decryption(c: &mut Criterion) {
     let rt = Runtime::new().expect("error in runTime creation");
+    let custodian = Custodian::new(Some(("key".to_string(), "value".to_string())));
     let config = config::Config::with_config_path(config::Environment::Dev, None);
     let state = rt.block_on(async { AppState::from_config(config).await });
     let tenant_state = state
@@ -158,7 +162,7 @@ pub fn criterion_batch_data_encryption_decryption(c: &mut Criterion) {
                         black_box(rt.block_on(async {
                             bench_input
                                 .clone()
-                                .encrypt(&tenant_state, &identifier.clone())
+                                .encrypt(&tenant_state, &identifier.clone(), custodian.clone())
                                 .await
                                 .expect("Failed while encrypting")
                         }))
@@ -174,7 +178,7 @@ pub fn criterion_batch_data_encryption_decryption(c: &mut Criterion) {
             let decrypted_input = EncryptionType::Batch(generate_batch_data(input_size));
             let encrypted_bench_input = rt.block_on(async {
                 decrypted_input
-                    .encrypt(&tenant_state, &identifier)
+                    .encrypt(&tenant_state, &identifier, custodian.clone())
                     .await
                     .expect("Failed while encrypting")
             });
@@ -187,7 +191,7 @@ pub fn criterion_batch_data_encryption_decryption(c: &mut Criterion) {
                         black_box(rt.block_on(async {
                             encrypted_bench_input
                                 .clone()
-                                .decrypt(&tenant_state, &identifier.clone())
+                                .decrypt(&tenant_state, &identifier.clone(), custodian.clone())
                                 .await
                                 .expect("Failed while decrypting")
                         }))
@@ -224,6 +228,7 @@ fn generate_multi_batch_data(size: u64) -> MultipleDecryptionDataGroup {
 #[allow(clippy::expect_used)]
 pub fn criterion_multi_batch_data_encryption_decryption(c: &mut Criterion) {
     let rt = Runtime::new().expect("error in runTime creation");
+    let custodian = Custodian::new(Some(("key".to_string(), "value".to_string())));
     let config = config::Config::with_config_path(config::Environment::Dev, None);
     let state = rt.block_on(async { AppState::from_config(config).await });
     let tenant_state = state
@@ -247,7 +252,7 @@ pub fn criterion_multi_batch_data_encryption_decryption(c: &mut Criterion) {
                         black_box(rt.block_on(async {
                             bench_input
                                 .clone()
-                                .encrypt(&tenant_state, &identifier.clone())
+                                .encrypt(&tenant_state, &identifier.clone(), custodian.clone())
                                 .await
                                 .expect("Failed while encrypting")
                         }))
@@ -263,7 +268,7 @@ pub fn criterion_multi_batch_data_encryption_decryption(c: &mut Criterion) {
             let decrypted_input = EncryptionType::MultiBatch(generate_multi_batch_data(input_size));
             let encrypted_bench_input = rt.block_on(async {
                 decrypted_input
-                    .encrypt(&tenant_state, &identifier)
+                    .encrypt(&tenant_state, &identifier, custodian.clone())
                     .await
                     .expect("Failed while encrypting")
             });
@@ -276,7 +281,7 @@ pub fn criterion_multi_batch_data_encryption_decryption(c: &mut Criterion) {
                         black_box(rt.block_on(async {
                             encrypted_bench_input
                                 .clone()
-                                .decrypt(&tenant_state, &identifier.clone())
+                                .decrypt(&tenant_state, &identifier.clone(), custodian.clone())
                                 .await
                                 .expect("Failed while decrypting")
                         }))

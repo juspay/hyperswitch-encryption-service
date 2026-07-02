@@ -22,6 +22,10 @@ impl Identifier {
             Self::ReconMerchant(id) => (String::from("ReconMerchant"), id.clone()),
         }
     }
+
+    pub fn is_entity(&self) -> bool {
+        matches!(self, Self::Entity(_))
+    }
 }
 
 impl core::fmt::Display for Identifier {

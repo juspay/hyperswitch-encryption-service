@@ -10,7 +10,7 @@ use rustc_hash::FxHashMap;
 
 use crate::{
     config::{Config, TenantConfig},
-    crypto::KeyManagerClient,
+    crypto::{KeyManagerClient, blake3::Blake3},
     multitenancy::{MultiTenant, TenantId, TenantState},
     storage::{DbState, adapter},
 };
@@ -49,6 +49,7 @@ pub struct SessionState {
     pub thread_pool: ThreadPool,
     pub keymanager_client: KeyManagerClient,
     db_pool: StorageState,
+    pub hash_client: Blake3,
 }
 
 impl SessionState {
@@ -60,11 +61,13 @@ impl SessionState {
         let secrets = config.secrets.clone();
         let db_pool = StorageState::from_config(config, &tenant_config.schema).await;
         let num_threads = config.pool_config.pool;
+        let hash_client = Blake3::from_config(config).await;
 
         Self {
             cache_prefix: tenant_config.cache_prefix.clone(),
             keymanager_client: secrets.create_keymanager_client().await,
             db_pool,
+            hash_client,
             thread_pool: ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .build()

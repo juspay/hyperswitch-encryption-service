@@ -1,4 +1,5 @@
 pub(crate) mod aes256;
+pub(crate) mod blake3;
 pub(crate) mod kms;
 pub(crate) mod vault;
 

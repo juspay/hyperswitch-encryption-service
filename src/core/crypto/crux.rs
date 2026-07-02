@@ -1,9 +1,11 @@
 use std::str::FromStr;
 
+use error_stack::ensure;
 use masking::PeekInterface;
 use rayon::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet};
 
+use super::custodian::Custodian;
 use crate::{
     crypto::{Crypto, Source, aes256::GcmAes256},
     errors::{self, SwitchError},
@@ -53,6 +55,7 @@ impl KeyEncrypter<DataKeyNew> for Key {
                 time::OffsetDateTime::now_utc().date(),
                 time::OffsetDateTime::now_utc().time(),
             ),
+            token: self.token,
         })
     }
 }
@@ -77,6 +80,7 @@ impl KeyDecrypter<Key> for DataKey {
             version: self.version,
             key: decrypted_key.into(),
             source,
+            token: self.token,
         })
     }
 }
@@ -87,6 +91,7 @@ pub trait DataEncrypter<ToType> {
         self,
         state: &TenantState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<ToType, errors::CryptoError>;
 }
 
@@ -96,6 +101,7 @@ pub trait DataDecrypter<ToType> {
         self,
         state: &TenantState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<ToType, errors::CryptoError>;
 }
 
@@ -105,9 +111,18 @@ impl DataEncrypter<MultipleEncryptionDataGroup> for MultipleDecryptionDataGroup 
         self,
         state: &TenantState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<MultipleEncryptionDataGroup, errors::CryptoError> {
         let version = Version::get_latest(identifier, state).await;
         let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
+
+        let stored_token = decrypted_key.token;
+        let provided_token = custodian.into_access_token(state);
+
+        ensure!(
+            !identifier.is_entity() || (stored_token.eq(&provided_token)),
+            errors::CryptoError::AuthenticationFailed
+        );
 
         let key = GcmAes256::new(decrypted_key.key)?;
         let chunk_size = std::cmp::max(self.0.len() / state.thread_pool.current_num_threads(), 1);
@@ -165,6 +180,7 @@ impl DataDecrypter<MultipleDecryptionDataGroup> for MultipleEncryptionDataGroup 
         self,
         state: &TenantState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<MultipleDecryptionDataGroup, errors::CryptoError> {
         let versions = self
             .0
@@ -176,6 +192,11 @@ impl DataDecrypter<MultipleDecryptionDataGroup> for MultipleEncryptionDataGroup 
             .await
             .switch()?;
 
+        if identifier.is_entity() {
+            let provided_token = custodian.into_access_token(state);
+            let all_tokens_match = decrypted_keys.values().all(|k| k.token.eq(&provided_token));
+            ensure!(all_tokens_match, errors::CryptoError::AuthenticationFailed);
+        }
         let chunk_size = std::cmp::max(self.0.len() / state.thread_pool.current_num_threads(), 1);
 
         // Helper closure to decrypt a single entity from an encrypted group.
@@ -230,10 +251,19 @@ impl DataEncrypter<EncryptedDataGroup> for DecryptedDataGroup {
         self,
         state: &TenantState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<EncryptedDataGroup, errors::CryptoError> {
         let version = Version::get_latest(identifier, state).await;
         let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
         let key = GcmAes256::new(decrypted_key.key)?;
+
+        let stored_token = decrypted_key.token;
+        let provided_token = custodian.into_access_token(state);
+
+        ensure!(
+            !identifier.is_entity() || (stored_token.eq(&provided_token)),
+            errors::CryptoError::AuthenticationFailed
+        );
 
         state.thread_pool.install(|| {
             self.0
@@ -256,11 +286,20 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
         self,
         state: &TenantState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<DecryptedDataGroup, errors::CryptoError> {
         let version = FxHashSet::from_iter(self.0.values().map(|d| d.version));
         let decrypted_keys = Key::get_multiple_keys(state, identifier, version)
             .await
             .switch()?;
+
+        let mut stored_tokens = decrypted_keys.values().map(|k| &k.token);
+        let provided_token = custodian.into_access_token(state);
+
+        ensure!(
+            !identifier.is_entity() || stored_tokens.all(|t| t.eq(&provided_token)),
+            errors::CryptoError::AuthenticationFailed
+        );
 
         state.thread_pool.install(|| {
             self
@@ -291,9 +330,18 @@ impl DataEncrypter<EncryptedData> for DecryptedData {
         self,
         state: &TenantState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<EncryptedData, errors::CryptoError> {
         let version = Version::get_latest(identifier, state).await;
         let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
+
+        let stored_token = decrypted_key.token;
+        let provided_token = custodian.into_access_token(state);
+
+        ensure!(
+            !identifier.is_entity() || (stored_token.eq(&provided_token)),
+            errors::CryptoError::AuthenticationFailed
+        );
 
         let key = GcmAes256::new(decrypted_key.key)?;
 
@@ -312,9 +360,18 @@ impl DataDecrypter<DecryptedData> for EncryptedData {
         self,
         state: &TenantState,
         identifier: &Identifier,
+        custodian: Custodian,
     ) -> errors::CustomResult<DecryptedData, errors::CryptoError> {
         let version = self.version;
         let decrypted_key = Key::get_key(state, identifier, version).await.switch()?;
+
+        let stored_token = decrypted_key.token;
+        let provided_token = custodian.into_access_token(state);
+
+        ensure!(
+            !identifier.is_entity() || (stored_token.eq(&provided_token)),
+            errors::CryptoError::AuthenticationFailed
+        );
 
         let key = GcmAes256::new(decrypted_key.key)?;
 
