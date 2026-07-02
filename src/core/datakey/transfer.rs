@@ -4,7 +4,7 @@ use masking::PeekInterface;
 
 use crate::{
     consts::base64::BASE64_ENGINE,
-    core::{crypto::KeyEncrypter, custodian::Custodian},
+    core::crypto::KeyEncrypter,
     crypto::Source,
     env::observability as logger,
     errors::{self, SwitchError},
@@ -15,7 +15,6 @@ use crate::{
 
 pub async fn transfer_data_key(
     state: TenantState,
-    custodian: Custodian,
     req: TransferKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
     let db = state.get_db_pool();
@@ -32,7 +31,6 @@ pub async fn transfer_data_key(
         identifier: req.identifier.clone(),
         key: key.into(),
         source: Source::KMS,
-        token: custodian.into_access_token(&state),
     }
     .encrypt(&state)
     .await

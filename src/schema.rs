@@ -14,7 +14,5 @@ diesel::table! {
         created_at -> Timestamp,
         #[max_length = 30]
         source -> Varchar,
-        #[max_length = 255]
-        token -> Nullable<Varchar>,
     }
 }

@@ -192,8 +192,6 @@ pub struct Secrets {
     pub kms_config: AwsKmsConfig,
     #[serde(default)]
     pub vault_config: VaultSettings,
-    pub access_token: SecretContainer,
-    pub hash_context: masking::Secret<String>,
 }
 
 #[derive(Deserialize, Debug)]
