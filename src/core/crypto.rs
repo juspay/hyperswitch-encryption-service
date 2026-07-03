@@ -1,5 +1,4 @@
 mod crux;
-pub mod custodian;
 mod decryption;
 mod encryption;
 
@@ -7,7 +6,6 @@ use axum::extract::Json;
 pub use crux::*;
 use opentelemetry::KeyValue;
 
-use self::custodian::Custodian;
 use crate::{
     errors, metrics,
     multitenancy::TenantState,
@@ -20,13 +18,12 @@ use crate::{
 
 pub async fn encrypt_data(
     state: TenantState,
-    custodian: Custodian,
     Json(req): Json<EncryptDataRequest>,
 ) -> errors::ApiResponseResult<Json<EncryptionResponse>> {
     let (data_identifier, key_identifier) = req.identifier.get_identifier();
 
     utils::record_api_operation(
-        encryption::encryption(state, custodian, req),
+        encryption::encryption(state, req),
         &metrics::ENCRYPTION_API_LATENCY,
         &[
             KeyValue::new("data_identifier", data_identifier),
@@ -38,13 +35,12 @@ pub async fn encrypt_data(
 
 pub async fn decrypt_data(
     state: TenantState,
-    custodian: Custodian,
     Json(req): Json<DecryptionRequest>,
 ) -> errors::ApiResponseResult<Json<DecryptionResponse>> {
     let (data_identifier, key_identifier) = req.identifier.get_identifier();
 
     utils::record_api_operation(
-        decryption::decryption(state, custodian, req),
+        decryption::decryption(state, req),
         &metrics::DECRYPTION_API_LATENCY,
         &[
             KeyValue::new("data_identifier", data_identifier),

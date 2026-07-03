@@ -14,7 +14,6 @@ pub struct DataKeyNew {
     pub version: Version,
     pub created_at: PrimitiveDateTime,
     pub source: String,
-    pub token: Option<StrongSecret<String>>,
 }
 
 #[charybdis_model(
@@ -36,7 +35,6 @@ pub struct DataKey {
     pub version: Version,
     pub created_at: PrimitiveDateTime,
     pub source: String,
-    pub token: Option<StrongSecret<String>>,
 }
 
 impl From<DataKeyNew> for DataKey {
@@ -49,7 +47,6 @@ impl From<DataKeyNew> for DataKey {
             version: value.version,
             created_at: value.created_at,
             source: value.source,
-            token: value.token,
         }
     }
 }

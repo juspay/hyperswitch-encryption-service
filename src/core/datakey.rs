@@ -14,7 +14,6 @@ use self::{create::*, list::*, rotate::*};
 #[cfg(feature = "aws")]
 use crate::types::{requests::ReEncryptDataKeysRequest, response::ReEncryptDataKeysResponse};
 use crate::{
-    core::custodian::Custodian,
     env::observability as logger,
     errors::{self, ToContainerError},
     metrics,
@@ -29,12 +28,11 @@ use crate::{
 
 pub async fn create_data_key(
     state: TenantState,
-    custodian: Custodian,
     Json(req): Json<CreateDataKeyRequest>,
 ) -> errors::ApiResponseResult<Json<DataKeyCreateResponse>> {
     let identifier = req.identifier.clone();
 
-    generate_and_create_data_key(state, custodian, req)
+    generate_and_create_data_key(state, req)
         .await
         .map(Json)
         .map_err(|err| {
@@ -55,12 +53,11 @@ pub async fn create_data_key(
 
 pub async fn rotate_data_key(
     state: TenantState,
-    custodian: Custodian,
     Json(req): Json<RotateDataKeyRequest>,
 ) -> errors::ApiResponseResult<Json<DataKeyCreateResponse>> {
     let identifier = req.identifier.clone();
 
-    generate_and_rotate_data_key(state, custodian, req)
+    generate_and_rotate_data_key(state, req)
         .await
         .map(Json)
         .map_err(|err| {
@@ -81,10 +78,9 @@ pub async fn rotate_data_key(
 
 pub async fn transfer_data_key(
     state: TenantState,
-    custodian: Custodian,
     Json(req): Json<TransferKeyRequest>,
 ) -> errors::ApiResponseResult<Json<DataKeyCreateResponse>> {
-    transfer::transfer_data_key(state, custodian, req)
+    transfer::transfer_data_key(state, req)
         .await
         .map(Json)
         .to_container_error()

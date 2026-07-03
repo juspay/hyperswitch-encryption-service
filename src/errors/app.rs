@@ -57,8 +57,6 @@ pub enum ApplicationErrorResponse {
     ParsingFailed(String),
     #[error("Unique violation occurred. Please try to create the data with another key/identifier")]
     UniqueViolation,
-    #[error("Authentication failed")]
-    Unauthorized,
     #[error("Tenant ID that was passed was not configured")]
     TenantIdNotFound,
     #[error("Tenant ID which was passed in the headers was invalid")]
@@ -102,7 +100,6 @@ impl<T> SwitchError<T, ApplicationErrorResponse> for super::CustomResult<T, supe
                 super::CryptoError::KeyGetFailed => {
                     ApplicationErrorResponse::InternalServerError("Failed to get the key")
                 }
-                super::CryptoError::AuthenticationFailed => ApplicationErrorResponse::Unauthorized,
                 _ => ApplicationErrorResponse::InternalServerError("Unexpected error occurred"),
             };
             err.change_context(new_err)
@@ -155,13 +152,6 @@ impl IntoResponse for ApiErrorContainer {
             ),
             err @ ApplicationErrorResponse::ParsingFailed(_) => (
                 StatusCode::BAD_REQUEST,
-                axum::Json(ApiErrorResponse {
-                    error_message: err.to_string(),
-                    error_code: error_codes::BR_00,
-                }),
-            ),
-            err @ ApplicationErrorResponse::Unauthorized => (
-                StatusCode::UNAUTHORIZED,
                 axum::Json(ApiErrorResponse {
                     error_message: err.to_string(),
                     error_code: error_codes::BR_00,
