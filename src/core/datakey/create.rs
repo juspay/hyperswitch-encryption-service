@@ -1,5 +1,5 @@
 use crate::{
-    core::{crypto::KeyEncrypter, custodian::Custodian},
+    core::crypto::KeyEncrypter,
     env::observability as logger,
     errors::{self, SwitchError},
     multitenancy::TenantState,
@@ -9,7 +9,6 @@ use crate::{
 
 pub async fn generate_and_create_data_key(
     state: TenantState,
-    custodian: Custodian,
     req: CreateDataKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
     let db = state.get_db_pool();
@@ -22,7 +21,6 @@ pub async fn generate_and_create_data_key(
         identifier: req.identifier.clone(),
         key: aes_key,
         source,
-        token: custodian.into_access_token(&state),
     }
     .encrypt(&state)
     .await

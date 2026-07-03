@@ -33,7 +33,6 @@ pub struct Key {
     pub key: StrongSecret<[u8; 32]>,
     pub version: Version,
     pub source: Source,
-    pub token: Option<StrongSecret<String>>,
 }
 
 impl Key {

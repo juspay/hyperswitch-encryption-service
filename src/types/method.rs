@@ -1,5 +1,5 @@
 use crate::{
-    core::{DataDecrypter, DataEncrypter, custodian::Custodian},
+    core::{DataDecrypter, DataEncrypter},
     errors,
     multitenancy::TenantState,
     types::Identifier,
@@ -26,17 +26,12 @@ impl DecryptionType {
         self,
         state: &TenantState,
         identifier: &Identifier,
-        custodian: Custodian,
     ) -> errors::CustomResult<EncryptionType, errors::CryptoError> {
         Ok(match self {
-            Self::Single(data) => {
-                EncryptionType::Single(data.decrypt(state, identifier, custodian).await?)
-            }
-            Self::Batch(data) => {
-                EncryptionType::Batch(data.decrypt(state, identifier, custodian).await?)
-            }
+            Self::Single(data) => EncryptionType::Single(data.decrypt(state, identifier).await?),
+            Self::Batch(data) => EncryptionType::Batch(data.decrypt(state, identifier).await?),
             Self::MultiBatch(data) => {
-                EncryptionType::MultiBatch(data.decrypt(state, identifier, custodian).await?)
+                EncryptionType::MultiBatch(data.decrypt(state, identifier).await?)
             }
         })
     }
@@ -47,17 +42,12 @@ impl EncryptionType {
         self,
         state: &TenantState,
         identifier: &Identifier,
-        custodian: Custodian,
     ) -> errors::CustomResult<DecryptionType, errors::CryptoError> {
         Ok(match self {
-            Self::Single(data) => {
-                DecryptionType::Single(data.encrypt(state, identifier, custodian).await?)
-            }
-            Self::Batch(data) => {
-                DecryptionType::Batch(data.encrypt(state, identifier, custodian).await?)
-            }
+            Self::Single(data) => DecryptionType::Single(data.encrypt(state, identifier).await?),
+            Self::Batch(data) => DecryptionType::Batch(data.encrypt(state, identifier).await?),
             Self::MultiBatch(data) => {
-                DecryptionType::MultiBatch(data.encrypt(state, identifier, custodian).await?)
+                DecryptionType::MultiBatch(data.encrypt(state, identifier).await?)
             }
         })
     }
