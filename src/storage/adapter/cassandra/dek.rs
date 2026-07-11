@@ -8,19 +8,21 @@ use crate::{
     storage::{
         adapter::Cassandra,
         dek::DataKeyStorageInterface,
-        types::{DataKey, DataKeyNew},
+        types::{CassandraDataKey, DataKey, DataKeyNew},
     },
     types::{Identifier, key::Version},
 };
 
 #[async_trait::async_trait]
-impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
+impl DataKeyStorageInterface
+    for DbState<scylla::client::caching_session::CachingSession, Cassandra>
+{
     async fn get_or_insert_data_key(
         &self,
         new: DataKeyNew,
     ) -> CustomResult<DataKey, errors::DatabaseError> {
         let connection = self.get_conn().await.switch()?;
-        let key: DataKey = new.into();
+        let key = CassandraDataKey::from(DataKey::from(new));
 
         let find_query = self
             .get_key(
@@ -42,7 +44,7 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
                     .execute(connection)
                     .await
                     .switch()?;
-                Ok(key)
+                Ok(DataKey::from(key))
             }
         }
     }
@@ -54,11 +56,12 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
         let (data_id, key_id) = identifier.get_identifier();
         let connection = self.get_conn().await.switch()?;
 
-        let data_key = DataKey::find_first_by_key_identifier_and_data_identifier(key_id, data_id)
-            .consistency(scylla::statement::Consistency::LocalQuorum)
-            .execute(connection)
-            .await
-            .switch()?;
+        let data_key =
+            CassandraDataKey::find_first_by_key_identifier_and_data_identifier(key_id, data_id)
+                .consistency(scylla::statement::Consistency::LocalQuorum)
+                .execute(connection)
+                .await
+                .switch()?;
 
         Ok(data_key.version)
     }
@@ -71,13 +74,14 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
         let (data_id, key_id) = identifier.get_identifier();
         let connection = self.get_conn().await.switch()?;
 
-        let data_key =
-            DataKey::find_by_key_identifier_and_data_identifier_and_version(key_id, data_id, v)
-                .consistency(scylla::statement::Consistency::LocalQuorum)
-                .execute(connection)
-                .await
-                .switch()?;
+        let data_key = CassandraDataKey::find_by_key_identifier_and_data_identifier_and_version(
+            key_id, data_id, v,
+        )
+        .consistency(scylla::statement::Consistency::LocalQuorum)
+        .execute(connection)
+        .await
+        .switch()?;
 
-        Ok(data_key)
+        Ok(DataKey::from(data_key))
     }
 }

@@ -12,7 +12,7 @@ use diesel::{
 use masking::{Deserialize, Serialize, StrongSecret};
 use rustc_hash::{FxHashMap, FxHashSet};
 use scylla::{
-    deserialize::{DeserializeValue, FrameSlice},
+    deserialize::{FrameSlice, value::DeserializeValue},
     frame::response::result::ColumnType,
 };
 use serde::de::{self, Deserializer, Unexpected, Visitor};

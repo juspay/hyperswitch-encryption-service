@@ -19,7 +19,8 @@ use crate::{
 pub(crate) type StorageState = DbState<Pool<AsyncPgConnection>, adapter::PostgreSQL>;
 
 #[cfg(feature = "cassandra")]
-pub(crate) type StorageState = DbState<scylla::CachingSession, adapter::Cassandra>;
+pub(crate) type StorageState =
+    DbState<scylla::client::caching_session::CachingSession, adapter::Cassandra>;
 
 pub struct AppState {
     pub conf: Config,
