@@ -10,7 +10,8 @@ on:
       - checks_requested
 
 jobs:
-  build:
+  check-stable:
+    name: Check compilation on stable toolchain
     runs-on: ubuntu-latest
 
     env:
@@ -39,6 +40,37 @@ jobs:
 
       - name: Run Clippy
         run: cargo clippy --all-features --all-targets
+
+  check-msrv:
+    name: Check compilation on MSRV toolchain
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get MSRV from Cargo.toml
+        shell: bash
+        run: |
+          msrv=$(yq -oy '.package.rust-version' Cargo.toml)
+          echo "msrv=${msrv}" >> $GITHUB_ENV
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "${{ env.msrv }}"
+
+      - uses: Swatinem/rust-cache@v2.9.1
+
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack
+          checksum: true
+
+      - name: Run `cargo hack`
+        shell: bash
+        run: cargo hack check --each-feature --all-targets
 
   formatting:
     name: Check formatting
