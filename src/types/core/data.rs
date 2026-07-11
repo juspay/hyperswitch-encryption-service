@@ -93,7 +93,7 @@ impl Serialize for EncryptedData {
         S: serde::Serializer,
     {
         let data = BASE64_ENGINE.encode(self.data.peek());
-        let encoded = format!("{}:{}", &self.version, data);
+        let encoded = format!("{}:{}", self.version, data);
         serializer.serialize_str(&encoded)
     }
 }
