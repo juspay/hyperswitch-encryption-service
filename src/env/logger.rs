@@ -172,15 +172,6 @@ pub(super) fn setup_logging_pipeline(
     LogGuard { _log_guard: guard }
 }
 
-#[macro_export]
-macro_rules! workspace_members {
-    () => {
-        std::env!("CARGO_WORKSPACE_MEMBERS")
-            .split(",")
-            .collect::<std::collections::HashSet<&'static str>>()
-    };
-}
-
 fn get_envfilter<'a>(
     filtering_directive: Option<&String>,
     default_log_level: impl Into<LevelFilter> + Copy,
@@ -201,7 +192,7 @@ fn get_envfilter<'a>(
         })
         .unwrap_or_else(|| {
             // Construct a default target filter otherwise
-            let mut workspace_members = workspace_members!();
+            let mut workspace_members = build_info::cargo_workspace_members!();
             workspace_members.extend(crates_to_filter.as_ref());
 
             workspace_members

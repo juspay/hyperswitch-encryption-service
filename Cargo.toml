@@ -2,7 +2,7 @@
 name = "cripta"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85.0"
+rust-version = "1.92.0"
 
 # All the AES,AWS,Vault features will be used as a runtime feature flag rather than compiletime
 [features]
@@ -21,7 +21,7 @@ aws-sdk-kms = { version = "1.29.0" }
 axum = { version = "0.7.5", features = ["macros"] }
 axum-server = "0.7.3"
 base64 = "0.22.1"
-cargo_metadata = "0.18.1"
+build_info = { git = "https://github.com/juspay/framework-libs-rs", rev = "8d1909cac8d99d5fd97f310859caa2c1deeb6937", features = ["cargo-workspace", "framework-libs-members-env"] }
 charybdis = "1.1.0"
 config = { version = "0.14.0", features = ["toml"] }
 diesel = { version = "2.2.4", features = ["postgres", "serde_json", "time"] }
@@ -48,7 +48,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.117"
 serde_path_to_error = "0.1.16"
 strum = { version = "0.26", features = ["derive"] }
-thiserror = "1.0.58"
+thiserror = "2.0.18"
 time = { version = "0.3.47", features = ["parsing"] }
 tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }
 tokio-postgres = { version = "0.7.10", optional = true }
@@ -67,7 +67,7 @@ criterion = "0.5.1"
 rand = "0.8.5"
 
 [build-dependencies]
-cargo_metadata = "0.18.1"
+build_info = { git = "https://github.com/juspay/framework-libs-rs", rev = "8d1909cac8d99d5fd97f310859caa2c1deeb6937", features = ["cargo-workspace-build"] }
 
 [profile.release]
 strip = true
