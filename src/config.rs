@@ -95,13 +95,13 @@ impl SecretContainer {
             )
             .expect("Unable to build HashiCorp Vault client");
 
-            let cypher_text = self.0.peek();
+            let ciphertext = self.0.peek();
 
             let b64_encoded_str = transit::data::decrypt(
                 &client,
                 &config.secrets.vault_config.mount_point,
                 &config.secrets.vault_config.encryption_key,
-                cypher_text,
+                ciphertext,
                 None,
             )
             .await
