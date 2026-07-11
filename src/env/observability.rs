@@ -15,12 +15,12 @@ pub fn setup(
     log_config: &LogConfig,
     crates_to_filter: impl AsRef<[&'static str]>,
     service_name: &'static str,
-) -> Guards {
-    let log_guard = logger::setup_logging_pipeline(log_config, crates_to_filter);
+) -> Result<Guards, log_utils::LoggerError> {
+    let log_guard = logger::setup(log_config, service_name, crates_to_filter)?;
     let metrics_guard = metrics::setup_metrics_pipeline(service_name);
 
-    Guards {
+    Ok(Guards {
         _log_guard: log_guard,
         _metrics_guard: metrics_guard,
-    }
+    })
 }

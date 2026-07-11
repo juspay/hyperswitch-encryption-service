@@ -20,7 +20,12 @@ async fn main() {
     let config = config::Config::with_config_path(config::Environment::which(), None);
     config.validate();
 
-    let _guard = observability::setup(&config.log, ["tower_http"], env!("CARGO_BIN_NAME"));
+    let _guard = observability::setup(
+        &config.log,
+        [env!("CARGO_BIN_NAME"), "tower_http"],
+        env!("CARGO_BIN_NAME"),
+    )
+    .expect("Failed to initialize logging");
 
     let host: SocketAddr = format!("{}:{}", config.server.host, config.server.port)
         .parse()

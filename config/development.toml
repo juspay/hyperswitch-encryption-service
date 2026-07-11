@@ -28,6 +28,7 @@ cache_prefix = "global"
 schema = "global"
 
 [log]
+enabled = true
 log_level = "debug"
 log_format = "console"
 
