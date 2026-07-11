@@ -27,7 +27,7 @@ charybdis = "1.1.0"
 config = { version = "0.15.25", features = ["toml"] }
 diesel = { version = "2.3.11", features = ["postgres", "serde_json", "time"] }
 diesel-async = { version = "0.9.2", features = ["postgres", "bb8"] }
-error-stack = "0.5.0"
+error-stack = "0.8.0"
 futures = "0.3.32"
 hex = "0.4.3"
 hyper = "1.10.1"

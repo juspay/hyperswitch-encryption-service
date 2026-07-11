@@ -36,7 +36,7 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
                         v,
                         &identifier
                             .change_context(errors::DatabaseError::Others)
-                            .attach_printable("Failed to parse identifier")?,
+                            .attach("Failed to parse identifier")?,
                     )
                     .await
                 }
