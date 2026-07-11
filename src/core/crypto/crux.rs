@@ -263,8 +263,10 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
             .await
             .switch()?;
 
-        state.thread_pool.install(|| {
-            self
+        state
+            .thread_pool
+            .install(|| {
+                self
             .0
             .into_par_iter()
             .map(|(hash_key, data)| {
@@ -282,7 +284,8 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
             })
             .collect::<errors::CustomResult<FxHashMap<String, DecryptedData>, errors::CryptoError>>(
             )
-        }).map(DecryptedDataGroup)
+            })
+            .map(DecryptedDataGroup)
     }
 }
 
