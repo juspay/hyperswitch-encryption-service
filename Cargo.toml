@@ -19,8 +19,8 @@ cassandra = []
 async-trait = "0.1.89"
 aws-config = { version = "1.8.18" }
 aws-sdk-kms = { version = "1.111.0" }
-axum = { version = "0.7.9", features = ["macros"] }
-axum-server = "0.7.3"
+axum = { version = "0.8.9", features = ["macros"] }
+axum-server = "0.8.0"
 base64 = "0.22.1"
 build_info = { git = "https://github.com/juspay/framework-libs-rs", rev = "8d1909cac8d99d5fd97f310859caa2c1deeb6937", features = ["cargo-workspace", "framework-libs-members-env"] }
 charybdis = "1.1.0"
