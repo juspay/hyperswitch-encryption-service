@@ -1,6 +1,6 @@
 use base64::Engine;
 use error_stack::ResultExt;
-use masking::PeekInterface;
+use hyperswitch_masking::PeekInterface;
 
 use crate::{
     consts::base64::BASE64_ENGINE,

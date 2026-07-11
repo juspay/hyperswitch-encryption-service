@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use masking::PeekInterface;
+use hyperswitch_masking::PeekInterface;
 use rayon::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet};
 

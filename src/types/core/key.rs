@@ -9,7 +9,7 @@ use diesel::{
     serialize::ToSql,
     sql_types,
 };
-use masking::{Deserialize, Serialize, StrongSecret};
+use hyperswitch_masking::{Deserialize, Serialize, StrongSecret};
 use rustc_hash::{FxHashMap, FxHashSet};
 use scylla::{
     deserialize::{FrameSlice, value::DeserializeValue},

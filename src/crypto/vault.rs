@@ -3,7 +3,7 @@ use std::pin::Pin;
 use base64::Engine;
 use error_stack::report;
 use futures::Future;
-use masking::{PeekInterface, StrongSecret};
+use hyperswitch_masking::{PeekInterface, StrongSecret};
 use serde::Deserialize;
 use vaultrs::{
     api,
@@ -23,7 +23,7 @@ pub struct VaultSettings {
     pub url: String,
     pub mount_point: String,
     pub encryption_key: String,
-    pub vault_token: masking::Secret<String>,
+    pub vault_token: hyperswitch_masking::Secret<String>,
 }
 
 pub struct Vault {

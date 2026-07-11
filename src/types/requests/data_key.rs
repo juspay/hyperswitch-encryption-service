@@ -18,5 +18,5 @@ pub struct RotateDataKeyRequest {
 pub struct TransferKeyRequest {
     #[serde(flatten)]
     pub identifier: Identifier,
-    pub key: masking::StrongSecret<String>,
+    pub key: hyperswitch_masking::StrongSecret<String>,
 }

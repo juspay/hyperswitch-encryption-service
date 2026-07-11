@@ -1,6 +1,6 @@
 use std::{io, sync::Arc};
 
-use masking::PeekInterface;
+use hyperswitch_masking::PeekInterface;
 use rustls::{ServerConfig, pki_types::CertificateDer, server::WebPkiClientVerifier};
 
 use crate::config::Config;

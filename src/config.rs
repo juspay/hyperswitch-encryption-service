@@ -2,7 +2,7 @@ use std::{num::NonZeroUsize, path::PathBuf, sync::Arc};
 
 use aws_sdk_kms::primitives::Blob;
 use config::File;
-use masking::PeekInterface;
+use hyperswitch_masking::PeekInterface;
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
 use vaultrs::{
@@ -50,14 +50,14 @@ impl Environment {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct SecretContainer(masking::Secret<String>);
+pub struct SecretContainer(hyperswitch_masking::Secret<String>);
 
 impl SecretContainer {
     /// # Panics
     ///
     /// Panics when secret cannot be decrypted with KMS
     #[allow(clippy::expect_used, unused_variables)]
-    pub async fn expose(&self, config: &Config) -> masking::Secret<String> {
+    pub async fn expose(&self, config: &Config) -> hyperswitch_masking::Secret<String> {
         if cfg!(feature = "aws") {
             use base64::Engine;
 
@@ -82,7 +82,7 @@ impl SecretContainer {
                 .into_inner();
 
             let secret = String::from_utf8(decrypted_output).expect("Invalid secret");
-            masking::Secret::new(secret)
+            hyperswitch_masking::Secret::new(secret)
         } else if cfg!(feature = "vault") {
             use base64::Engine;
 
@@ -108,7 +108,7 @@ impl SecretContainer {
             .expect("Failed while decrypting vault encrypted secret")
             .plaintext;
 
-            masking::Secret::new(
+            hyperswitch_masking::Secret::new(
                 String::from_utf8(
                     crate::consts::base64::BASE64_ENGINE
                         .decode(b64_encoded_str)
@@ -168,9 +168,9 @@ pub struct Cassandra {
 pub struct Database {
     pub port: u16,
     pub host: String,
-    pub user: masking::Secret<String>,
+    pub user: hyperswitch_masking::Secret<String>,
     pub password: SecretContainer,
-    pub dbname: masking::Secret<String>,
+    pub dbname: hyperswitch_masking::Secret<String>,
     pub pool_size: Option<u32>,
     pub min_idle: Option<u32>,
     pub enable_ssl: Option<bool>,
