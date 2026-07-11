@@ -1,3 +1,6 @@
 fn main() {
     build_info::set_cargo_workspace_members_env();
+
+    #[cfg(feature = "vergen")]
+    build_info::generate_vergen_cargo_instructions();
 }

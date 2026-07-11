@@ -9,7 +9,8 @@ rust-version = "1.92.0"
 aes = []
 mtls = ["dep:rustls", "dep:rustls-pemfile", "axum-server/tls-rustls"]
 aws = []
-release = ["aws", "mtls", "postgres_ssl"]
+vergen = ["build_info/vergen-gix", "build_info/vergen-gix-build"]
+release = ["aws", "mtls", "postgres_ssl", "vergen"]
 vault = []
 postgres_ssl = ["dep:rustls", "dep:rustls-native-certs", "dep:rustls-pemfile", "dep:tokio-postgres", "dep:tokio-postgres-rustls", "rustls/aws_lc_rs"]
 cassandra = []
@@ -27,7 +28,7 @@ charybdis = "1.1.0"
 config = { version = "0.14.0", features = ["toml"] }
 diesel = { version = "2.2.4", features = ["postgres", "serde_json", "time"] }
 diesel-async = { version = "0.5.2", features = ["postgres", "bb8"] }
-error-stack = "0.4.1"
+error-stack = "0.5.0"
 futures = "0.3.30"
 hex = "0.4.3"
 hyper = "1.3.1"
