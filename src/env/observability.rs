@@ -1,6 +1,6 @@
 pub use tracing::{debug, error, info, trace, warn};
 
-pub use super::logger::{LogConfig, LogLevel, OnRequest, OnResponse};
+pub use super::logger::{LogConfig, LogLevel};
 use super::{
     logger::{self, LogGuard},
     metrics::{self, MetricsGuard},

@@ -13,14 +13,14 @@ use cripta::{
 };
 use hyper::Request;
 use tower::ServiceBuilder;
-use tower_http::{ServiceBuilderExt, trace::TraceLayer};
+use tower_http::{ServiceBuilderExt, trace as tower_trace};
 
 #[tokio::main]
 async fn main() {
     let config = config::Config::with_config_path(config::Environment::which(), None);
     config.validate();
 
-    let _guard = observability::setup(&config.log, [], env!("CARGO_BIN_NAME"));
+    let _guard = observability::setup(&config.log, ["tower_http"], env!("CARGO_BIN_NAME"));
 
     let host: SocketAddr = format!("{}:{}", config.server.host, config.server.port)
         .parse()
@@ -39,14 +39,23 @@ async fn main() {
         .set_x_request_id(MakeUlid)
         .propagate_x_request_id()
         .layer(
-            TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
+            tower_trace::TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
                 let tenant_id = request.headers().get(TENANT_HEADER).and_then(|r| r.to_str().ok()).unwrap_or("invalid_tenant");
                 let request_id = request.headers().get(X_REQUEST_ID).and_then(|r| r.to_str().ok()).unwrap_or("unknown_id");
 
                 tracing::debug_span!("request",request_id = %request_id,method = %request.method(), uri=%request.uri(), tenant_id=%tenant_id)
             })
-            .on_request(logger::OnRequest::with_level(logger::LogLevel::Info))
-            .on_response(logger::OnResponse::with_level(logger::LogLevel::Info))
+            .on_request(tower_trace::DefaultOnRequest::new().level(tracing::Level::INFO))
+            .on_response(
+                tower_trace::DefaultOnResponse::new()
+                    .level(tracing::Level::INFO)
+                    .latency_unit(tower_http::LatencyUnit::Micros),
+            )
+            .on_failure(
+                tower_trace::DefaultOnFailure::new()
+                    .latency_unit(tower_http::LatencyUnit::Micros)
+                    .level(tracing::Level::ERROR),
+            )
         );
 
     let app = Router::new()
