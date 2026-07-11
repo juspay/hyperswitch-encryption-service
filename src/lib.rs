@@ -14,4 +14,3 @@ pub mod services;
 pub mod storage;
 pub mod types;
 pub mod utils;
-pub mod workspace;
