@@ -15,6 +15,14 @@ use hyper::Request;
 use tower::ServiceBuilder;
 use tower_http::{ServiceBuilderExt, trace as tower_trace};
 
+#[cfg(feature = "vergen")]
+fn default_headers() -> tower_http::set_header::SetResponseHeaderLayer<axum::http::HeaderValue> {
+    tower_http::set_header::SetResponseHeaderLayer::overriding(
+        axum::http::HeaderName::from_static("x-version"),
+        axum::http::HeaderValue::from_static(build_info::git_describe!()),
+    )
+}
+
 #[tokio::main]
 async fn main() {
     let config = config::Config::with_config_path(config::Environment::which(), None);
@@ -63,12 +71,20 @@ async fn main() {
             )
         );
 
-    let app = Router::new()
+    #[cfg_attr(not(feature = "vergen"), allow(unused_mut))]
+    let mut app = Router::new()
         .nest("/health", Health::server(state.clone()))
         .nest("/key", DataKey::server(state.clone()))
         .nest("/data", Crypto::server(state.clone()))
-        .layer(middleware)
-        .with_state(state.clone());
+        .layer(middleware);
+
+    // Register default headers layer last so it wraps all routes, ensuring version header is present on all responses.
+    #[cfg(feature = "vergen")]
+    {
+        app = app.layer(default_headers());
+    }
+
+    let app = app.with_state(state.clone());
 
     // Spawn metrics server without mtls in a seperate port
     tokio::task::spawn(spawn_metrics_server(state.clone()));
