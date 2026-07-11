@@ -169,7 +169,9 @@ mod tests {
         let actual_data: ExtractedEncryptedData = serde_json::from_value(data).unwrap();
         let expected_data = EncryptedData {
             version: Version::from(1),
-            data: hyperswitch_masking::StrongSecret::new(String::from("Omgit'sworking").as_bytes().to_vec()),
+            data: hyperswitch_masking::StrongSecret::new(
+                String::from("Omgit'sworking").as_bytes().to_vec(),
+            ),
         };
 
         let expected_data = ExtractedEncryptedData {
