@@ -2,7 +2,7 @@ use std::pin::Pin;
 
 use aws_sdk_kms::primitives::Blob;
 use futures::Future;
-use masking::{PeekInterface, StrongSecret};
+use hyperswitch_masking::{PeekInterface, StrongSecret};
 
 use crate::{
     crypto::{Crypto, Source},

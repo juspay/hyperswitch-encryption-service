@@ -4,7 +4,7 @@ pub(crate) mod vault;
 
 use std::{ops::Deref, sync::Arc};
 
-use masking::StrongSecret;
+use hyperswitch_masking::StrongSecret;
 use strum::{Display, EnumString};
 
 use crate::{

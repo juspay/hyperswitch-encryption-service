@@ -22,7 +22,7 @@ async fn main() {
 
     let _guard = observability::setup(&config.log, [], env!("CARGO_BIN_NAME"));
 
-    let host: SocketAddr = format!("{}:{}", &config.server.host, config.server.port)
+    let host: SocketAddr = format!("{}:{}", config.server.host, config.server.port)
         .parse()
         .expect("Unable to parse host");
 
@@ -86,7 +86,7 @@ async fn main() {
 async fn spawn_metrics_server(state: Arc<AppState>) {
     let host: SocketAddr = format!(
         "{}:{}",
-        &state.conf.metrics_server.host, &state.conf.metrics_server.port
+        state.conf.metrics_server.host, state.conf.metrics_server.port
     )
     .parse()
     .expect("Unable to parse metrics server");

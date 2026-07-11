@@ -1,7 +1,7 @@
 use core::fmt;
 
 use error_stack::ResultExt;
-use masking::{PeekInterface, StrongSecret};
+use hyperswitch_masking::{PeekInterface, StrongSecret};
 use ring::aead::{self, BoundKey, OpeningKey, SealingKey, UnboundKey};
 use serde::de::{self, Deserialize, Deserializer, Unexpected, Visitor};
 
