@@ -43,7 +43,7 @@ jobs:
           - 5432:5432
     steps:
       - name: Repository checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Skip tests for PRs from forks
         shell: bash
