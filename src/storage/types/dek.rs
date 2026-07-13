@@ -93,3 +93,9 @@ impl From<DataKeyNew> for DataKey {
         }
     }
 }
+
+#[cfg(feature = "aws")]
+pub struct UpdateReEncryptedKey {
+    pub id: i32,
+    pub encryption_key: StrongSecret<Vec<u8>>,
+}

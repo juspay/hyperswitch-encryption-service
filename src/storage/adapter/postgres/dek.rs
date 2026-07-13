@@ -3,7 +3,10 @@ use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::bb8::Pool}
 use error_stack::ResultExt;
 
 use super::DbState;
+#[cfg(feature = "aws")]
+use crate::storage::types::UpdateReEncryptedKey;
 use crate::{
+    crypto::Source as KeySource,
     errors::{self, CustomResult, SwitchError},
     schema::data_key_store::*,
     storage::{
@@ -75,5 +78,60 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
                 .and(data_identifier.eq(d_id).and(key_identifier.eq(k_id))),
         );
         query.get_result(&mut connection).await.switch()
+    }
+
+    async fn get_keys_by_filter(
+        &self,
+        key_source: Option<KeySource>,
+    ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
+        let mut connection = self.get_conn().await.switch()?;
+
+        let mut query = DataKey::table().into_boxed();
+
+        if let Some(k_src) = key_source {
+            query = query.filter(source.eq(k_src.to_string()));
+        }
+
+        query
+            .order(id.asc())
+            .get_results(&mut connection)
+            .await
+            .switch()
+    }
+
+    #[cfg(feature = "aws")]
+    async fn get_keys_by_ids(
+        &self,
+        ids: Option<&[i32]>,
+    ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
+        let mut connection = self.get_conn().await.switch()?;
+
+        let mut query = DataKey::table().into_boxed();
+
+        if let Some(key_ids) = ids {
+            if !key_ids.is_empty() {
+                query = query.filter(id.eq_any(key_ids));
+            }
+        }
+
+        query
+            .order(id.asc())
+            .get_results(&mut connection)
+            .await
+            .switch()
+    }
+
+    #[cfg(feature = "aws")]
+    async fn update_key(
+        &self,
+        key: &UpdateReEncryptedKey,
+    ) -> CustomResult<(), errors::DatabaseError> {
+        let mut connection = self.get_conn().await.switch()?;
+
+        let query = diesel::update(DataKey::table().find(key.id))
+            .set((encryption_key.eq(&key.encryption_key),));
+
+        query.execute(&mut connection).await.switch()?;
+        Ok(())
     }
 }

@@ -13,7 +13,7 @@ use crate::{
     services::aws::AwsKmsClient,
 };
 
-#[derive(Clone, EnumString, Display)]
+#[derive(Copy, Clone, EnumString, Display, Deserialize, Serialize)]
 pub enum Source {
     KMS,
     AESLocal,
@@ -46,6 +46,9 @@ pub trait KeyManagement {
         &self,
         input: StrongSecret<Vec<u8>>,
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError>;
+
+    /// Support downcasting for type-specific operations
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 #[async_trait::async_trait]
@@ -67,6 +70,10 @@ impl KeyManagement for AwsKmsClient {
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
         <Self as Crypto>::decrypt(self, input).await
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 #[async_trait::async_trait]
 impl KeyManagement for GcmAes256 {
@@ -86,6 +93,10 @@ impl KeyManagement for GcmAes256 {
         input: StrongSecret<Vec<u8>>,
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
         <Self as Crypto>::decrypt(self, input)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -107,6 +118,10 @@ impl KeyManagement for Vault {
         input: StrongSecret<Vec<u8>>,
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
         <Self as Crypto>::decrypt(self, input).await
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

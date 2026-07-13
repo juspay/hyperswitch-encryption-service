@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::types::Identifier;
+use crate::{crypto::Source, types::Identifier};
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateDataKeyRequest {
@@ -19,4 +19,16 @@ pub struct TransferKeyRequest {
     #[serde(flatten)]
     pub identifier: Identifier,
     pub key: hyperswitch_masking::StrongSecret<String>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct ListKeysRequest {
+    pub key_source: Option<Source>,
+    pub batch_size: Option<usize>,
+}
+
+#[cfg(feature = "aws")]
+#[derive(Deserialize, Serialize)]
+pub struct ReEncryptDataKeysRequest {
+    pub key_ids: Option<Vec<i32>>,
 }
