@@ -1,7 +1,7 @@
 use core::fmt;
 
-use error_stack::ResultExt;
-use masking::{PeekInterface, StrongSecret};
+use error_stack::{IntoReport, ResultExt};
+use hyperswitch_masking::{PeekInterface, StrongSecret};
 use ring::aead::{self, BoundKey, OpeningKey, SealingKey, UnboundKey};
 use serde::de::{self, Deserialize, Deserializer, Unexpected, Visitor};
 
@@ -28,7 +28,7 @@ impl GcmAes256 {
         key: StrongSecret<Vec<u8>>,
     ) -> errors::CustomResult<Self, errors::CryptoError> {
         let key = <[u8; 32]>::try_from(key.peek().to_vec())
-            .map_err(|_| error_stack::report!(errors::CryptoError::InvalidKey))?;
+            .map_err(|_| errors::CryptoError::InvalidKey.into_report())?;
 
         Ok(Self { key: key.into() })
     }
@@ -170,7 +170,7 @@ impl Crypto for GcmAes256 {
             <[u8; aead::NONCE_LEN]>::try_from(
                 msg.get(..aead::NONCE_LEN)
                     .ok_or(errors::CryptoError::DecryptionFailed("AES256"))
-                    .attach_printable("Failed to read the nonce form the encrypted ciphertext")?,
+                    .attach("Failed to read the nonce form the encrypted ciphertext")?,
             )
             .change_context(errors::CryptoError::DecryptionFailed("AES256"))?,
         );

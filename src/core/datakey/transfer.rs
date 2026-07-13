@@ -1,6 +1,6 @@
 use base64::Engine;
-use error_stack::ResultExt;
-use masking::PeekInterface;
+use error_stack::{IntoReport, ResultExt};
+use hyperswitch_masking::PeekInterface;
 
 use crate::{
     consts::base64::BASE64_ENGINE,
@@ -22,9 +22,7 @@ pub async fn transfer_data_key(
         errors::ApplicationErrorResponse::InternalServerError("Failed to decode the base64 key"),
     )?;
     let key = <[u8; 32]>::try_from(key).map_err(|_| {
-        error_stack::report!(errors::ApplicationErrorResponse::InternalServerError(
-            "Invalid key found"
-        ))
+        errors::ApplicationErrorResponse::InternalServerError("Invalid key found").into_report()
     })?;
     let key = Key {
         version: Version::default(),

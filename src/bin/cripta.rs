@@ -11,46 +11,18 @@ use cripta::{
     consts::{TENANT_HEADER, X_REQUEST_ID},
     core::datakey::list_data_keys_handler,
     env::{observability, observability as logger},
-    request_id::MakeUlid,
+    request_id::MakeUuidV7,
     routes::*,
 };
 use hyper::Request;
 use tower::ServiceBuilder;
-use tower_http::{ServiceBuilderExt, trace::TraceLayer};
+use tower_http::{ServiceBuilderExt, trace as tower_trace};
 
-fn with_middleware<S>(router: Router<S>) -> Router<S>
-where
-    S: Clone + Send + Sync + 'static,
-{
-    router.layer(
-        ServiceBuilder::new()
-            .set_x_request_id(MakeUlid)
-            .propagate_x_request_id()
-            .layer(
-                TraceLayer::new_for_http()
-                    .make_span_with(|request: &Request<Body>| {
-                        let tenant_id = request
-                            .headers()
-                            .get(TENANT_HEADER)
-                            .and_then(|r| r.to_str().ok())
-                            .unwrap_or("invalid_tenant");
-                        let request_id = request
-                            .headers()
-                            .get(X_REQUEST_ID)
-                            .and_then(|r| r.to_str().ok())
-                            .unwrap_or("unknown_id");
-
-                        tracing::debug_span!(
-                            "request",
-                            request_id = %request_id,
-                            method = %request.method(),
-                            uri = %request.uri(),
-                            tenant_id = %tenant_id
-                        )
-                    })
-                    .on_request(logger::OnRequest::with_level(logger::LogLevel::Info))
-                    .on_response(logger::OnResponse::with_level(logger::LogLevel::Info)),
-            ),
+#[cfg(feature = "vergen")]
+fn default_headers() -> tower_http::set_header::SetResponseHeaderLayer<axum::http::HeaderValue> {
+    tower_http::set_header::SetResponseHeaderLayer::overriding(
+        axum::http::HeaderName::from_static("x-version"),
+        axum::http::HeaderValue::from_static(build_info::git_describe!()),
     )
 }
 
@@ -59,9 +31,14 @@ async fn main() {
     let config = config::Config::with_config_path(config::Environment::which(), None);
     config.validate();
 
-    let _guard = observability::setup(&config.log, [], env!("CARGO_BIN_NAME"));
+    let _guard = observability::setup(
+        &config.log,
+        [env!("CARGO_BIN_NAME"), "tower_http"],
+        env!("CARGO_BIN_NAME"),
+    )
+    .expect("Failed to initialize logging");
 
-    let host: SocketAddr = format!("{}:{}", &config.server.host, config.server.port)
+    let host: SocketAddr = format!("{}:{}", config.server.host, config.server.port)
         .parse()
         .expect("Unable to parse host");
 
@@ -74,12 +51,43 @@ async fn main() {
 
     let state = Arc::new(AppState::from_config(config).await);
 
-    let app = Router::new()
+    let middleware = ServiceBuilder::new()
+        .set_x_request_id(MakeUuidV7)
+        .propagate_x_request_id()
+        .layer(
+            tower_trace::TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
+                let tenant_id = request.headers().get(TENANT_HEADER).and_then(|r| r.to_str().ok()).unwrap_or("invalid_tenant");
+                let request_id = request.headers().get(X_REQUEST_ID).and_then(|r| r.to_str().ok()).unwrap_or("unknown_id");
+
+                tracing::debug_span!("request", request_id = %request_id, method = %request.method(), uri = %request.uri(), tenant_id = %tenant_id)
+            })
+            .on_request(tower_trace::DefaultOnRequest::new().level(tracing::Level::INFO))
+            .on_response(
+                tower_trace::DefaultOnResponse::new()
+                    .level(tracing::Level::INFO)
+                    .latency_unit(tower_http::LatencyUnit::Micros),
+            )
+            .on_failure(
+                tower_trace::DefaultOnFailure::new()
+                    .latency_unit(tower_http::LatencyUnit::Micros)
+                    .level(tracing::Level::ERROR),
+            )
+        );
+
+    #[cfg_attr(not(feature = "vergen"), allow(unused_mut))]
+    let mut app = Router::new()
         .nest("/health", Health::server(state.clone()))
         .nest("/key", DataKey::server(state.clone()))
-        .nest("/data", Crypto::server(state.clone()));
+        .nest("/data", Crypto::server(state.clone()))
+        .layer(middleware);
 
-    let app = with_middleware(app).with_state(state.clone());
+    // Register default headers layer last so it wraps all routes, ensuring version header is present on all responses.
+    #[cfg(feature = "vergen")]
+    {
+        app = app.layer(default_headers());
+    }
+
+    let app = app.with_state(state.clone());
 
     // Spawn metrics server without mtls in a seperate port
     tokio::task::spawn(spawn_metrics_server(state.clone()));
@@ -111,7 +119,7 @@ async fn main() {
 async fn spawn_metrics_server(state: Arc<AppState>) {
     let host: SocketAddr = format!(
         "{}:{}",
-        &state.conf.metrics_server.host, &state.conf.metrics_server.port
+        state.conf.metrics_server.host, state.conf.metrics_server.port
     )
     .parse()
     .expect("Unable to parse metrics server");

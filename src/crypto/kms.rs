@@ -1,8 +1,9 @@
 use std::pin::Pin;
 
 use aws_sdk_kms::primitives::Blob;
+use error_stack::IntoReport;
 use futures::Future;
-use masking::{PeekInterface, StrongSecret};
+use hyperswitch_masking::{PeekInterface, StrongSecret};
 
 use crate::{
     crypto::{Crypto, Source},
@@ -33,10 +34,10 @@ impl Crypto for AwsKmsClient {
 
         let plaintext_blob = <[u8; 32]>::try_from(
             resp.plaintext
-                .ok_or(error_stack::report!(errors::CryptoError::KeyGeneration))?
+                .ok_or(errors::CryptoError::KeyGeneration.into_report())?
                 .into_inner(),
         )
-        .map_err(|_| error_stack::report!(errors::CryptoError::KeyGeneration))?;
+        .map_err(|_| errors::CryptoError::KeyGeneration.into_report())?;
 
         Ok((Source::KMS, plaintext_blob.into()))
     }
@@ -55,9 +56,7 @@ impl Crypto for AwsKmsClient {
 
             let output = encrypted_output
                 .ciphertext_blob
-                .ok_or(error_stack::report!(errors::CryptoError::EncryptionFailed(
-                    "KMS"
-                )))?;
+                .ok_or(errors::CryptoError::EncryptionFailed("KMS").into_report())?;
 
             Ok(output.into_inner().into())
         })
@@ -78,9 +77,9 @@ impl Crypto for AwsKmsClient {
 
             let encrypted_output = decrypt_request.send().await.switch()?;
 
-            let output = encrypted_output.plaintext.ok_or(error_stack::report!(
-                errors::CryptoError::EncryptionFailed("KMS")
-            ))?;
+            let output = encrypted_output
+                .plaintext
+                .ok_or(errors::CryptoError::EncryptionFailed("KMS").into_report())?;
 
             Ok(output.into_inner().into())
         })

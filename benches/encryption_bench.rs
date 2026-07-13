@@ -1,3 +1,5 @@
+use std::hint::black_box;
+
 use cripta::{
     app::AppState,
     config,
@@ -9,7 +11,7 @@ use cripta::{
         requests::CreateDataKeyRequest,
     },
 };
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use rustc_hash::FxHashMap;
 use tokio::runtime::Runtime;
 

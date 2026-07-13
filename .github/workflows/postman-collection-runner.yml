@@ -11,6 +11,9 @@ on:
     types:
       - checks_requested
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -43,7 +46,7 @@ jobs:
           - 5432:5432
     steps:
       - name: Repository checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Skip tests for PRs from forks
         shell: bash
@@ -59,11 +62,11 @@ jobs:
 
       - name: Build and Cache Rust Dependencies
         if: ${{ env.RUN_TESTS == 'true' }}
-        uses: Swatinem/rust-cache@v2.7.8
+        uses: Swatinem/rust-cache@v2.9.1
 
       - name: Install Diesel CLI with Postgres Support
         if: ${{ env.RUN_TESTS == 'true' }}
-        uses: baptiste0928/cargo-install@v3.3.0
+        uses: baptiste0928/cargo-install@v3.4.0
         with:
           crate: diesel_cli
           features: postgres
