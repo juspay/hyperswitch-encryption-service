@@ -1,14 +1,13 @@
-use std::time;
+use std::{sync::LazyLock, time};
 
 use axum::Json;
-use once_cell::sync::Lazy;
-use opentelemetry::{KeyValue, metrics::Histogram};
+use metrics_utils::opentelemetry::{Histogram, KeyValue};
 
 use crate::errors::{self, ToContainerError};
 
 pub(crate) async fn record_api_operation<F, T>(
     fut: F,
-    metric: &Lazy<Histogram<f64>>,
+    metric: &LazyLock<Histogram<f64>>,
     key_value: &[KeyValue],
 ) -> errors::ApiResponseResult<Json<T>>
 where

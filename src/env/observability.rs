@@ -1,26 +1,36 @@
 pub use tracing::{debug, error, info, trace, warn};
 
-pub use super::logger::{LogConfig, LogLevel};
 use super::{
     logger::{self, LogGuard},
-    metrics::{self, MetricsGuard},
+    metrics,
 };
+pub use super::{
+    logger::{LogConfig, LogLevel},
+    metrics::{MetricsHandle, spawn_prometheus_metrics_server},
+};
+use crate::config::Config;
 
 pub struct Guards {
     _log_guard: LogGuard,
-    _metrics_guard: MetricsGuard,
+    metrics_handle: MetricsHandle,
+}
+
+impl Guards {
+    pub fn metrics_handle(&self) -> &MetricsHandle {
+        &self.metrics_handle
+    }
 }
 
 pub fn setup(
-    log_config: &LogConfig,
+    config: &Config,
     crates_to_filter: impl AsRef<[&'static str]>,
     service_name: &'static str,
 ) -> Result<Guards, log_utils::LoggerError> {
-    let log_guard = logger::setup(log_config, service_name, crates_to_filter)?;
-    let metrics_guard = metrics::setup_metrics_pipeline(service_name);
+    let log_guard = logger::setup(&config.log, service_name, crates_to_filter)?;
+    let metrics_handle = metrics::init_metrics(&config.metrics, service_name);
 
     Ok(Guards {
         _log_guard: log_guard,
-        _metrics_guard: metrics_guard,
+        metrics_handle,
     })
 }

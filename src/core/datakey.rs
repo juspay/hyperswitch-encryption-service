@@ -3,13 +3,11 @@ mod rotate;
 mod transfer;
 
 use axum::Json;
-use opentelemetry::KeyValue;
 
 use self::{create::*, rotate::*};
 use crate::{
-    env::observability as logger,
+    env::{metrics, observability as logger},
     errors::{self, ToContainerError},
-    metrics,
     multitenancy::TenantState,
     types::{
         requests::{CreateDataKeyRequest, RotateDataKeyRequest, TransferKeyRequest},
@@ -32,10 +30,10 @@ pub async fn create_data_key(
             let (data_identifier, key_identifier) = identifier.get_identifier();
             metrics::KEY_CREATE_FAILURE.add(
                 1,
-                &[
-                    KeyValue::new("key_identifier", key_identifier),
-                    KeyValue::new("data_identifier", data_identifier),
-                ],
+                metrics_utils::metric_attributes!(
+                    ("key_identifier", key_identifier),
+                    ("data_identifier", data_identifier)
+                ),
             );
             err
         })
@@ -57,10 +55,10 @@ pub async fn rotate_data_key(
             let (data_identifier, key_identifier) = identifier.get_identifier();
             metrics::KEY_ROTATE_FAILURE.add(
                 1,
-                &[
-                    KeyValue::new("key_identifier", key_identifier),
-                    KeyValue::new("data_identifier", data_identifier),
-                ],
+                metrics_utils::metric_attributes!(
+                    ("key_identifier", key_identifier),
+                    ("data_identifier", data_identifier)
+                ),
             );
             err
         })

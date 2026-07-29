@@ -28,12 +28,12 @@ async fn main() {
     let config = config::Config::with_config_path(config::Environment::which(), None);
     config.validate();
 
-    let _guard = observability::setup(
-        &config.log,
+    let guards = observability::setup(
+        &config,
         [env!("CARGO_BIN_NAME"), "tower_http"],
         env!("CARGO_BIN_NAME"),
     )
-    .expect("Failed to initialize logging");
+    .expect("Failed to initialize observability");
 
     let host: SocketAddr = format!("{}:{}", config.server.host, config.server.port)
         .parse()
@@ -86,8 +86,18 @@ async fn main() {
 
     let app = app.with_state(state.clone());
 
-    // Spawn metrics server without mtls in a seperate port
-    tokio::task::spawn(spawn_metrics_server(state.clone()));
+    if let observability::MetricsHandle::Prometheus { inner, host, port } = guards.metrics_handle()
+        && let Some(registry) = inner.prometheus_registry()
+    {
+        // Spawn metrics server without mtls in a seperate port
+        observability::spawn_prometheus_metrics_server(
+            host,
+            *port,
+            registry.clone(),
+            state.clone(),
+        )
+        .expect("Failed to start Prometheus metrics server");
+    }
 
     #[cfg(feature = "mtls")]
     {
@@ -111,28 +121,4 @@ async fn main() {
             .await
             .expect("unable to start the server")
     }
-}
-
-async fn spawn_metrics_server(state: Arc<AppState>) {
-    let host: SocketAddr = format!(
-        "{}:{}",
-        state.conf.metrics_server.host, state.conf.metrics_server.port
-    )
-    .parse()
-    .expect("Unable to parse metrics server");
-
-    logger::info!(
-        "Metrics Server started at [{:?}]",
-        &state.conf.metrics_server
-    );
-
-    let app = Router::new()
-        .nest("/health", Health::server(state.clone()))
-        .nest("/metrics", Metrics::server(state.clone()))
-        .with_state(state);
-
-    axum_server::bind(host)
-        .serve(app.into_make_service())
-        .await
-        .expect("Unable to start the metrics server")
 }
