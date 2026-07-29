@@ -1,0 +1,97 @@
+# Sample config file that lists all available configuration options.
+# Reference purposes only. Copy this file to create your configuration.
+
+# Server configuration
+[server]
+host = "127.0.0.1" # IP address the HTTP server listens on
+port = 5000        # Port the HTTP server listens on. Use a port that does not conflict with other services.
+
+# Database configuration
+[database]
+host = "localhost"       # Database hostname or IP address
+port = 5432              # Database port
+user = "db_user"         # Username for database authentication
+password = "db_pass"     # Database password.
+                         # Must be a base64-encoded KMS ciphertext when the `aws` compile-time feature flag is enabled.
+                         # The output of `aws kms encrypt` command (the CiphertextBlob field) can be used directly as this value.
+dbname = "encryption_db" # Name of the database
+pool_size = 5            # Maximum number of connections in the pool (optional, default: none)
+min_idle = 2             # Minimum number of idle connections to maintain (optional, default: none)
+enable_ssl = false       # Enable or disable TLS for database connections (optional, default: false).
+                         # Requires the `postgres_ssl` compile-time feature flag.
+# root_ca = ""           # Path to a custom root CA certificate for database TLS (optional).
+                         # Only used when enable_ssl is true and the `postgres_ssl` feature is enabled.
+                         # Must be a base64-encoded KMS ciphertext when the `aws` feature is enabled.
+
+# Thread pool configuration
+[pool_config]
+pool = 2 # Number of worker threads in the Rayon thread pool
+
+# Multi-tenancy configuration
+# Each tenant is identified by a key under `[multitenancy.tenants.<id>]`.
+# At least one tenant MUST be configured.
+[multitenancy.tenants]
+# `public` tenant - general-purpose operations
+public = { cache_prefix = "public", schema = "public" }
+
+# `global` tenant - global or shared operations
+global = { cache_prefix = "global", schema = "global" }
+
+# Logging configuration
+[log]
+enabled = true         # Enable or disable logging
+log_level = "debug"    # Log level. Possible values: "debug", "info", "warn", "error"
+log_format = "console" # Log output format. Possible values: "console", "json"
+# filtering_directive = "WARN,cripta=INFO" # Tracing filter directive (optional).
+                                           # Format: "DEFAULT_LEVEL,module1=LEVEL,module2=LEVEL"
+                                           # Overrides log levels for specific modules.
+                                           # The default level applies to all modules not listed.
+
+# Metrics configuration
+# Mode determines which metrics exporter to use.
+[metrics]
+mode = "otlp" # Options: "disabled" (default), "otlp", "prometheus"
+
+# When mode is "otlp", configure the OTLP endpoint and export settings:
+endpoint = "http://127.0.0.1:4317" # OTLP gRPC endpoint
+endpoint_timeout_secs = 10         # Connection timeout in seconds
+metrics_export_interval_secs = 15  # Export interval in seconds
+
+# When mode is "prometheus", configure the Prometheus HTTP server:
+# host = "127.0.0.1"                       # IP address the Prometheus HTTP server listens on
+# port = 6128                              # Port the Prometheus HTTP server listens on
+
+# Secrets and encryption configuration
+# The service supports three mutually exclusive key management strategies chosen at compile time:
+#   - Local AES-256 (default, no feature flag needed)
+#   - AWS KMS (requires the `aws` feature flag)
+#   - HashiCorp Vault (requires the `vault` feature flag)
+[secrets]
+# Local AES-256 master key (32 bytes / 64 hex characters)
+# Used when neither the `aws` nor `vault` feature flag is enabled.
+# Replace this value with a key generated from a cryptographically secure source.
+master_key = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"
+
+# AWS KMS configuration - uncomment and configure when the `aws` feature flag is enabled
+# [secrets.kms_config]
+# key_id = "arn:aws:kms:us-east-1:123456789012:key/abc123..." # AWS KMS key identifier
+# region = "us-east-1"                                        # AWS region for KMS requests
+# skip_key_id_on_decrypt = false                              # When true, omits key_id from decrypt requests.
+                                                              # AWS KMS determines the key from ciphertext metadata.
+
+# HashiCorp Vault configuration - uncomment and configure when the `vault` feature flag is enabled
+# [secrets.vault_config]
+# url = "http://127.0.0.1:8200"   # HashiCorp Vault server URL
+# mount_point = "transit"         # Vault transit engine mount point
+# encryption_key = "cripta-key"   # Name of the encryption key in Vault
+# vault_token = "hvs.abc123..."   # Vault authentication token (secret)
+
+# TLS / mTLS certificate configuration
+# Applicable only when the `mtls` compile-time feature flag is enabled
+# [certs]
+# tls_cert = ""   # TLS certificate in PEM format.
+                  # Must be a base64-encoded KMS ciphertext when the `aws` feature is enabled.
+# tls_key = ""    # TLS private key in PEM format.
+                  # Must be a base64-encoded KMS ciphertext when the `aws` feature is enabled.
+# root_ca = ""    # Root CA certificate in PEM format for mTLS client verification.
+                  # Must be a base64-encoded KMS ciphertext when the `aws` feature is enabled.
