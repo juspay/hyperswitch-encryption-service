@@ -39,9 +39,9 @@ global = { cache_prefix = "global", schema = "global" }
 
 # Logging configuration
 [log]
-enabled = true         # Enable or disable logging
-log_level = "debug"    # Log level. Possible values: "debug", "info", "warn", "error"
-log_format = "console" # Log output format. Possible values: "console", "json"
+enabled = true                             # Enable or disable logging
+log_level = "debug"                        # Log level. Possible values: "debug", "info", "warn", "error"
+log_format = "console"                     # Log output format. Possible values: "console", "json"
 # filtering_directive = "WARN,cripta=INFO" # Tracing filter directive (optional).
                                            # Format: "DEFAULT_LEVEL,module1=LEVEL,module2=LEVEL"
                                            # Overrides log levels for specific modules.
