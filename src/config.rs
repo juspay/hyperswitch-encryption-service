@@ -130,12 +130,13 @@ pub struct PoolConfig {
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub server: Server,
-    pub metrics_server: Server,
     pub database: Database,
     pub secrets: Secrets,
     #[serde(default)]
     pub cassandra: Cassandra,
     pub log: LogConfig,
+    #[serde(default)]
+    pub metrics: MetricsConfig,
     pub multitenancy: MultiTenancy,
     pub pool_config: PoolConfig,
     #[cfg(feature = "mtls")]
@@ -198,6 +199,81 @@ pub struct Secrets {
 pub struct Server {
     pub port: u16,
     pub host: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, Default)]
+#[serde(tag = "mode", rename_all = "snake_case")]
+pub enum MetricsConfig {
+    #[default]
+    Disabled,
+
+    Otlp {
+        endpoint: String,
+        #[serde(default = "default_endpoint_timeout")]
+        endpoint_timeout_secs: u64,
+        #[serde(default = "default_export_interval")]
+        metrics_export_interval_secs: u64,
+    },
+
+    Prometheus {
+        #[serde(default = "default_prometheus_host")]
+        host: String,
+        #[serde(default = "default_prometheus_port")]
+        port: u16,
+    },
+}
+
+const fn default_endpoint_timeout() -> u64 {
+    10
+}
+
+const fn default_export_interval() -> u64 {
+    15
+}
+
+fn default_prometheus_host() -> String {
+    "127.0.0.1".to_string()
+}
+
+const fn default_prometheus_port() -> u16 {
+    6128
+}
+
+impl MetricsConfig {
+    pub fn validate(&self) -> CustomResult<(), errors::ParsingError> {
+        match self {
+            Self::Disabled => Ok(()),
+            Self::Otlp { endpoint, .. } => {
+                if endpoint.trim().is_empty() {
+                    return Err(error_stack::Report::new(
+                        errors::ParsingError::DecodingFailed(
+                            r#"metrics.endpoint is required when mode is "otlp""#.into(),
+                        ),
+                    ));
+                }
+                Ok(())
+            }
+            Self::Prometheus { host, port } => {
+                if host.parse::<std::net::IpAddr>().is_err() {
+                    return Err(error_stack::Report::new(
+                        errors::ParsingError::DecodingFailed(
+                            r#"metrics.host must be a valid IP address when mode is "prometheus""#
+                                .into(),
+                        ),
+                    ));
+                }
+                if *port == 0 {
+                    return Err(error_stack::Report::new(
+                        errors::ParsingError::DecodingFailed(
+                            r#"metrics.port must be a non-zero value when mode is "prometheus""#
+                                .into(),
+                        ),
+                    ));
+                }
+                Ok(())
+            }
+        }
+    }
 }
 
 impl Secrets {
@@ -302,6 +378,10 @@ impl Config {
         self.secrets
             .validate()
             .expect("Failed to valdiate secrets some missing configuration found");
+
+        self.metrics
+            .validate()
+            .expect("Failed to validate metrics configuration");
 
         self.cassandra
             .validate()

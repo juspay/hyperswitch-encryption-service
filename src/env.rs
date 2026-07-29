@@ -1,5 +1,5 @@
 mod logger;
-mod metrics;
+pub(crate) mod metrics;
 pub mod observability;
 
 /// Returns the full version string with git info.
