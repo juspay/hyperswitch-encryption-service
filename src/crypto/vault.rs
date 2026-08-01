@@ -77,8 +77,10 @@ impl Crypto for Vault {
             .decode(response.random_bytes)
             .change_context(CryptoError::KeyGeneration)?;
         let buffer: [u8; 32] = key.try_into().map_err(|err: Vec<u8>| {
-            let err_bytes = format!("{err:?}");
-            logger::debug!(err_bytes);
+            logger::debug!(
+                key_length = err.len(),
+                "Unexpected key length returned by Vault transit"
+            );
             CryptoError::KeyGeneration.into_report()
         })?;
         Ok((Source::HashicorpVault, buffer.into()))
