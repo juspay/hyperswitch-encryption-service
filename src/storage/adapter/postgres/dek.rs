@@ -93,8 +93,9 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
         let (d_id, k_id) = identifier.get_identifier();
         let query = DataKey::table()
             .select(version)
+            .filter(data_identifier.eq(d_id).and(key_identifier.eq(k_id)))
             .order_by(version.desc())
-            .filter(data_identifier.eq(d_id).and(key_identifier.eq(k_id)));
+            .limit(1);
 
         let pool = metrics::DbPool::Primary;
         let db_op = metrics::DbOperation::Filter;
