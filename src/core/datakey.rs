@@ -15,6 +15,7 @@ use crate::{
     },
 };
 
+#[tracing::instrument(skip_all)]
 pub async fn create_data_key(
     state: TenantState,
     Json(req): Json<CreateDataKeyRequest>,
@@ -32,6 +33,7 @@ pub async fn create_data_key(
     .to_container_error()
 }
 
+#[tracing::instrument(skip_all)]
 pub async fn rotate_data_key(
     state: TenantState,
     Json(req): Json<RotateDataKeyRequest>,
@@ -49,6 +51,7 @@ pub async fn rotate_data_key(
     .to_container_error()
 }
 
+#[tracing::instrument(skip_all)]
 pub async fn transfer_data_key(
     state: TenantState,
     Json(req): Json<TransferKeyRequest>,

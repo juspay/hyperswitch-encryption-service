@@ -15,6 +15,7 @@ use crate::{
     },
 };
 
+#[tracing::instrument(skip_all)]
 pub async fn encrypt_data(
     state: TenantState,
     Json(req): Json<EncryptDataRequest>,
@@ -31,6 +32,7 @@ pub async fn encrypt_data(
     .to_container_error()
 }
 
+#[tracing::instrument(skip_all)]
 pub async fn decrypt_data(
     state: TenantState,
     Json(req): Json<DecryptionRequest>,
