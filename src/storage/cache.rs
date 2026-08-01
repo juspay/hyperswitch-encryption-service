@@ -42,7 +42,7 @@ where
         max_capacity: Option<u64>,
     ) -> Self {
         let mut cache_builder = MokaCache::builder()
-            .time_to_idle(std::time::Duration::from_secs(time_to_live))
+            .time_to_live(std::time::Duration::from_secs(time_to_live))
             .time_to_idle(std::time::Duration::from_secs(time_to_idle))
             .eviction_listener({
                 move |_key, _value, removal_cause| {
