@@ -36,6 +36,12 @@ jobs:
           tool: cargo-hack
           checksum: true
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+          checksum: true
+
       - uses: Swatinem/rust-cache@v2.9.1
 
       - name: Check compilation
@@ -45,6 +51,12 @@ jobs:
       - name: Run Clippy
         shell: bash
         run: cargo clippy --all-features --all-targets
+
+      - name: Run unit and doc tests
+        shell: bash
+        run: |
+          cargo nextest run --no-tests warn --config-file .nextest.toml --profile ci --all-features
+          cargo test --doc --all-features
 
   check-msrv:
     name: Check compilation on MSRV toolchain
