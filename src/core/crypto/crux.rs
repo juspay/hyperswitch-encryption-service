@@ -7,6 +7,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
     crypto::{Crypto, Source, aes256::GcmAes256},
+    env::metrics,
     errors::{self, SwitchError},
     multitenancy::TenantState,
     storage::types::{DataKey, DataKeyNew},
@@ -122,7 +123,14 @@ impl DataEncrypter<MultipleEncryptionDataGroup> for MultipleDecryptionDataGroup 
                 .0
                 .into_par_iter()
                 .map(|(hash_key, data)| {
-                    let encrypted_data = key.encrypt(data.inner())?;
+                    let input = data.inner();
+                    let input_size = input.peek().len();
+                    let encrypted_data = record_data_crypto(
+                        || key.encrypt(input),
+                        metrics::DataCryptoOperation::Encrypt,
+                        input_size,
+                    )?;
+
                     Ok((
                         hash_key,
                         EncryptedData {
@@ -185,7 +193,14 @@ impl DataDecrypter<MultipleDecryptionDataGroup> for MultipleEncryptionDataGroup 
             let decrypted_key = decrypted_keys.get(&version)
             .ok_or_else(|| errors::CryptoError::DecryptionFailed("AES").into_report())?;
             let key = GcmAes256::new(decrypted_key.key.clone())?;
-            let decrypted_data = key.decrypt(data.inner())?;
+            let input = data.inner();
+            let input_size = input.peek().len();
+            let decrypted_data = record_data_crypto(
+                || key.decrypt(input),
+                metrics::DataCryptoOperation::Decrypt,
+                input_size,
+            )?;
+
             Ok((hash_key, DecryptedData::from_data(decrypted_data)))
         };
 
@@ -240,7 +255,14 @@ impl DataEncrypter<EncryptedDataGroup> for DecryptedDataGroup {
             self.0
                 .into_par_iter()
                 .map(|(hash_key, data)| {
-                    let encrypted_data = key.encrypt(data.inner())?;
+                    let input = data.inner();
+                    let input_size = input.peek().len();
+                    let encrypted_data = record_data_crypto(
+                        || key.encrypt(input),
+                        metrics::DataCryptoOperation::Encrypt,
+                        input_size,
+                    )?;
+
                     Ok::<_, error_stack::Report<errors::CryptoError>>((hash_key,EncryptedData {
                         version: decrypted_key.version,
                         data: encrypted_data,
@@ -276,7 +298,14 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
                     .ok_or(errors::CryptoError::DecryptionFailed("AES").into_report())?.clone();
 
                 let key = GcmAes256::new(decrypted_key.key)?;
-                let decrypted_data = key.decrypt(data.inner())?;
+                let input = data.inner();
+                let input_size = input.peek().len();
+                let decrypted_data = record_data_crypto(
+                    || key.decrypt(input),
+                    metrics::DataCryptoOperation::Decrypt,
+                    input_size,
+                )?;
+
                 Ok::<_, error_stack::Report<errors::CryptoError>>((
                     hash_key,
                     DecryptedData::from_data(decrypted_data),
@@ -301,7 +330,13 @@ impl DataEncrypter<EncryptedData> for DecryptedData {
 
         let key = GcmAes256::new(decrypted_key.key)?;
 
-        let encrypted_data = key.encrypt(self.inner())?;
+        let input = self.inner();
+        let input_size = input.peek().len();
+        let encrypted_data = record_data_crypto(
+            || key.encrypt(input),
+            metrics::DataCryptoOperation::Encrypt,
+            input_size,
+        )?;
 
         Ok(EncryptedData {
             version: decrypted_key.version,
@@ -322,8 +357,101 @@ impl DataDecrypter<DecryptedData> for EncryptedData {
 
         let key = GcmAes256::new(decrypted_key.key)?;
 
-        let decrypted_data = key.decrypt(self.inner())?;
+        let input = self.inner();
+        let input_size = input.peek().len();
+        let decrypted_data = record_data_crypto(
+            || key.decrypt(input),
+            metrics::DataCryptoOperation::Decrypt,
+            input_size,
+        )?;
 
         Ok(DecryptedData::from_data(decrypted_data))
+    }
+}
+
+/// Maps an input length in bytes to a bounded bucket label.
+///
+/// Buckets are power-of-two ranges `(prev_upper, upper]`, the written upper bound is inclusive:
+/// `8-16B` covers 9..=16 bytes, `512B-1KiB` covers 513..=1024.
+///
+/// The bucket index is `ceil(log2(len))` (computed as `len.next_power_of_two().trailing_zeros()`,
+/// e.g. 9..=16 -> 16 -> `trailing_zeros` 4 -> index 1), shifted down by 3 so the `0-8B` bucket
+/// starts at index 0.
+/// Values above 1 MiB collapse into a single `>1MiB` bucket, keeping label cardinality bounded
+/// regardless of input size.
+const fn size_bucket(len: usize) -> &'static str {
+    const BUCKETS: [&str; 18] = [
+        "0-8B",
+        "8-16B",
+        "16-32B",
+        "32-64B",
+        "64-128B",
+        "128-256B",
+        "256-512B",
+        "512B-1KiB",
+        "1-2KiB",
+        "2-4KiB",
+        "4-8KiB",
+        "8-16KiB",
+        "16-32KiB",
+        "32-64KiB",
+        "64-128KiB",
+        "128-256KiB",
+        "256-512KiB",
+        "512KiB-1MiB",
+    ];
+
+    if len > 1024 * 1024 {
+        return ">1MiB";
+    }
+
+    #[expect(
+        clippy::as_conversions,
+        reason = "u32 to usize cast should succeed on 64-bit targets"
+    )]
+    BUCKETS[len.next_power_of_two().trailing_zeros().saturating_sub(3) as usize]
+}
+
+fn record_data_crypto<T, E>(
+    f: impl FnOnce() -> Result<T, E>,
+    operation: metrics::DataCryptoOperation,
+    input_size: usize,
+) -> Result<T, E> {
+    let start = std::time::Instant::now();
+    let result = f();
+    let duration = start.elapsed();
+    let outcome = if result.is_ok() { "success" } else { "error" };
+
+    metrics::CRYPTO_OPERATION_DURATION.record(
+        duration.as_secs_f64(),
+        metrics_utils::metric_attributes!(
+            ("operation", operation),
+            ("input_size", size_bucket(input_size)),
+            ("outcome", outcome),
+        ),
+    );
+
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::size_bucket;
+
+    #[test]
+    fn test_size_bucket_boundaries() {
+        assert_eq!(size_bucket(0), "0-8B");
+        assert_eq!(size_bucket(1), "0-8B");
+        assert_eq!(size_bucket(8), "0-8B");
+        assert_eq!(size_bucket(9), "8-16B");
+        assert_eq!(size_bucket(16), "8-16B");
+        assert_eq!(size_bucket(1024), "512B-1KiB");
+        assert_eq!(size_bucket(1025), "1-2KiB");
+        assert_eq!(size_bucket(2048), "1-2KiB");
+        assert_eq!(size_bucket(2049), "2-4KiB");
+        assert_eq!(size_bucket(524288), "256-512KiB");
+        assert_eq!(size_bucket(1024 * 1024), "512KiB-1MiB");
+        assert_eq!(size_bucket(1024 * 1024 + 1), ">1MiB");
+        assert_eq!(size_bucket(usize::MAX), ">1MiB");
     }
 }

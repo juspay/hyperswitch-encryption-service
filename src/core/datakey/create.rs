@@ -3,7 +3,7 @@ use crate::{
     env::observability as logger,
     errors::{self, SwitchError},
     multitenancy::TenantState,
-    storage::dek::DataKeyStorageInterface,
+    storage::{dek::DataKeyStorageInterface, metrics as storage_metrics},
     types::{Key, key::Version, requests::CreateDataKeyRequest, response::DataKeyCreateResponse},
 };
 
@@ -29,8 +29,10 @@ pub async fn generate_and_create_data_key(
         logger::error!(?err);
         err
     })?;
-
-    let data_key = db.get_or_insert_data_key(key).await.switch()?;
+    let data_key = db
+        .get_or_insert_data_key(storage_metrics::DataKeyStorageOperation::Create, key)
+        .await
+        .switch()?;
     Ok(DataKeyCreateResponse {
         key_version: data_key.version,
         identifier: req.identifier,

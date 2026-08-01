@@ -213,6 +213,8 @@ pub enum MetricsConfig {
         endpoint_timeout_secs: u64,
         #[serde(default = "default_export_interval")]
         metrics_export_interval_secs: u64,
+        #[serde(default = "default_bg_metrics_interval")]
+        background_metrics_collection_interval_secs: std::num::NonZeroU64,
     },
 
     Prometheus {
@@ -220,6 +222,8 @@ pub enum MetricsConfig {
         host: String,
         #[serde(default = "default_prometheus_port")]
         port: u16,
+        #[serde(default = "default_bg_metrics_interval")]
+        background_metrics_collection_interval_secs: std::num::NonZeroU64,
     },
 }
 
@@ -239,6 +243,11 @@ const fn default_prometheus_port() -> u16 {
     6128
 }
 
+fn default_bg_metrics_interval() -> std::num::NonZeroU64 {
+    #[allow(clippy::expect_used)]
+    std::num::NonZeroU64::new(15).expect("15 is non-zero")
+}
+
 impl MetricsConfig {
     pub fn validate(&self) -> CustomResult<(), errors::ParsingError> {
         match self {
@@ -253,7 +262,7 @@ impl MetricsConfig {
                 }
                 Ok(())
             }
-            Self::Prometheus { host, port } => {
+            Self::Prometheus { host, port, .. } => {
                 if host.parse::<std::net::IpAddr>().is_err() {
                     return Err(error_stack::Report::new(
                         errors::ParsingError::DecodingFailed(
@@ -272,6 +281,22 @@ impl MetricsConfig {
                 }
                 Ok(())
             }
+        }
+    }
+
+    pub fn background_metrics_collection_interval_secs(&self) -> u64 {
+        match self {
+            // We shouldn't be reaching this arm preferably,
+            // we shouldn't be launching the metrics collection task if metrics are disabled.
+            Self::Disabled => default_bg_metrics_interval().get(),
+            Self::Otlp {
+                background_metrics_collection_interval_secs,
+                ..
+            }
+            | Self::Prometheus {
+                background_metrics_collection_interval_secs,
+                ..
+            } => background_metrics_collection_interval_secs.get(),
         }
     }
 }

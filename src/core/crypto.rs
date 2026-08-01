@@ -7,45 +7,42 @@ pub use crux::*;
 
 use crate::{
     env::metrics,
-    errors,
+    errors::{self, ToContainerError},
     multitenancy::TenantState,
     types::{
         requests::{DecryptionRequest, EncryptDataRequest},
         response::{DecryptionResponse, EncryptionResponse},
     },
-    utils,
 };
 
 pub async fn encrypt_data(
     state: TenantState,
     Json(req): Json<EncryptDataRequest>,
 ) -> errors::ApiResponseResult<Json<EncryptionResponse>> {
-    let (data_identifier, key_identifier) = req.identifier.get_identifier();
+    let (data_identifier, _key_identifier) = req.identifier.get_identifier();
 
-    utils::record_api_operation(
+    super::record_domain_operation(
         encryption::encryption(state, req),
-        &metrics::ENCRYPTION_API_LATENCY,
-        metrics_utils::metric_attributes!(
-            ("data_identifier", data_identifier),
-            ("key_identifier", key_identifier)
-        ),
+        metrics::DomainOperation::Encrypt,
+        data_identifier,
     )
     .await
+    .map(Json)
+    .to_container_error()
 }
 
 pub async fn decrypt_data(
     state: TenantState,
     Json(req): Json<DecryptionRequest>,
 ) -> errors::ApiResponseResult<Json<DecryptionResponse>> {
-    let (data_identifier, key_identifier) = req.identifier.get_identifier();
+    let (data_identifier, _key_identifier) = req.identifier.get_identifier();
 
-    utils::record_api_operation(
+    super::record_domain_operation(
         decryption::decryption(state, req),
-        &metrics::DECRYPTION_API_LATENCY,
-        metrics_utils::metric_attributes!(
-            ("data_identifier", data_identifier),
-            ("key_identifier", key_identifier)
-        ),
+        metrics::DomainOperation::Decrypt,
+        data_identifier,
     )
     .await
+    .map(Json)
+    .to_container_error()
 }

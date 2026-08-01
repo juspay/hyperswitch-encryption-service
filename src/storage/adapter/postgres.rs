@@ -93,8 +93,8 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     async fn get_conn<'a>(
         &'a self,
     ) -> errors::CustomResult<Self::Conn<'a>, errors::ConnectionError> {
-        self.pool
-            .get()
+        let pool = crate::storage::metrics::DbPool::Primary;
+        crate::storage::metrics::record_db_connection_acquire_duration(self.pool.get(), pool)
             .await
             .change_context(errors::ConnectionError::ConnectionEstablishFailed)
     }

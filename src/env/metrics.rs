@@ -1,8 +1,14 @@
+mod middleware;
+
 use std::{sync::Arc, time::Duration};
 
 use axum::Router;
-use metrics_utils::{counter_metric, f64_histogram_buckets, global_meter, histogram_metric_f64};
+use metrics_utils::{
+    counter_metric, f64_histogram_buckets, gauge_metric, global_meter, histogram_metric_f64,
+    up_down_counter_metric,
+};
 
+pub use self::middleware::HttpRequestMetricsLayer;
 use crate::{app::AppState, config::MetricsConfig, errors, routes::Health};
 
 #[derive(Debug)]
@@ -64,7 +70,7 @@ pub fn init_metrics(config: &MetricsConfig, service_name: &'static str) -> Metri
             }
         }
 
-        MetricsConfig::Prometheus { host, port } => {
+        MetricsConfig::Prometheus { host, port, .. } => {
             let metrics_config = metrics_utils::MetricsConfig {
                 service_name: String::from(service_name),
                 resource_attributes: Vec::new(),
@@ -153,41 +159,225 @@ pub fn spawn_prometheus_metrics_server(
     Ok(())
 }
 
-global_meter!(pub(crate) CRIPTA_METER, "cripta");
+pub fn spawn_bg_metrics_collector(
+    #[cfg(not(feature = "cassandra"))] global_state: &Arc<AppState>,
+    background_metrics_collection_interval_secs: u64,
+) {
+    let interval = Duration::from_secs(background_metrics_collection_interval_secs);
 
+    #[cfg(not(feature = "cassandra"))]
+    let global_state = global_state.clone();
+
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(interval);
+
+        // Skip the first tick, which resolves immediately.
+        // We want to start metrics collection after the first interval has elapsed.
+        interval.tick().await;
+
+        loop {
+            interval.tick().await;
+
+            #[cfg(not(feature = "cassandra"))]
+            for (tenant_id, _tenant_state) in global_state.tenant_states.iter() {
+                // Collect DB pool state gauges
+                _tenant_state
+                    .db_pool()
+                    .collect_db_pool_state(tenant_id.as_str());
+            }
+
+            // Collect cache entry count gauges (caches are global across tenants)
+            record_cache_entry_counts().await;
+        }
+    });
+}
+
+async fn record_cache_entry_counts() {
+    use crate::storage::cache::{KEY_CACHE, VERSION_CACHE};
+
+    VERSION_CACHE.record_entry_count_metric().await;
+    KEY_CACHE.record_entry_count_metric().await;
+}
+
+global_meter!(pub(crate) CRIPTA_METER, "encryption_service");
+
+// HTTP server
 counter_metric!(
-    pub(crate) HEALTH_METRIC, CRIPTA_METER,
-    description: "Counts the number of times the health endpoint is called",
+    pub(crate) HTTP_SERVER_REQUEST_COUNT, CRIPTA_METER,
+    name: "http.server.request.count",
+    description: "Number of HTTP server requests received",
+    unit: "{request}",
 );
-
-counter_metric!(
-    pub(crate) ENCRYPTION_FAILURE, CRIPTA_METER,
-    description: "Counts encryption failures",
-);
-
-counter_metric!(
-    pub(crate) DECRYPTION_FAILURE, CRIPTA_METER,
-    description: "Counts decryption failures",
-);
-
-counter_metric!(
-    pub(crate) KEY_CREATE_FAILURE, CRIPTA_METER,
-    description: "Counts data key creation failures",
-);
-
-counter_metric!(
-    pub(crate) KEY_ROTATE_FAILURE, CRIPTA_METER,
-    description: "Counts data key rotation failures",
-);
-
 histogram_metric_f64!(
-    pub(crate) ENCRYPTION_API_LATENCY, CRIPTA_METER,
-    description: "Encryption API latency in seconds",
+    pub(crate) HTTP_SERVER_REQUEST_DURATION, CRIPTA_METER,
+    name: "http.server.request.duration",
+    description: "Duration of HTTP server requests",
+    unit: "s",
+    buckets: f64_histogram_buckets().to_vec(),
+);
+up_down_counter_metric!(
+    pub(crate) HTTP_SERVER_ACTIVE_REQUESTS, CRIPTA_METER,
+    name: "http.server.active_requests",
+    description: "Number of HTTP server requests currently in flight",
+    unit: "{request}",
+);
+
+// Database
+counter_metric!(
+    pub(crate) DATABASE_QUERY_COUNT, CRIPTA_METER,
+    name: "database.query.count",
+    description: "Number of database query attempts",
+    unit: "{query}",
+);
+histogram_metric_f64!(
+    pub(crate) DATABASE_QUERY_DURATION, CRIPTA_METER,
+    name: "database.query.duration",
+    description: "Duration of completed database queries",
+    unit: "s",
+    buckets: f64_histogram_buckets().to_vec(),
+);
+histogram_metric_f64!(
+    pub(crate) DATABASE_CONNECTION_ACQUIRE_DURATION, CRIPTA_METER,
+    name: "database.connection.acquire.duration",
+    description: "Duration of database connection acquisition attempts",
+    unit: "s",
+    buckets: f64_histogram_buckets().to_vec(),
+);
+gauge_metric!(
+    pub(crate) DATABASE_POOL_SIZE, CRIPTA_METER,
+    name: "database.pool.size",
+    description: "Total number of connections in the database pool",
+    unit: "{connection}",
+);
+gauge_metric!(
+    pub(crate) DATABASE_POOL_AVAILABLE, CRIPTA_METER,
+    name: "database.pool.available",
+    description: "Number of available connections in the database pool",
+    unit: "{connection}",
+);
+gauge_metric!(
+    pub(crate) DATABASE_POOL_WAITING, CRIPTA_METER,
+    name: "database.pool.waiting",
+    description: "Number of callers waiting for a database connection",
+    unit: "{connection}",
+);
+
+// Cache
+counter_metric!(
+    pub(crate) CACHE_LOOKUP_COUNT, CRIPTA_METER,
+    name: "cache.lookup.count",
+    description: "Number of cache lookup attempts",
+    unit: "{lookup}",
+);
+counter_metric!(
+    pub(crate) CACHE_INSERT_COUNT, CRIPTA_METER,
+    name: "cache.insert.count",
+    description: "Number of cache insert attempts",
+    unit: "{insert}",
+);
+counter_metric!(
+    pub(crate) CACHE_REMOVAL_COUNT, CRIPTA_METER,
+    name: "cache.removal.count",
+    description: "Number of cache removal events",
+    unit: "{event}",
+);
+gauge_metric!(
+    pub(crate) CACHE_ENTRY_COUNT, CRIPTA_METER,
+    name: "cache.entry.count",
+    description: "Current number of cache entries",
+    unit: "{entry}",
+);
+
+// Key manager
+histogram_metric_f64!(
+    pub(crate) KEY_MANAGER_CALL_DURATION, CRIPTA_METER,
+    name: "key_manager.call.duration",
+    description: "Duration of completed key-manager call attempts",
+    unit: "s",
     buckets: f64_histogram_buckets().to_vec(),
 );
 
+// Data key storage
+counter_metric!(
+    pub(crate) DATA_KEY_OPERATION_COUNT, CRIPTA_METER,
+    name: "data_key.operation.count",
+    description: "Number of data key storage operation attempts",
+    unit: "{operation}",
+);
+
+// Domain operations
+counter_metric!(
+    pub(crate) DOMAIN_OPERATION_COUNT, CRIPTA_METER,
+    name: "domain.operation.count",
+    description: "Number of domain operation attempts",
+    unit: "{operation}",
+);
 histogram_metric_f64!(
-    pub(crate) DECRYPTION_API_LATENCY, CRIPTA_METER,
-    description: "Decryption API latency in seconds",
+    pub(crate) DOMAIN_OPERATION_DURATION, CRIPTA_METER,
+    name: "domain.operation.duration",
+    description: "Duration of completed domain operations",
+    unit: "s",
     buckets: f64_histogram_buckets().to_vec(),
+);
+
+// Data encryption/decryption
+histogram_metric_f64!(
+    pub(crate) CRYPTO_OPERATION_DURATION, CRIPTA_METER,
+    name: "crypto.operation.duration",
+    description: "Duration of completed data encryption/decryption operations",
+    unit: "s",
+    buckets: f64_histogram_buckets().to_vec(),
+);
+
+#[macro_export]
+macro_rules! impl_metric_value_from {
+        ($($ty:ty),+ $(,)?) => {
+            $(
+                impl From<$ty> for metrics_utils::opentelemetry::Value {
+                    fn from(v: $ty) -> Self {
+                        Self::from(<&'static str>::from(v))
+                    }
+                }
+            )+
+        };
+    }
+
+#[derive(Debug, Clone, Copy, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
+pub(crate) enum KeyManagerBackend {
+    AwsKms,
+    Vault,
+    Aes256,
+}
+
+#[derive(Debug, Clone, Copy, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
+pub(crate) enum KeyManagerOperation {
+    GenerateKey,
+    Encrypt,
+    Decrypt,
+}
+
+#[derive(Debug, Clone, Copy, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
+pub(crate) enum DomainOperation {
+    Encrypt,
+    Decrypt,
+    KeyCreate,
+    KeyRotate,
+    KeyTransfer,
+}
+
+#[derive(Debug, Clone, Copy, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
+pub(crate) enum DataCryptoOperation {
+    Encrypt,
+    Decrypt,
+}
+
+impl_metric_value_from!(
+    KeyManagerBackend,
+    KeyManagerOperation,
+    DomainOperation,
+    DataCryptoOperation,
 );

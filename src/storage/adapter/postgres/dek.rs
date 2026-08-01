@@ -9,6 +9,7 @@ use crate::{
     storage::{
         adapter::PostgreSQL,
         dek::DataKeyStorageInterface,
+        metrics,
         types::{DataKey, DataKeyNew},
     },
     types::{Identifier, key::Version},
@@ -18,6 +19,7 @@ use crate::{
 impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     async fn get_or_insert_data_key(
         &self,
+        operation: metrics::DataKeyStorageOperation,
         new: DataKeyNew,
     ) -> CustomResult<DataKey, errors::DatabaseError> {
         let identifier: errors::CustomResult<Identifier, errors::ParsingError> =
@@ -28,10 +30,38 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
         let mut connection = self.get_conn().await.switch()?;
         let query = diesel::insert_into(DataKey::table()).values(new);
 
-        match query.get_result(&mut connection).await.switch() {
-            Ok(result) => Ok(result),
+        let pool = metrics::DbPool::Primary;
+        let db_op = metrics::DbOperation::Insert;
+        metrics::log_db_query::<table, _>(&query, db_op, pool);
+
+        let result = metrics::record_db_query::<table, _, _, _>(
+            query.get_result(&mut connection),
+            db_op,
+            pool,
+        )
+        .await
+        .switch();
+
+        match result {
+            Ok(result) => {
+                crate::env::metrics::DATA_KEY_OPERATION_COUNT.add(
+                    1,
+                    metrics_utils::metric_attributes!(
+                        ("operation", operation),
+                        ("outcome", metrics::DataKeyStorageOutcome::Created),
+                    ),
+                );
+                Ok(result)
+            }
             Err(err) => match err.current_context() {
                 errors::DatabaseError::UniqueViolation => {
+                    crate::env::metrics::DATA_KEY_OPERATION_COUNT.add(
+                        1,
+                        metrics_utils::metric_attributes!(
+                            ("operation", operation),
+                            ("outcome", metrics::DataKeyStorageOutcome::FoundExisting),
+                        ),
+                    );
                     self.get_key(
                         v,
                         &identifier
@@ -40,7 +70,16 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
                     )
                     .await
                 }
-                _ => Err(err),
+                _ => {
+                    crate::env::metrics::DATA_KEY_OPERATION_COUNT.add(
+                        1,
+                        metrics_utils::metric_attributes!(
+                            ("operation", operation),
+                            ("outcome", metrics::DataKeyStorageOutcome::Error),
+                        ),
+                    );
+                    Err(err)
+                }
             },
         }
     }
@@ -57,7 +96,13 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
             .order_by(version.desc())
             .filter(data_identifier.eq(d_id).and(key_identifier.eq(k_id)));
 
-        query.get_result(&mut connection).await.switch()
+        let pool = metrics::DbPool::Primary;
+        let db_op = metrics::DbOperation::Filter;
+        metrics::log_db_query::<table, _>(&query, db_op, pool);
+
+        metrics::record_db_query::<table, _, _, _>(query.get_result(&mut connection), db_op, pool)
+            .await
+            .switch()
     }
 
     async fn get_key(
@@ -74,6 +119,13 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
                 .eq(v)
                 .and(data_identifier.eq(d_id).and(key_identifier.eq(k_id))),
         );
-        query.get_result(&mut connection).await.switch()
+
+        let pool = metrics::DbPool::Primary;
+        let db_op = metrics::DbOperation::FindOne;
+        metrics::log_db_query::<table, _>(&query, db_op, pool);
+
+        metrics::record_db_query::<table, _, _, _>(query.get_result(&mut connection), db_op, pool)
+            .await
+            .switch()
     }
 }
