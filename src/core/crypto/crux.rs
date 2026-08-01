@@ -190,8 +190,15 @@ impl DataDecrypter<MultipleDecryptionDataGroup> for MultipleEncryptionDataGroup 
         // Helper closure to decrypt a single entity from an encrypted group.
         let decrypt_entity = |(hash_key, data): (String, EncryptedData)| -> errors::CustomResult<(String, DecryptedData), _> {
             let version = data.version;
-            let decrypted_key = decrypted_keys.get(&version)
-            .ok_or_else(|| errors::CryptoError::DecryptionFailed("AES").into_report())?;
+            let decrypted_key = decrypted_keys
+                .get(&version)
+                .ok_or_else(|| {
+                    errors::CryptoError::DecryptionFailed("AES")
+                        .into_report()
+                        .attach(format!(
+                            "No data key found for ciphertext version {version}, identifier {identifier}"
+                        ))
+                })?;
             let key = GcmAes256::new(decrypted_key.key.clone())?;
             let input = data.inner();
             let input_size = input.peek().len();
@@ -295,7 +302,14 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
                 let version = data.version;
                 let decrypted_key = decrypted_keys
                     .get(&version)
-                    .ok_or(errors::CryptoError::DecryptionFailed("AES").into_report())?.clone();
+                    .ok_or_else(|| {
+                        errors::CryptoError::DecryptionFailed("AES")
+                            .into_report()
+                            .attach(format!(
+                                "No data key found for ciphertext version {version}, identifier {identifier}"
+                            ))
+                    })?
+                    .clone();
 
                 let key = GcmAes256::new(decrypted_key.key)?;
                 let input = data.inner();
