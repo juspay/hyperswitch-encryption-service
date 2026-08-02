@@ -53,13 +53,17 @@ log_format = "console"                     # Log output format. Possible values:
 mode = "otlp" # Options: "disabled" (default), "otlp", "prometheus"
 
 # When mode is "otlp", configure the OTLP endpoint and export settings:
-endpoint = "http://127.0.0.1:4317" # OTLP gRPC endpoint
-endpoint_timeout_secs = 10         # Connection timeout in seconds
-metrics_export_interval_secs = 15  # Export interval in seconds
+endpoint = "http://127.0.0.1:4317"                 # OTLP gRPC endpoint
+endpoint_timeout_secs = 10                         # Connection timeout in seconds
+metrics_export_interval_secs = 15                  # Export interval in seconds
+background_metrics_collection_interval_secs = 15   # Interval (in seconds) for the background metrics collector.
+                                                   # Collects database pool state and cache entry count gauges.
 
 # When mode is "prometheus", configure the Prometheus HTTP server:
-# host = "127.0.0.1"                       # IP address the Prometheus HTTP server listens on
-# port = 6128                              # Port the Prometheus HTTP server listens on
+# host = "127.0.0.1"                                # IP address the Prometheus HTTP server listens on
+# port = 6128                                       # Port the Prometheus HTTP server listens on
+# background_metrics_collection_interval_secs = 15  # Interval (in seconds) for the background metrics collector.
+                                                    # Collects database pool state and cache entry count gauges.
 
 # Secrets and encryption configuration
 # The service supports three mutually exclusive key management strategies chosen at compile time:
