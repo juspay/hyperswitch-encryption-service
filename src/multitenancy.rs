@@ -42,7 +42,6 @@ impl std::ops::Deref for TenantState {
     }
 }
 
-#[axum::async_trait]
 impl axum::extract::FromRequestParts<Arc<AppState>> for TenantState {
     type Rejection = ApiErrorContainer;
     async fn from_request_parts(

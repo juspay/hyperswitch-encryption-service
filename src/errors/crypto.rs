@@ -1,4 +1,4 @@
-use error_stack::report;
+use error_stack::{IntoReport, ResultExt};
 
 use crate::env::observability as logger;
 
@@ -22,7 +22,7 @@ pub enum CryptoError {
 
 impl super::SwitchError<(), CryptoError> for Result<(), ring::error::Unspecified> {
     fn switch(self) -> super::CustomResult<(), CryptoError> {
-        self.map_err(|err| report!(err).change_context(CryptoError::KeyGeneration))
+        self.change_context(CryptoError::KeyGeneration)
     }
 }
 
@@ -40,7 +40,10 @@ impl<T> super::SwitchError<T, CryptoError> for super::CustomResult<T, super::Dat
 
 impl<T> super::SwitchError<T, CryptoError> for Result<T, strum::ParseError> {
     fn switch(self) -> super::CustomResult<T, CryptoError> {
-        self.map_err(|err| report!(err).change_context(CryptoError::ParseError(err.to_string())))
+        self.map_err(|err| {
+            err.into_report()
+                .change_context(CryptoError::ParseError(err.to_string()))
+        })
     }
 }
 
@@ -50,7 +53,7 @@ impl<T, U: core::fmt::Debug> super::SwitchError<T, CryptoError>
     fn switch(self) -> super::CustomResult<T, CryptoError> {
         self.map_err(|err| {
             logger::error!(aws_kms_err=?err);
-            report!(CryptoError::EncryptionFailed("KMS"))
+            CryptoError::EncryptionFailed("KMS").into_report()
         })
     }
 }
@@ -61,7 +64,7 @@ impl<T, U: core::fmt::Debug> super::SwitchError<T, CryptoError>
     fn switch(self) -> super::CustomResult<T, CryptoError> {
         self.map_err(|err| {
             logger::error!(aws_kms_err=?err);
-            report!(CryptoError::DecryptionFailed("KMS"))
+            CryptoError::DecryptionFailed("KMS").into_report()
         })
     }
 }
@@ -78,7 +81,7 @@ impl<T, U: core::fmt::Debug> super::SwitchError<T, CryptoError>
     fn switch(self) -> super::CustomResult<T, CryptoError> {
         self.map_err(|err| {
             logger::error!(aws_kms_err=?err);
-            report!(CryptoError::KeyGeneration)
+            CryptoError::KeyGeneration.into_report()
         })
     }
 }

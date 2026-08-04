@@ -26,7 +26,7 @@ pub struct AwsKmsClient {
 impl AwsKmsClient {
     pub async fn new(config: &AwsKmsConfig) -> Self {
         let region_provider = RegionProviderChain::first_try(Region::new(config.region.clone()));
-        let sdk_config = aws_config::defaults(BehaviorVersion::v2024_03_28())
+        let sdk_config = aws_config::defaults(BehaviorVersion::v2026_01_12())
             .region(region_provider)
             .load()
             .await;

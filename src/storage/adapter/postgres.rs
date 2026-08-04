@@ -7,7 +7,7 @@ use diesel_async::{
     pooled_connection::{AsyncDieselConnectionManager, ManagerConfig, bb8::Pool},
 };
 use error_stack::ResultExt;
-use masking::PeekInterface;
+use hyperswitch_masking::PeekInterface;
 
 use crate::storage::{Config, Connection, DbState, adapter::PostgreSQL, errors};
 

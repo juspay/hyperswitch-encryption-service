@@ -9,16 +9,20 @@ on:
     types:
       - checks_requested
 
+permissions:
+  contents: read
+
 jobs:
-  build:
+  check-stable:
+    name: Check compilation on stable toolchain
     runs-on: ubuntu-latest
 
     env:
       RUSTFLAGS: "-D warnings"
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
@@ -32,13 +36,49 @@ jobs:
           tool: cargo-hack
           checksum: true
 
-      - uses: Swatinem/rust-cache@v2.7.8
+      - uses: Swatinem/rust-cache@v2.9.1
 
       - name: Check compilation
+        shell: bash
         run: cargo hack check --each-feature --all-targets
 
       - name: Run Clippy
+        shell: bash
         run: cargo clippy --all-features --all-targets
+
+  check-msrv:
+    name: Check compilation on MSRV toolchain
+    runs-on: ubuntu-latest
+
+    env:
+      RUSTFLAGS: "-D warnings"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Get MSRV from Cargo.toml
+        shell: bash
+        run: |
+          msrv=$(yq -oy '.package.rust-version' Cargo.toml)
+          echo "msrv=${msrv}" >> $GITHUB_ENV
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "${{ env.msrv }}"
+
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack
+          checksum: true
+
+      - uses: Swatinem/rust-cache@v2.9.1
+
+      - name: Check compilation
+        shell: bash
+        run: cargo hack check --each-feature --all-targets
 
   formatting:
     name: Check formatting
@@ -46,7 +86,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master

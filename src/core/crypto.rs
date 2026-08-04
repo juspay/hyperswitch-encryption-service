@@ -4,10 +4,10 @@ mod encryption;
 
 use axum::extract::Json;
 pub use crux::*;
-use opentelemetry::KeyValue;
 
 use crate::{
-    errors, metrics,
+    env::metrics,
+    errors,
     multitenancy::TenantState,
     types::{
         requests::{DecryptionRequest, EncryptDataRequest},
@@ -25,10 +25,10 @@ pub async fn encrypt_data(
     utils::record_api_operation(
         encryption::encryption(state, req),
         &metrics::ENCRYPTION_API_LATENCY,
-        &[
-            KeyValue::new("data_identifier", data_identifier),
-            KeyValue::new("key_identifier", key_identifier),
-        ],
+        metrics_utils::metric_attributes!(
+            ("data_identifier", data_identifier),
+            ("key_identifier", key_identifier)
+        ),
     )
     .await
 }
@@ -42,10 +42,10 @@ pub async fn decrypt_data(
     utils::record_api_operation(
         decryption::decryption(state, req),
         &metrics::DECRYPTION_API_LATENCY,
-        &[
-            KeyValue::new("data_identifier", data_identifier),
-            KeyValue::new("key_identifier", key_identifier),
-        ],
+        metrics_utils::metric_attributes!(
+            ("data_identifier", data_identifier),
+            ("key_identifier", key_identifier)
+        ),
     )
     .await
 }

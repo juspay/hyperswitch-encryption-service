@@ -1,9 +1,6 @@
-use opentelemetry::KeyValue;
-
 use crate::{
-    env::observability as logger,
+    env::{metrics, observability as logger},
     errors::{self, SwitchError},
-    metrics,
     multitenancy::TenantState,
     types::{requests::EncryptDataRequest, response::EncryptionResponse},
 };
@@ -23,10 +20,10 @@ pub(super) async fn encryption(
             let (data_identifier, key_identifier) = identifier.get_identifier();
             metrics::ENCRYPTION_FAILURE.add(
                 1,
-                &[
-                    KeyValue::new("key_identifier", key_identifier),
-                    KeyValue::new("data_identifier", data_identifier),
-                ],
+                metrics_utils::metric_attributes!(
+                    ("key_identifier", key_identifier),
+                    ("data_identifier", data_identifier)
+                ),
             );
             err
         })

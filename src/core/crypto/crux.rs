@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
-use masking::PeekInterface;
+use error_stack::IntoReport;
+use hyperswitch_masking::PeekInterface;
 use rayon::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet};
 
@@ -66,7 +67,7 @@ impl KeyDecrypter<Key> for DataKey {
             .await?;
 
         let decrypted_key = <[u8; 32]>::try_from(decrypted_key.peek().to_vec())
-            .map_err(|_| error_stack::report!(errors::CryptoError::DecryptionFailed("KMS")))?;
+            .map_err(|_| errors::CryptoError::DecryptionFailed("KMS").into_report())?;
 
         let identifier: errors::CustomResult<Identifier, errors::ParsingError> =
             (self.data_identifier, self.key_identifier).try_into();
@@ -182,7 +183,7 @@ impl DataDecrypter<MultipleDecryptionDataGroup> for MultipleEncryptionDataGroup 
         let decrypt_entity = |(hash_key, data): (String, EncryptedData)| -> errors::CustomResult<(String, DecryptedData), _> {
             let version = data.version;
             let decrypted_key = decrypted_keys.get(&version)
-            .ok_or_else(|| error_stack::report!(errors::CryptoError::DecryptionFailed("AES")))?;
+            .ok_or_else(|| errors::CryptoError::DecryptionFailed("AES").into_report())?;
             let key = GcmAes256::new(decrypted_key.key.clone())?;
             let decrypted_data = key.decrypt(data.inner())?;
             Ok((hash_key, DecryptedData::from_data(decrypted_data)))
@@ -262,15 +263,17 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
             .await
             .switch()?;
 
-        state.thread_pool.install(|| {
-            self
+        state
+            .thread_pool
+            .install(|| {
+                self
             .0
             .into_par_iter()
             .map(|(hash_key, data)| {
                 let version = data.version;
                 let decrypted_key = decrypted_keys
                     .get(&version)
-                    .ok_or(error_stack::report!(errors::CryptoError::DecryptionFailed("AES")))?.clone();
+                    .ok_or(errors::CryptoError::DecryptionFailed("AES").into_report())?.clone();
 
                 let key = GcmAes256::new(decrypted_key.key)?;
                 let decrypted_data = key.decrypt(data.inner())?;
@@ -281,7 +284,8 @@ impl DataDecrypter<DecryptedDataGroup> for EncryptedDataGroup {
             })
             .collect::<errors::CustomResult<FxHashMap<String, DecryptedData>, errors::CryptoError>>(
             )
-        }).map(DecryptedDataGroup)
+            })
+            .map(DecryptedDataGroup)
     }
 }
 

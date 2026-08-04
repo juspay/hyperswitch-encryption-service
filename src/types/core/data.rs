@@ -1,7 +1,7 @@
 use std::fmt;
 
 use base64::engine::Engine;
-use masking::PeekInterface;
+use hyperswitch_masking::PeekInterface;
 use rustc_hash::FxHashMap;
 use serde::{
     Serialize,
@@ -17,14 +17,14 @@ pub struct MultipleDecryptionDataGroup(pub Vec<DecryptedDataGroup>);
 pub struct DecryptedDataGroup(pub FxHashMap<String, DecryptedData>);
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct DecryptedData(masking::StrongSecret<Vec<u8>>);
+pub struct DecryptedData(hyperswitch_masking::StrongSecret<Vec<u8>>);
 
 impl DecryptedData {
-    pub fn from_data(data: masking::StrongSecret<Vec<u8>>) -> Self {
+    pub fn from_data(data: hyperswitch_masking::StrongSecret<Vec<u8>>) -> Self {
         Self(data)
     }
 
-    pub fn inner(self) -> masking::StrongSecret<Vec<u8>> {
+    pub fn inner(self) -> hyperswitch_masking::StrongSecret<Vec<u8>> {
         self.0
     }
 }
@@ -79,11 +79,11 @@ pub struct EncryptedDataGroup(pub FxHashMap<String, EncryptedData>);
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct EncryptedData {
     pub version: Version,
-    pub data: masking::StrongSecret<Vec<u8>>,
+    pub data: hyperswitch_masking::StrongSecret<Vec<u8>>,
 }
 
 impl EncryptedData {
-    pub fn inner(self) -> masking::StrongSecret<Vec<u8>> {
+    pub fn inner(self) -> hyperswitch_masking::StrongSecret<Vec<u8>> {
         self.data
     }
 }
@@ -93,7 +93,7 @@ impl Serialize for EncryptedData {
         S: serde::Serializer,
     {
         let data = BASE64_ENGINE.encode(self.data.peek());
-        let encoded = format!("{}:{}", &self.version, data);
+        let encoded = format!("{}:{}", self.version, data);
         serializer.serialize_str(&encoded)
     }
 }
@@ -141,7 +141,7 @@ impl<'de> Deserialize<'de> for EncryptedData {
 
                 Ok(EncryptedData {
                     version: Version::from(version),
-                    data: masking::StrongSecret::new(dec_data),
+                    data: hyperswitch_masking::StrongSecret::new(dec_data),
                 })
             }
         }
@@ -169,7 +169,9 @@ mod tests {
         let actual_data: ExtractedEncryptedData = serde_json::from_value(data).unwrap();
         let expected_data = EncryptedData {
             version: Version::from(1),
-            data: masking::StrongSecret::new(String::from("Omgit'sworking").as_bytes().to_vec()),
+            data: hyperswitch_masking::StrongSecret::new(
+                String::from("Omgit'sworking").as_bytes().to_vec(),
+            ),
         };
 
         let expected_data = ExtractedEncryptedData {

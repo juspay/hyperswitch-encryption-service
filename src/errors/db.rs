@@ -1,5 +1,5 @@
 use diesel::result::{DatabaseErrorKind, Error as diesel_error};
-use error_stack::{ResultExt, report};
+use error_stack::{IntoReport, ResultExt};
 use thiserror::Error;
 
 use crate::env::observability as logger;
@@ -28,7 +28,7 @@ pub enum DatabaseError {
 
 impl<T> super::SwitchError<T, DatabaseError> for super::CustomResult<T, ConnectionError> {
     fn switch(self) -> super::CustomResult<T, DatabaseError> {
-        self.map_err(|err| report!(DatabaseError::ConnectionError(err)))
+        self.map_err(|err| DatabaseError::ConnectionError(err).into_report())
     }
 }
 
@@ -46,7 +46,7 @@ impl<T> super::SwitchError<T, DatabaseError> for Result<T, diesel::result::Error
                 _ => DatabaseError::Others,
             };
 
-            report!(diesel_err).change_context(database_error)
+            diesel_err.into_report().change_context(database_error)
         })
     }
 }
@@ -63,7 +63,7 @@ impl<T> super::SwitchError<T, DatabaseError> for Result<T, charybdis::errors::Ch
                     (DatabaseError::Others, "An unknown error occurred")
                 }
             };
-            report!(err).attach_printable(message)
+            err.into_report().attach(message)
         })
     }
 }

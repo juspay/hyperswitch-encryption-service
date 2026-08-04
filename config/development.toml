@@ -1,4 +1,5 @@
-[metrics_server]
+[metrics]
+mode = "prometheus"
 host = "127.0.0.1"
 port = 6128
 
@@ -28,6 +29,7 @@ cache_prefix = "global"
 schema = "global"
 
 [log]
+enabled = true
 log_level = "debug"
 log_format = "console"
 

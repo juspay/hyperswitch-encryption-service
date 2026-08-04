@@ -1,9 +1,9 @@
 use std::pin::Pin;
 
 use base64::Engine;
-use error_stack::report;
+use error_stack::{IntoReport, ResultExt};
 use futures::Future;
-use masking::{PeekInterface, StrongSecret};
+use hyperswitch_masking::{PeekInterface, StrongSecret};
 use serde::Deserialize;
 use vaultrs::{
     api,
@@ -23,7 +23,7 @@ pub struct VaultSettings {
     pub url: String,
     pub mount_point: String,
     pub encryption_key: String,
-    pub vault_token: masking::Secret<String>,
+    pub vault_token: hyperswitch_masking::Secret<String>,
 }
 
 pub struct Vault {
@@ -72,14 +72,14 @@ impl Crypto for Vault {
             None,
         )
         .await
-        .map_err(|err| report!(err).change_context(errors::CryptoError::KeyGeneration))?;
+        .change_context(errors::CryptoError::KeyGeneration)?;
         let key = BASE64_ENGINE
             .decode(response.random_bytes)
-            .map_err(|err| report!(err).change_context(CryptoError::KeyGeneration))?;
+            .change_context(CryptoError::KeyGeneration)?;
         let buffer: [u8; 32] = key.try_into().map_err(|err: Vec<u8>| {
             let err_bytes = format!("{err:?}");
             logger::debug!(err_bytes);
-            report!(CryptoError::KeyGeneration)
+            CryptoError::KeyGeneration.into_report()
         })?;
         Ok((Source::HashicorpVault, buffer.into()))
     }
@@ -95,9 +95,7 @@ impl Crypto for Vault {
                 None,
             )
             .await
-            .map_err(|err| {
-                report!(err).change_context(CryptoError::EncryptionFailed("HashiCorp Vault"))
-            })?
+            .change_context(CryptoError::EncryptionFailed("HashiCorp Vault"))?
             .ciphertext
             .as_bytes()
             .to_vec()
@@ -107,26 +105,21 @@ impl Crypto for Vault {
 
     fn decrypt(&self, input: StrongSecret<Vec<u8>>) -> Self::DataReturn<'_> {
         Box::pin(async move {
-            let cypher_text = String::from_utf8(input.peek().to_vec()).map_err(|err| {
-                report!(err).change_context(CryptoError::DecryptionFailed("Vault"))
-            })?;
+            let ciphertext = String::from_utf8(input.peek().to_vec())
+                .change_context(CryptoError::DecryptionFailed("Vault"))?;
             let b64_encoded_str = transit::data::decrypt(
                 &self.inner_client,
                 &self.settings.mount_point,
                 &self.settings.encryption_key,
-                &cypher_text,
+                &ciphertext,
                 None,
             )
             .await
-            .map_err(|err| {
-                report!(err).change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))
-            })?
+            .change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))?
             .plaintext;
             Ok(BASE64_ENGINE
                 .decode(b64_encoded_str)
-                .map_err(|err| {
-                    report!(err).change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))
-                })?
+                .change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))?
                 .into())
         })
     }
