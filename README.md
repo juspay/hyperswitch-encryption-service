@@ -18,3 +18,55 @@ The encryption service mainly has following functionalities:-
 
 ![Architectural diagram](./docs/images/FlowDiagram.png)
 
+## KMS Key Migration
+
+Migrate your Data Encryption Keys (DEKs) from one KMS key to another without re-encrypting application data or changing DEK versions.
+
+### Configuration
+
+Enable `skip_key_id_on_decrypt` in your KMS config to allow AWS KMS to determine the decryption key from ciphertext metadata:
+
+```toml
+[secrets.kms_config]
+key_id = "arn:aws:kms:region:account:key/new-key-id"
+region = "us-east-1"
+skip_key_id_on_decrypt = true  # Required for migration
+```
+
+### Migration Steps
+
+1. **Enable the flag**: Set `skip_key_id_on_decrypt = true` in config
+2. **Update KMS key**: Change `key_id` to your new KMS key ARN
+3. **Restart service**: Deploy with the new configuration
+4. **List Keys**: List the `key_ids` with filter `"key_source": "KMS"`
+
+```bash
+# List KMS encrypted Key IDs
+curl -X POST http://localhost:6128/key/list \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: public" \
+  -d '{"key_source": "KMS"}'
+
+# Get batched response
+curl -X POST http://localhost:6128/key/list \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: public" \
+  -d '{"batch_size": 10}'
+```
+5. **Re-encrypt DEKs**: Call the re-encryption API
+
+```bash
+# Re-encrypt specific identifier
+curl -X POST http://localhost:6128/key/reencrypt \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: public" \
+  -d '{"key_ids": []}'
+
+# Re-encrypt ALL DEKs
+curl -X POST http://localhost:6128/key/reencrypt \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: public" \
+  -d '{}'
+```
+**Note:** Use full Key ARN in config file during reencryption process.
+

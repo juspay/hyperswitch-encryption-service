@@ -1,4 +1,4 @@
-FROM rust:slim-trixie as builder
+FROM public.ecr.aws/docker/library/rust:slim-trixie as builder
 
 
 RUN apt-get update \
@@ -10,13 +10,13 @@ COPY . .
 RUN cargo build --release --features release
 
 
-FROM debian:trixie-slim
+FROM public.ecr.aws/docker/library/debian:trixie-slim
 
 ARG CONFIG_DIR=/local/config
 ARG BIN_DIR=/local/bin
 
 RUN apt-get update \
-    && apt-get install -y ca-certificates tzdata libpq-dev curl procps
+    && apt-get install -y ca-certificates tzdata libpq-dev curl procps jq
 
 EXPOSE 5000
 
