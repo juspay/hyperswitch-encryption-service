@@ -8,7 +8,7 @@ pub struct Health;
 impl Health {
     pub fn server(state: Arc<AppState>) -> Router<Arc<AppState>> {
         Router::new()
-            .route("/", get(core::heath_check))
+            .route("/", get(core::health_check))
             .with_state(state)
     }
 }

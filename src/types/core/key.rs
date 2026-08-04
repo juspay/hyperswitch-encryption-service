@@ -176,7 +176,8 @@ impl Version {
         )
         .await;
 
-        v.unwrap_or_default()
+        v.inspect_err(|error| logger::error!(?error, "Failed to get the latest version"))
+            .unwrap_or_default()
     }
 
     pub fn increment(self) -> errors::CustomResult<Self, errors::ParsingError> {

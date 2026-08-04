@@ -1,6 +1,7 @@
 pub(crate) mod adapter;
 pub(crate) mod cache;
 pub(crate) mod dek;
+pub(crate) mod metrics;
 pub(crate) mod types;
 
 use diesel_async::{AsyncPgConnection, pooled_connection::bb8::PooledConnection};

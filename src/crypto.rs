@@ -9,6 +9,7 @@ use strum::{Display, EnumString};
 
 use crate::{
     crypto::{aes256::GcmAes256, vault::Vault},
+    env::metrics,
     errors::{self, CustomResult},
     services::aws::AwsKmsClient,
 };
@@ -53,19 +54,36 @@ impl KeyManagement for AwsKmsClient {
     async fn generate_key(
         &self,
     ) -> CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError> {
-        <Self as Crypto>::generate_key(self).await
+        record_key_manager_call(
+            <Self as Crypto>::generate_key(self),
+            metrics::KeyManagerBackend::AwsKms,
+            metrics::KeyManagerOperation::GenerateKey,
+        )
+        .await
     }
+
     async fn encrypt_key(
         &self,
         input: StrongSecret<Vec<u8>>,
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
-        <Self as Crypto>::encrypt(self, input).await
+        record_key_manager_call(
+            <Self as Crypto>::encrypt(self, input),
+            metrics::KeyManagerBackend::AwsKms,
+            metrics::KeyManagerOperation::Encrypt,
+        )
+        .await
     }
+
     async fn decrypt_key(
         &self,
         input: StrongSecret<Vec<u8>>,
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
-        <Self as Crypto>::decrypt(self, input).await
+        record_key_manager_call(
+            <Self as Crypto>::decrypt(self, input),
+            metrics::KeyManagerBackend::AwsKms,
+            metrics::KeyManagerOperation::Decrypt,
+        )
+        .await
     }
 }
 #[async_trait::async_trait]
@@ -73,19 +91,36 @@ impl KeyManagement for GcmAes256 {
     async fn generate_key(
         &self,
     ) -> CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError> {
-        <Self as Crypto>::generate_key(self).await
+        record_key_manager_call(
+            <Self as Crypto>::generate_key(self),
+            metrics::KeyManagerBackend::Aes256,
+            metrics::KeyManagerOperation::GenerateKey,
+        )
+        .await
     }
+
     async fn encrypt_key(
         &self,
         input: StrongSecret<Vec<u8>>,
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
-        <Self as Crypto>::encrypt(self, input)
+        record_key_manager_call(
+            async { <Self as Crypto>::encrypt(self, input) },
+            metrics::KeyManagerBackend::Aes256,
+            metrics::KeyManagerOperation::Encrypt,
+        )
+        .await
     }
+
     async fn decrypt_key(
         &self,
         input: StrongSecret<Vec<u8>>,
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
-        <Self as Crypto>::decrypt(self, input)
+        record_key_manager_call(
+            async { <Self as Crypto>::decrypt(self, input) },
+            metrics::KeyManagerBackend::Aes256,
+            metrics::KeyManagerOperation::Decrypt,
+        )
+        .await
     }
 }
 
@@ -94,19 +129,36 @@ impl KeyManagement for Vault {
     async fn generate_key(
         &self,
     ) -> CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError> {
-        <Self as Crypto>::generate_key(self).await
+        record_key_manager_call(
+            <Self as Crypto>::generate_key(self),
+            metrics::KeyManagerBackend::Vault,
+            metrics::KeyManagerOperation::GenerateKey,
+        )
+        .await
     }
+
     async fn encrypt_key(
         &self,
         input: StrongSecret<Vec<u8>>,
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
-        <Self as Crypto>::encrypt(self, input).await
+        record_key_manager_call(
+            <Self as Crypto>::encrypt(self, input),
+            metrics::KeyManagerBackend::Vault,
+            metrics::KeyManagerOperation::Encrypt,
+        )
+        .await
     }
+
     async fn decrypt_key(
         &self,
         input: StrongSecret<Vec<u8>>,
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
-        <Self as Crypto>::decrypt(self, input).await
+        record_key_manager_call(
+            <Self as Crypto>::decrypt(self, input),
+            metrics::KeyManagerBackend::Vault,
+            metrics::KeyManagerOperation::Decrypt,
+        )
+        .await
     }
 }
 
@@ -134,4 +186,29 @@ impl Deref for KeyManagerClient {
     fn deref(&self) -> &Self::Target {
         self.client()
     }
+}
+
+async fn record_key_manager_call<Fut, T, E>(
+    future: Fut,
+    backend: metrics::KeyManagerBackend,
+    operation: metrics::KeyManagerOperation,
+) -> Result<T, E>
+where
+    Fut: Future<Output = Result<T, E>> + Send,
+{
+    let start = std::time::Instant::now();
+    let result = future.await;
+    let duration = start.elapsed();
+    let outcome = if result.is_ok() { "success" } else { "error" };
+
+    metrics::KEY_MANAGER_CALL_DURATION.record(
+        duration.as_secs_f64(),
+        metrics_utils::metric_attributes!(
+            ("backend", backend),
+            ("operation", operation),
+            ("outcome", outcome),
+        ),
+    );
+
+    result
 }

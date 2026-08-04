@@ -9,7 +9,7 @@ use crate::{
     env::observability as logger,
     errors::{self, SwitchError},
     multitenancy::TenantState,
-    storage::dek::DataKeyStorageInterface,
+    storage::{dek::DataKeyStorageInterface, metrics as storage_metrics},
     types::{Key, key::Version, requests::TransferKeyRequest, response::DataKeyCreateResponse},
 };
 
@@ -38,7 +38,10 @@ pub async fn transfer_data_key(
         err
     })?;
 
-    let data_key = db.get_or_insert_data_key(key).await.switch()?;
+    let data_key = db
+        .get_or_insert_data_key(storage_metrics::DataKeyStorageOperation::Create, key)
+        .await
+        .switch()?;
 
     Ok(DataKeyCreateResponse {
         identifier: req.identifier,

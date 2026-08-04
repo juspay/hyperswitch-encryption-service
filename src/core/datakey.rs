@@ -15,62 +15,55 @@ use crate::{
     },
 };
 
+#[tracing::instrument(skip_all)]
 pub async fn create_data_key(
     state: TenantState,
     Json(req): Json<CreateDataKeyRequest>,
 ) -> errors::ApiResponseResult<Json<DataKeyCreateResponse>> {
-    let identifier = req.identifier.clone();
+    let (data_identifier, _) = req.identifier.get_identifier();
 
-    generate_and_create_data_key(state, req)
-        .await
-        .map(Json)
-        .map_err(|err| {
-            logger::error!(key_create_failure=?err);
-
-            let (data_identifier, key_identifier) = identifier.get_identifier();
-            metrics::KEY_CREATE_FAILURE.add(
-                1,
-                metrics_utils::metric_attributes!(
-                    ("key_identifier", key_identifier),
-                    ("data_identifier", data_identifier)
-                ),
-            );
-            err
-        })
-        .to_container_error()
+    super::record_domain_operation(
+        generate_and_create_data_key(state, req),
+        metrics::DomainOperation::KeyCreate,
+        data_identifier,
+    )
+    .await
+    .inspect_err(|error| logger::error!(?error, "Failed to create data key"))
+    .map(Json)
+    .to_container_error()
 }
 
+#[tracing::instrument(skip_all)]
 pub async fn rotate_data_key(
     state: TenantState,
     Json(req): Json<RotateDataKeyRequest>,
 ) -> errors::ApiResponseResult<Json<DataKeyCreateResponse>> {
-    let identifier = req.identifier.clone();
+    let (data_identifier, _) = req.identifier.get_identifier();
 
-    generate_and_rotate_data_key(state, req)
-        .await
-        .map(Json)
-        .map_err(|err| {
-            logger::error!(key_create_failure=?err);
-
-            let (data_identifier, key_identifier) = identifier.get_identifier();
-            metrics::KEY_ROTATE_FAILURE.add(
-                1,
-                metrics_utils::metric_attributes!(
-                    ("key_identifier", key_identifier),
-                    ("data_identifier", data_identifier)
-                ),
-            );
-            err
-        })
-        .to_container_error()
+    super::record_domain_operation(
+        generate_and_rotate_data_key(state, req),
+        metrics::DomainOperation::KeyRotate,
+        data_identifier,
+    )
+    .await
+    .inspect_err(|error| logger::error!(?error, "Failed to rotate data key"))
+    .map(Json)
+    .to_container_error()
 }
 
+#[tracing::instrument(skip_all)]
 pub async fn transfer_data_key(
     state: TenantState,
     Json(req): Json<TransferKeyRequest>,
 ) -> errors::ApiResponseResult<Json<DataKeyCreateResponse>> {
-    transfer::transfer_data_key(state, req)
-        .await
-        .map(Json)
-        .to_container_error()
+    let (data_identifier, _) = req.identifier.get_identifier();
+
+    super::record_domain_operation(
+        transfer::transfer_data_key(state, req),
+        metrics::DomainOperation::KeyTransfer,
+        data_identifier,
+    )
+    .await
+    .map(Json)
+    .to_container_error()
 }

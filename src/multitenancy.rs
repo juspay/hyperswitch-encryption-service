@@ -19,6 +19,9 @@ impl TenantId {
     pub fn new(val: String) -> Self {
         Self(val)
     }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 #[derive(Clone)]

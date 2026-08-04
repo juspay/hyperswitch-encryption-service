@@ -8,6 +8,7 @@ use crate::{
     storage::{
         adapter::Cassandra,
         dek::DataKeyStorageInterface,
+        metrics,
         types::{CassandraDataKey, DataKey, DataKeyNew},
     },
     types::{Identifier, key::Version},
@@ -19,6 +20,7 @@ impl DataKeyStorageInterface
 {
     async fn get_or_insert_data_key(
         &self,
+        _operation: metrics::DataKeyStorageOperation,
         new: DataKeyNew,
     ) -> CustomResult<DataKey, errors::DatabaseError> {
         let connection = self.get_conn().await.switch()?;

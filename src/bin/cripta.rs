@@ -41,6 +41,8 @@ async fn main() {
 
     logger::info!(?config, "Application starting");
 
+    let background_metrics_interval = config.metrics.background_metrics_collection_interval_secs();
+
     #[cfg(any(feature = "mtls", feature = "postgres_ssl"))]
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
@@ -50,7 +52,16 @@ async fn main() {
 
     let middleware = ServiceBuilder::new()
         .set_x_request_id(MakeUuidV7)
-        .propagate_x_request_id()
+            .option_layer({
+                #[cfg(feature = "vergen")]
+                {
+                    Some(default_headers())
+                }
+                #[cfg(not(feature = "vergen"))]
+                {
+                    None::<tower_http::set_header::SetResponseHeaderLayer<axum::http::HeaderValue>>
+                }
+            })
         .layer(
             tower_trace::TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
                 let tenant_id = request.headers().get(TENANT_HEADER).and_then(|r| r.to_str().ok()).unwrap_or("invalid_tenant");
@@ -69,22 +80,21 @@ async fn main() {
                     .latency_unit(tower_http::LatencyUnit::Micros)
                     .level(tracing::Level::ERROR),
             )
+        )
+        .propagate_x_request_id()
+        .option_layer(
+            guards
+                .metrics_handle()
+                .is_enabled()
+                .then_some(observability::HttpRequestMetricsLayer),
         );
 
-    #[cfg_attr(not(feature = "vergen"), allow(unused_mut))]
-    let mut app = Router::new()
+    let app = Router::new()
         .nest("/health", Health::server(state.clone()))
         .nest("/key", DataKey::server(state.clone()))
         .nest("/data", Crypto::server(state.clone()))
-        .layer(middleware);
-
-    // Register default headers layer last so it wraps all routes, ensuring version header is present on all responses.
-    #[cfg(feature = "vergen")]
-    {
-        app = app.layer(default_headers());
-    }
-
-    let app = app.with_state(state.clone());
+        .layer(middleware)
+        .with_state(state.clone());
 
     if let observability::MetricsHandle::Prometheus { inner, host, port } = guards.metrics_handle()
         && let Some(registry) = inner.prometheus_registry()
@@ -97,6 +107,14 @@ async fn main() {
             state.clone(),
         )
         .expect("Failed to start Prometheus metrics server");
+    }
+
+    if guards.metrics_handle().is_enabled() {
+        observability::spawn_bg_metrics_collector(
+            #[cfg(not(feature = "cassandra"))]
+            &state,
+            background_metrics_interval,
+        );
     }
 
     #[cfg(feature = "mtls")]
