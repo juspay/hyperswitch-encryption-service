@@ -89,18 +89,25 @@ impl Crypto for AwsKmsClient {
 
 #[cfg(feature = "aws")]
 impl AwsKmsClient {
-    /// Decrypt and return both the plaintext and the key ID used for decryption
+    /// Decrypt and return both the plaintext and the key ID used for decryption.
+    ///
+    /// - `decrypt_client`: when provided, the request is sent with this KMS client instead of
+    ///   the default one, and the configured `key_id` is always omitted (KMS resolves the key
+    ///   from ciphertext metadata, since the configured key id belongs to a different region).
+    ///   Used when the DEK was encrypted by a KMS key in another region: the caller passes a
+    ///   client built for the source key's region.
     pub async fn decrypt_with_metadata(
         &self,
         input: StrongSecret<Vec<u8>>,
+        decrypt_client: Option<&aws_sdk_kms::Client>,
     ) -> CustomResult<(StrongSecret<Vec<u8>>, Option<String>), errors::CryptoError> {
         let plaintext_blob = Blob::new(input.peek().to_vec());
-        let mut decrypt_request = self
-            .inner_client()
+        let mut decrypt_request = decrypt_client
+            .unwrap_or_else(|| self.inner_client())
             .decrypt()
             .ciphertext_blob(plaintext_blob);
 
-        if !self.skip_key_id_on_decrypt() {
+        if decrypt_client.is_none() && !self.skip_key_id_on_decrypt() {
             decrypt_request = decrypt_request.key_id(self.key_id());
         }
 

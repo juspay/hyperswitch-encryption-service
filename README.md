@@ -70,3 +70,16 @@ curl -X POST http://localhost:6128/key/reencrypt \
 ```
 **Note:** Use full Key ARN in config file during reencryption process.
 
+### Cross-Region KMS Key Migration
+
+If the DEKs you are migrating were encrypted by a KMS key in a **different region** than the new key, set the optional `decrypt_region` to the region of the old key:
+
+```toml
+[secrets.kms_config]
+key_id = "arn:aws:kms:us-east-1:account:key/new-key-id"
+region = "us-east-1"
+decrypt_region = "eu-west-1"  # Region of the old (source) KMS key
+```
+
+The reencryption API will then send the initial `Decrypt` call to `decrypt_region` (KMS resolves the old key from the ciphertext metadata and returns its key id for the "already migrated" comparison). DEKs that fail decrypting there — e.g. ones already encrypted with the new key — automatically fall back to the default `region`. When `decrypt_region` is set, `skip_key_id_on_decrypt` is not required for the cross-region decrypt path.
+

@@ -23,10 +23,16 @@ pub async fn reencrypt_data_keys(
     let db = state.get_db_pool();
 
     let mut kms_key_id = String::new();
-    // Validate KMS backend configuration for skip_key_id_on_decrypt
+    // Validate KMS backend: decrypt against a client in decrypt_region when set
+    // (for DEKs encrypted by a KMS key in another region; the configured key_id
+    // is region-specific, so it is never sent to that client), else require
+    // skip_key_id_on_decrypt for same-region re-encryption.
     let backend = state.keymanager_client.client();
+    let mut decrypt_client = None;
     if let Some(aws_client) = backend.as_any().downcast_ref::<AwsKmsClient>() {
-        if !aws_client.skip_key_id_on_decrypt() {
+        if let Some(region) = aws_client.decrypt_region() {
+            decrypt_client = Some(AwsKmsClient::client_for_region(region).await);
+        } else if !aws_client.skip_key_id_on_decrypt() {
             return Err(error_stack::report!(
                 errors::ApplicationErrorResponse::InternalServerError(
                     "skip_key_id_on_decrypt must be enabled in KMS config for re-encryption"
@@ -35,6 +41,7 @@ pub async fn reencrypt_data_keys(
         }
         kms_key_id = aws_client.key_id().to_string();
     }
+    let decrypt_client = std::sync::Arc::new(decrypt_client);
 
     // Fetch DEKs to re-encrypt
     let data_keys = db.get_keys_by_ids(req.key_ids.as_deref()).await.switch()?;
@@ -58,6 +65,7 @@ pub async fn reencrypt_data_keys(
         .map(|data_key| {
             let state = state.clone();
             let kms_key_id = kms_key_id.clone();
+            let decrypt_client = decrypt_client.clone();
             async move {
                 let key_id = data_key.id;
                 let identifier_str = format!(
@@ -68,7 +76,7 @@ pub async fn reencrypt_data_keys(
                     data_key.version
                 );
 
-                match reencrypt_single_key(&state, data_key, kms_key_id).await {
+                match reencrypt_single_key(&state, data_key, kms_key_id, decrypt_client).await {
                     Ok(ReencryptStatus::Reencrypted) => {
                         logger::info!(identifier = %identifier_str, "Successfully re-encrypted DEK");
                         ReencryptStatus::Reencrypted
@@ -125,6 +133,7 @@ async fn reencrypt_single_key(
     state: &TenantState,
     data_key: crate::storage::types::DataKey,
     current_key_id: String,
+    decrypt_client: std::sync::Arc<Option<aws_sdk_kms::Client>>,
 ) -> errors::CustomResult<ReencryptStatus, errors::ApplicationErrorResponse> {
     let db = state.get_db_pool();
 
@@ -142,10 +151,31 @@ async fn reencrypt_single_key(
                     "decrypt_with_metadata is only supported for AWS KMS backend"
                 ))
             })?;
-        aws_client
-            .decrypt_with_metadata(data_key.encryption_key.clone())
+
+        let ciphertext = data_key.encryption_key.clone();
+
+        // First decrypt attempt: use the cross-region client when a decrypt_region is
+        // configured, else the default region. KMS is strictly regional, so a DEK still
+        // encrypted with the current key fails the cross-region call—fall back to the
+        // default region for it.
+        match aws_client
+            .decrypt_with_metadata(ciphertext.clone(), decrypt_client.as_ref().as_ref())
             .await
-            .switch()?
+        {
+            Ok(output) => output,
+            Err(err) if decrypt_client.is_some() => {
+                logger::info!(
+                    key_id = original_id,
+                    error = ?err,
+                    "Cross-region decrypt failed, falling back to default region"
+                );
+                aws_client
+                    .decrypt_with_metadata(ciphertext, None)
+                    .await
+                    .switch()?
+            }
+            Err(err) => return Err(err).switch(),
+        }
     };
 
     // Check if already encrypted with current key by comparing key IDs
