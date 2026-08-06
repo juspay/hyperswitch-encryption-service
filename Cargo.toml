@@ -35,7 +35,6 @@ hyperswitch_masking = { version = "0.0.1", features = ["cassandra", "diesel", "s
 log_utils = { git = "https://github.com/juspay/framework-libs-rs", rev = "984a44bdc19633483e111942ccc240ce2c2a8e44", features = ["tracing"] }
 metrics_utils = { git = "https://github.com/juspay/framework-libs-rs", rev = "984a44bdc19633483e111942ccc240ce2c2a8e44", features = ["opentelemetry-otlp", "opentelemetry-otlp-zstd", "opentelemetry-prometheus"] }
 moka = { version = "0.12", default-features = false, features = ["future"] }
-once_cell = "1.21.4"
 rayon = "1.12.0"
 ring = { version = "0.17.14", features = ["std"] }
 rustc-hash = "2.1.3"

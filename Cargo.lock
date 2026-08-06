@@ -1138,7 +1138,6 @@ dependencies = [
  "log_utils",
  "metrics_utils",
  "moka",
- "once_cell",
  "rand 0.10.2",
  "rayon",
  "ring",

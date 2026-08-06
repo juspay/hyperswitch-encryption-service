@@ -110,11 +110,7 @@ async fn main() {
     }
 
     if guards.metrics_handle().is_enabled() {
-        observability::spawn_bg_metrics_collector(
-            #[cfg(not(feature = "cassandra"))]
-            &state,
-            background_metrics_interval,
-        );
+        observability::spawn_bg_metrics_collector(&state, background_metrics_interval);
     }
 
     #[cfg(feature = "mtls")]

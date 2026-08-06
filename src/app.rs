@@ -12,7 +12,7 @@ use crate::{
     config::{Config, TenantConfig},
     crypto::KeyManagerClient,
     multitenancy::{MultiTenant, TenantId, TenantState},
-    storage::{DbState, adapter},
+    storage::{DbState, adapter, cache::Caches},
 };
 
 #[cfg(not(feature = "cassandra"))]
@@ -46,7 +46,7 @@ impl AppState {
 }
 
 pub struct SessionState {
-    pub cache_prefix: String,
+    pub caches: Caches,
     pub thread_pool: ThreadPool,
     pub keymanager_client: KeyManagerClient,
     db_pool: StorageState,
@@ -63,7 +63,7 @@ impl SessionState {
         let num_threads = config.pool_config.pool;
 
         Self {
-            cache_prefix: tenant_config.cache_prefix.clone(),
+            caches: Caches::from_config(&config.cache),
             keymanager_client: secrets.create_keymanager_client().await,
             db_pool,
             thread_pool: ThreadPoolBuilder::new()
