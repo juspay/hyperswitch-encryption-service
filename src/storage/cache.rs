@@ -1,10 +1,9 @@
-mod core;
 mod statics;
 
 use moka::future::Cache as MokaCache;
 
-pub use self::{core::*, statics::*};
-use crate::{env::metrics, multitenancy::TenantState};
+pub use self::statics::{KEY_CACHE, VERSION_CACHE};
+use crate::{env::metrics, errors, multitenancy::TenantState};
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct Key {
@@ -85,6 +84,27 @@ where
             self.inner.entry_count(),
             metrics_utils::metric_attributes!(("cache", self.name),),
         );
+    }
+}
+
+pub async fn get_or_populate_cache<T, Fut>(
+    tenant: &TenantState,
+    key: String,
+    cache: &Cache<T>,
+    f: Fut,
+) -> errors::CustomResult<T, errors::DatabaseError>
+where
+    T: Clone + Sync + Send + 'static,
+    Fut: futures::Future<Output = errors::CustomResult<T, errors::DatabaseError>> + Send,
+{
+    let key = Key::from_state(tenant, key);
+
+    if let Some(val) = cache.get(&key).await {
+        Ok(val)
+    } else {
+        let val = f.await?;
+        cache.push(key, val.clone()).await;
+        Ok(val)
     }
 }
 
