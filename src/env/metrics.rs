@@ -160,12 +160,11 @@ pub fn spawn_prometheus_metrics_server(
 }
 
 pub fn spawn_bg_metrics_collector(
-    #[cfg(not(feature = "cassandra"))] global_state: &Arc<AppState>,
+    global_state: &Arc<AppState>,
     background_metrics_collection_interval_secs: u64,
 ) {
     let interval = Duration::from_secs(background_metrics_collection_interval_secs);
 
-    #[cfg(not(feature = "cassandra"))]
     let global_state = global_state.clone();
 
     tokio::spawn(async move {
@@ -178,25 +177,21 @@ pub fn spawn_bg_metrics_collector(
         loop {
             interval.tick().await;
 
-            #[cfg(not(feature = "cassandra"))]
-            for (tenant_id, _tenant_state) in global_state.tenant_states.iter() {
+            for (tenant_id, tenant_state) in global_state.tenant_states.iter() {
+                #[cfg(not(feature = "cassandra"))]
                 // Collect DB pool state gauges
-                _tenant_state
+                tenant_state
                     .db_pool()
                     .collect_db_pool_state(tenant_id.as_str());
-            }
 
-            // Collect cache entry count gauges (caches are global across tenants)
-            record_cache_entry_counts().await;
+                // Collect cache entry count gauges
+                tenant_state
+                    .caches
+                    .record_entry_count_metric(tenant_id.as_str())
+                    .await;
+            }
         }
     });
-}
-
-async fn record_cache_entry_counts() {
-    use crate::storage::cache::{KEY_CACHE, VERSION_CACHE};
-
-    VERSION_CACHE.record_entry_count_metric().await;
-    KEY_CACHE.record_entry_count_metric().await;
 }
 
 global_meter!(pub(crate) CRIPTA_METER, "encryption_service");

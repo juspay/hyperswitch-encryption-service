@@ -137,6 +137,8 @@ pub struct Config {
     pub log: LogConfig,
     #[serde(default)]
     pub metrics: MetricsConfig,
+    #[serde(default)]
+    pub cache: CacheConfig,
     pub multitenancy: MultiTenancy,
     pub pool_config: PoolConfig,
     #[cfg(feature = "mtls")]
@@ -154,7 +156,6 @@ pub struct TenantsConfig(pub FxHashMap<String, TenantConfig>);
 #[derive(Deserialize, Debug)]
 pub struct TenantConfig {
     pub schema: String,
-    pub cache_prefix: String,
 }
 
 #[derive(Deserialize, Debug, Eq, PartialEq)]
@@ -297,6 +298,25 @@ impl MetricsConfig {
                 background_metrics_collection_interval_secs,
                 ..
             } => background_metrics_collection_interval_secs.get(),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, Copy)]
+#[serde(default)]
+pub struct CacheConfig {
+    pub time_to_live_secs: u64,
+    pub time_to_idle_secs: u64,
+    pub max_capacity: std::num::NonZeroU64,
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            time_to_live_secs: 30,
+            time_to_idle_secs: 30,
+            #[allow(clippy::expect_used)]
+            max_capacity: std::num::NonZeroU64::new(10_000).expect("10_000 is non-zero"),
         }
     }
 }

@@ -27,15 +27,23 @@ enable_ssl = false       # Enable or disable TLS for database connections (optio
 [pool_config]
 pool = 2 # Number of worker threads in the Rayon thread pool
 
+# Cache configuration
+# Tuning for the in-memory caches.
+# Cache instances are created per tenant; max_capacity is the per-instance entry limit.
+[cache]
+time_to_live_secs = 30  # Seconds entries live after insert (optional, default: 30)
+time_to_idle_secs = 30  # Seconds entries live after last get or insert (optional, default: 30)
+max_capacity = 10_000   # Max entries per cache instance (optional, default: 10_000)
+
 # Multi-tenancy configuration
 # Each tenant is identified by a key under `[multitenancy.tenants.<id>]`.
 # At least one tenant MUST be configured.
 [multitenancy.tenants]
 # `public` tenant - general-purpose operations
-public = { cache_prefix = "public", schema = "public" }
+public = { schema = "public" }
 
 # `global` tenant - global or shared operations
-global = { cache_prefix = "global", schema = "global" }
+global = { schema = "global" }
 
 # Logging configuration
 [log]
