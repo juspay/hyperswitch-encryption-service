@@ -12,7 +12,7 @@ aws = []
 vergen = ["build_info/vergen-gix", "build_info/vergen-gix-build"]
 release = ["aws", "mtls", "postgres_ssl", "vergen"]
 vault = []
-postgres_ssl = ["dep:rustls", "dep:rustls-native-certs", "dep:rustls-pemfile", "dep:tokio-postgres", "dep:tokio-postgres-rustls", "rustls/aws_lc_rs"]
+postgres_ssl = ["dep:rustls", "dep:rustls-native-certs", "dep:rustls-pemfile", "dep:tokio-postgres-rustls", "rustls/aws_lc_rs"]
 cassandra = []
 
 [dependencies]
@@ -49,7 +49,7 @@ strum = { version = "0.28", features = ["derive"] }
 thiserror = "2.0.18"
 time = { version = "0.3.53", features = ["parsing"] }
 tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread"] }
-tokio-postgres = { version = "0.7.18", optional = true }
+tokio-postgres = { version = "0.7.18" }
 tokio-postgres-rustls = { version = "0.14.0", optional = true }
 tower = "0.5.3"
 tower-http = { version = "0.7.0", features = ["trace", "request-id", "util", "set-header"] }

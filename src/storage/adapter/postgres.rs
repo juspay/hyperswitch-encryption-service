@@ -1,15 +1,49 @@
 mod dek;
 
-#[cfg(feature = "postgres_ssl")]
 use diesel::ConnectionError;
 use diesel_async::{
     AsyncPgConnection,
     pooled_connection::{AsyncDieselConnectionManager, ManagerConfig, bb8::Pool},
 };
 use error_stack::ResultExt;
-use hyperswitch_masking::PeekInterface;
+use hyperswitch_masking::{ExposeInterface, PeekInterface};
 
 use crate::storage::{Config, Connection, DbState, adapter::PostgreSQL, errors};
+
+fn no_tls_custom_setup(
+    pg_config: tokio_postgres::Config,
+) -> diesel_async::pooled_connection::SetupCallback<AsyncPgConnection> {
+    Box::new(move |_url| {
+        let pg_config = pg_config.clone();
+        Box::pin(async move {
+            let (client, conn) = pg_config
+                .connect(tokio_postgres::NoTls)
+                .await
+                .map_err(|e| ConnectionError::BadConnection(e.to_string()))?;
+            AsyncPgConnection::try_from_client_and_connection(client, conn).await
+        })
+    })
+}
+
+// We're accepting a decrypted password separately instead of reading the encrypted password from
+// the database config and decrypting it.
+// It helps keep this function pure, sync and infallible.
+fn build_pg_config(
+    database: &crate::config::Database,
+    schema: &str,
+    password: hyperswitch_masking::Secret<String>,
+) -> tokio_postgres::Config {
+    let mut pg_config = tokio_postgres::Config::new();
+    pg_config.host(database.host.clone());
+    pg_config.port(database.port);
+    pg_config.user(database.user.peek().clone());
+    pg_config.password(password.expose());
+    pg_config.dbname(database.dbname.peek().clone());
+    pg_config.application_name(schema);
+    pg_config.options(format!("-c search_path={schema}"));
+
+    pg_config
+}
 
 #[async_trait::async_trait]
 impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
@@ -24,21 +58,18 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     async fn from_config(config: &Config, schema: &str) -> Self {
         let database = &config.database;
         let password = database.password.expose(config).await;
+        let pg_config = build_pg_config(database, schema, password);
+
+        // Minimal URL passed to `AsyncDieselConnectionManager::new_with_config()`,
+        // our `custom_setup` closure currently ignores the URL.
         let database_url = format!(
-            "postgres://{}:{}@{}:{}/{}?application_name={}&options=-c search_path%3D{}",
+            "postgres://{}@{}:{}/{}",
             database.user.peek(),
-            password.peek(),
             database.host,
             database.port,
             database.dbname.peek(),
-            schema,
-            schema
         );
 
-        #[cfg(not(feature = "postgres_ssl"))]
-        let mgr_config = ManagerConfig::default();
-
-        #[cfg(feature = "postgres_ssl")]
         let mut mgr_config = ManagerConfig::default();
 
         #[cfg(feature = "postgres_ssl")]
@@ -49,28 +80,36 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
                 .expect("Failed to load db server root cert from the config")
                 .expose(config)
                 .await;
-            mgr_config.custom_setup = Box::new(move |config: &str| {
-                Box::pin({
-                    let root_ca = root_ca.clone();
-                    async move {
-                        let mut root_certificate = rustls::RootCertStore::empty();
-                        for cert in rustls_pemfile::certs(&mut root_ca.peek().as_ref()) {
-                            root_certificate
-                                .add(cert.expect("Failed to load db server root cert"))
-                                .expect("Failed to add cert to RootCertStore");
-                        }
-                        let rustls_config = rustls::ClientConfig::builder()
-                            .with_root_certificates(root_certificate)
-                            .with_no_client_auth();
-                        let tls = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
-                        let (client, conn) = tokio_postgres::connect(config, tls)
-                            .await
-                            .map_err(|e| ConnectionError::BadConnection(e.to_string()))?;
+            let pg_config_for_closure = pg_config.clone();
 
-                        AsyncPgConnection::try_from_client_and_connection(client, conn).await
+            mgr_config.custom_setup = Box::new(move |_url| {
+                let pg_config = pg_config_for_closure.clone();
+                let root_ca = root_ca.clone();
+                Box::pin(async move {
+                    let mut root_certificate = rustls::RootCertStore::empty();
+                    for cert in rustls_pemfile::certs(&mut root_ca.peek().as_ref()) {
+                        root_certificate
+                            .add(cert.expect("Failed to load db server root cert"))
+                            .expect("Failed to add cert to RootCertStore");
                     }
+                    let rustls_config = rustls::ClientConfig::builder()
+                        .with_root_certificates(root_certificate)
+                        .with_no_client_auth();
+                    let tls = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
+                    let (client, conn) = pg_config
+                        .connect(tls)
+                        .await
+                        .map_err(|e| ConnectionError::BadConnection(e.to_string()))?;
+                    AsyncPgConnection::try_from_client_and_connection(client, conn).await
                 })
             });
+        } else {
+            mgr_config.custom_setup = no_tls_custom_setup(pg_config);
+        }
+
+        #[cfg(not(feature = "postgres_ssl"))]
+        {
+            mgr_config.custom_setup = no_tls_custom_setup(pg_config);
         }
 
         let mgr = AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
