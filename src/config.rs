@@ -1,4 +1,8 @@
-use std::{num::NonZeroUsize, path::PathBuf, sync::Arc};
+use std::{
+    num::{NonZeroU64, NonZeroUsize},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use aws_sdk_kms::primitives::Blob;
 use config::File;
@@ -177,6 +181,10 @@ pub struct Database {
     pub min_idle: Option<u32>,
     pub enable_ssl: Option<bool>,
     pub root_ca: Option<SecretContainer>,
+    pub max_lifetime_secs: Option<NonZeroU64>,
+    pub idle_timeout_secs: Option<NonZeroU64>,
+    pub connection_acquire_timeout_secs: Option<NonZeroU64>,
+    pub connect_timeout_secs: Option<NonZeroU64>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

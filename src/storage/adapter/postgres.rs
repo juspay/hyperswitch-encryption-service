@@ -41,6 +41,9 @@ fn build_pg_config(
     pg_config.dbname(database.dbname.peek().clone());
     pg_config.application_name(schema);
     pg_config.options(format!("-c search_path={schema}"));
+    if let Some(connect_timeout) = database.connect_timeout_secs {
+        pg_config.connect_timeout(std::time::Duration::from_secs(connect_timeout.get()));
+    }
 
     pg_config
 }
@@ -116,9 +119,26 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
             database_url,
             mgr_config,
         );
-        let pool = Pool::builder()
+
+        let mut pool_builder = Pool::builder()
             .max_size(database.pool_size.unwrap_or(10))
-            .min_idle(database.min_idle)
+            .min_idle(database.min_idle);
+
+        if let Some(max_lifetime) = database.max_lifetime_secs {
+            pool_builder =
+                pool_builder.max_lifetime(std::time::Duration::from_secs(max_lifetime.get()));
+        }
+        if let Some(idle_timeout) = database.idle_timeout_secs {
+            pool_builder =
+                pool_builder.idle_timeout(std::time::Duration::from_secs(idle_timeout.get()));
+        }
+        if let Some(connection_acquire_timeout) = database.connection_acquire_timeout_secs {
+            pool_builder = pool_builder.connection_timeout(std::time::Duration::from_secs(
+                connection_acquire_timeout.get(),
+            ));
+        }
+
+        let pool = pool_builder
             .build(mgr)
             .await
             .expect("Failed to establish pool connection");

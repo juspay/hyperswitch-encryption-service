@@ -19,6 +19,10 @@ dbname = "encryption_db"
 pool_size = 5
 min_idle = 2
 enable_ssl = false
+max_lifetime_secs = 1800
+idle_timeout_secs = 600
+connection_acquire_timeout_secs = 30
+connect_timeout_secs = 5
 
 [multitenancy.tenants.public]
 schema = "public"

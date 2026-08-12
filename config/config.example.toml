@@ -8,20 +8,25 @@ port = 5000        # Port the HTTP server listens on. Use a port that does not c
 
 # Database configuration
 [database]
-host = "localhost"       # Database hostname or IP address
-port = 5432              # Database port
-user = "db_user"         # Username for database authentication
-password = "db_pass"     # Database password.
-                         # Must be a base64-encoded KMS ciphertext when the `aws` compile-time feature flag is enabled.
-                         # The output of `aws kms encrypt` command (the CiphertextBlob field) can be used directly as this value.
-dbname = "encryption_db" # Name of the database
-pool_size = 5            # Maximum number of connections in the pool (optional, default: none)
-min_idle = 2             # Minimum number of idle connections to maintain (optional, default: none)
-enable_ssl = false       # Enable or disable TLS for database connections (optional, default: false).
-                         # Requires the `postgres_ssl` compile-time feature flag.
-# root_ca = ""           # Path to a custom root CA certificate for database TLS (optional).
-                         # Only used when enable_ssl is true and the `postgres_ssl` feature is enabled.
-                         # Must be a base64-encoded KMS ciphertext when the `aws` feature is enabled.
+host = "localhost"                   # Database hostname or IP address
+port = 5432                          # Database port
+user = "db_user"                     # Username for database authentication
+password = "db_pass"                 # Database password.
+                                     # Must be a base64-encoded KMS ciphertext when the `aws` compile-time feature flag is enabled.
+                                     # The output of `aws kms encrypt` command (the CiphertextBlob field) can be used directly as this value.
+dbname = "encryption_db"             # Name of the database
+pool_size = 5                        # Maximum number of connections in the pool (optional, default: none)
+min_idle = 2                         # Minimum number of idle connections to maintain (optional, default: none)
+enable_ssl = false                   # Enable or disable TLS for database connections (optional, default: false).
+                                     # Requires the `postgres_ssl` compile-time feature flag.
+# root_ca = ""                       # Path to a custom root CA certificate for database TLS (optional).
+                                     # Only used when enable_ssl is true and the `postgres_ssl` feature is enabled.
+                                     # Must be a base64-encoded KMS ciphertext when the `aws` feature is enabled.
+max_lifetime_secs = 1800             # Max connection lifetime in seconds (optional).
+                                     # Connections older than this are closed by the pool reaper.
+idle_timeout_secs = 600              # Close idle connections beyond `min_idle` after this duration in seconds (optional).
+connection_acquire_timeout_secs = 30 # Duration in seconds to wait for a connection to be acquired from the pool (optional).
+connect_timeout_secs = 5             # Per-socket TCP connection timeout in seconds (optional).
 
 # Thread pool configuration
 [pool_config]
