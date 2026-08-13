@@ -8,6 +8,8 @@ use diesel_async::{
 };
 use error_stack::ResultExt;
 use hyperswitch_masking::PeekInterface;
+#[cfg(feature = "postgres_ssl")]
+use rustls::pki_types::pem::PemObject;
 
 use crate::storage::{Config, Connection, DbState, adapter::PostgreSQL, errors};
 
@@ -54,7 +56,9 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
                     let root_ca = root_ca.clone();
                     async move {
                         let mut root_certificate = rustls::RootCertStore::empty();
-                        for cert in rustls_pemfile::certs(&mut root_ca.peek().as_ref()) {
+                        for cert in rustls::pki_types::CertificateDer::pem_slice_iter(
+                            root_ca.peek().as_ref(),
+                        ) {
                             root_certificate
                                 .add(cert.expect("Failed to load db server root cert"))
                                 .expect("Failed to add cert to RootCertStore");

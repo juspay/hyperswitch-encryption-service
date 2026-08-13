@@ -7,48 +7,47 @@ rust-version = "1.92.0"
 # All the AES,AWS,Vault features will be used as a runtime feature flag rather than compiletime
 [features]
 aes = []
-mtls = ["dep:rustls", "dep:rustls-pemfile", "axum-server/tls-rustls"]
+mtls = ["dep:rustls", "axum-server/tls-rustls"]
 aws = []
 vergen = ["build_info/vergen-gix", "build_info/vergen-gix-build"]
 release = ["aws", "mtls", "postgres_ssl", "vergen"]
 vault = []
-postgres_ssl = ["dep:rustls", "dep:rustls-native-certs", "dep:rustls-pemfile", "dep:tokio-postgres", "dep:tokio-postgres-rustls", "rustls/aws_lc_rs"]
+postgres_ssl = ["dep:rustls", "dep:rustls-native-certs", "dep:tokio-postgres", "dep:tokio-postgres-rustls", "rustls/aws_lc_rs"]
 cassandra = []
 
 [dependencies]
-async-trait = "0.1.89"
+async-trait = "0.1.92"
 aws-config = { version = "1.8.18" }
 aws-sdk-kms = { version = "1.111.0" }
 axum = { version = "0.8.9", features = ["macros"] }
 axum-server = "0.8.0"
-base64 = "0.22.1"
-build_info = { git = "https://github.com/juspay/framework-libs-rs", rev = "984a44bdc19633483e111942ccc240ce2c2a8e44", features = ["cargo-workspace", "framework-libs-members-env"] }
+base64 = "0.23.1"
+build_info = { git = "https://github.com/juspay/framework-libs-rs", rev = "ba61fc2e40bde29e6fabbec0c592404bb4151738", features = ["cargo-workspace", "framework-libs-members-env"] }
 charybdis = "1.1.0"
 config = { version = "0.15.25", features = ["toml"] }
-diesel = { version = "2.3.11", features = ["postgres", "serde_json", "time"] }
+diesel = { version = "2.3.12", features = ["postgres", "serde_json", "time"] }
 diesel-async = { version = "0.9.2", features = ["postgres", "bb8"] }
 error-stack = "0.8.0"
-futures = "0.3.32"
+futures = "0.3.34"
 hex = "0.4.3"
-hyper = "1.10.1"
+hyper = "1.11.0"
 hyperswitch_masking = { version = "0.0.1", features = ["cassandra", "diesel", "serde"] }
-log_utils = { git = "https://github.com/juspay/framework-libs-rs", rev = "984a44bdc19633483e111942ccc240ce2c2a8e44", features = ["tracing"] }
-metrics_utils = { git = "https://github.com/juspay/framework-libs-rs", rev = "984a44bdc19633483e111942ccc240ce2c2a8e44", features = ["opentelemetry-otlp", "opentelemetry-otlp-zstd", "opentelemetry-prometheus"] }
+log_utils = { git = "https://github.com/juspay/framework-libs-rs", rev = "ba61fc2e40bde29e6fabbec0c592404bb4151738", features = ["tracing"] }
+metrics_utils = { git = "https://github.com/juspay/framework-libs-rs", rev = "ba61fc2e40bde29e6fabbec0c592404bb4151738", features = ["opentelemetry-otlp", "opentelemetry-otlp-zstd", "opentelemetry-prometheus"] }
 moka = { version = "0.12", default-features = false, features = ["future"] }
 rayon = "1.12.0"
 ring = { version = "0.17.14", features = ["std"] }
 rustc-hash = "2.1.3"
-rustls = { version = "0.23.41", default-features = false, features = ["std"], optional = true }
+rustls = { version = "0.23.43", default-features = false, features = ["std"], optional = true }
 rustls-native-certs = { version = "0.8.4", optional = true }
-rustls-pemfile = { version = "2.2.0", default-features = false, features = ["std"], optional = true }
 scylla = { version = "1.7.0", features = ["time-03"] }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.150"
+serde_json = "1.0.151"
 serde_path_to_error = "0.1.20"
 strum = { version = "0.28", features = ["derive"] }
-thiserror = "2.0.18"
-time = { version = "0.3.53", features = ["parsing"] }
-tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread"] }
+thiserror = "2.0.20"
+time = { version = "0.3.55", features = ["parsing"] }
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }
 tokio-postgres = { version = "0.7.18", optional = true }
 tokio-postgres-rustls = { version = "0.14.0", optional = true }
 tower = "0.5.3"
@@ -56,7 +55,7 @@ tower-http = { version = "0.7.0", features = ["trace", "request-id", "util", "se
 tracing = "0.1.44"
 tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", default-features = true, features = ["env-filter", "json", "registry"] }
-uuid = { version = "1.23.4", features = ["v7", "fast-rng"] }
+uuid = { version = "1.24.0", features = ["v7", "fast-rng"] }
 vaultrs = { version = "0.8.0" }
 
 [dev-dependencies]
@@ -64,7 +63,7 @@ criterion = "0.8.2"
 rand = "0.10.2"
 
 [build-dependencies]
-build_info = { git = "https://github.com/juspay/framework-libs-rs", rev = "984a44bdc19633483e111942ccc240ce2c2a8e44", features = ["cargo-workspace-build"] }
+build_info = { git = "https://github.com/juspay/framework-libs-rs", rev = "ba61fc2e40bde29e6fabbec0c592404bb4151738", features = ["cargo-workspace-build"] }
 
 [profile.release]
 strip = true
