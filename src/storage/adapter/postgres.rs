@@ -7,6 +7,8 @@ use diesel_async::{
 };
 use error_stack::ResultExt;
 use hyperswitch_masking::{ExposeInterface, PeekInterface};
+#[cfg(feature = "postgres_ssl")]
+use rustls::pki_types::pem::PemObject;
 
 use crate::storage::{Config, Connection, DbState, adapter::PostgreSQL, errors};
 
@@ -88,22 +90,27 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
             mgr_config.custom_setup = Box::new(move |_url| {
                 let pg_config = pg_config_for_closure.clone();
                 let root_ca = root_ca.clone();
-                Box::pin(async move {
-                    let mut root_certificate = rustls::RootCertStore::empty();
-                    for cert in rustls_pemfile::certs(&mut root_ca.peek().as_ref()) {
-                        root_certificate
-                            .add(cert.expect("Failed to load db server root cert"))
-                            .expect("Failed to add cert to RootCertStore");
+                Box::pin({
+                    let root_ca = root_ca.clone();
+                    async move {
+                        let mut root_certificate = rustls::RootCertStore::empty();
+                        for cert in rustls::pki_types::CertificateDer::pem_slice_iter(
+                            root_ca.peek().as_ref(),
+                        ) {
+                            root_certificate
+                                .add(cert.expect("Failed to load db server root cert"))
+                                .expect("Failed to add cert to RootCertStore");
+                        }
+                        let rustls_config = rustls::ClientConfig::builder()
+                            .with_root_certificates(root_certificate)
+                            .with_no_client_auth();
+                        let tls = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
+                        let (client, conn) = pg_config
+                            .connect(tls)
+                            .await
+                            .map_err(|e| ConnectionError::BadConnection(e.to_string()))?;
+                        AsyncPgConnection::try_from_client_and_connection(client, conn).await
                     }
-                    let rustls_config = rustls::ClientConfig::builder()
-                        .with_root_certificates(root_certificate)
-                        .with_no_client_auth();
-                    let tls = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
-                    let (client, conn) = pg_config
-                        .connect(tls)
-                        .await
-                        .map_err(|e| ConnectionError::BadConnection(e.to_string()))?;
-                    AsyncPgConnection::try_from_client_and_connection(client, conn).await
                 })
             });
         } else {
