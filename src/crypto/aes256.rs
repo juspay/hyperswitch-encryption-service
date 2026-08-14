@@ -23,7 +23,6 @@ impl GcmAes256 {
         Ok(Self { key })
     }
 
-    #[allow(dead_code)]
     pub async fn from_vec(
         key: StrongSecret<Vec<u8>>,
     ) -> errors::CustomResult<Self, errors::CryptoError> {
