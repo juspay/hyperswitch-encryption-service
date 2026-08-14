@@ -22,7 +22,7 @@ aws-sdk-kms = { version = "1.111.0" }
 axum = { version = "0.8.9", features = ["macros"] }
 axum-server = "0.8.0"
 base64 = "0.23.1"
-build_info = { git = "https://github.com/juspay/framework-libs-rs", rev = "ba61fc2e40bde29e6fabbec0c592404bb4151738", features = ["cargo-workspace", "framework-libs-members-env"] }
+build_info = { git = "https://github.com/juspay/framework-libs-rs", rev = "3cdcc24b461917b29641942b04f3aef8110b1adf", features = ["cargo-workspace", "framework-libs-members-env"] }
 charybdis = "1.1.0"
 config = { version = "0.15.25", features = ["toml"] }
 diesel = { version = "2.3.12", features = ["postgres", "serde_json", "time"] }
@@ -32,8 +32,8 @@ futures = "0.3.34"
 hex = "0.4.3"
 hyper = "1.11.0"
 hyperswitch_masking = { version = "0.0.1", features = ["cassandra", "diesel", "serde"] }
-log_utils = { git = "https://github.com/juspay/framework-libs-rs", rev = "ba61fc2e40bde29e6fabbec0c592404bb4151738", features = ["tracing"] }
-metrics_utils = { git = "https://github.com/juspay/framework-libs-rs", rev = "ba61fc2e40bde29e6fabbec0c592404bb4151738", features = ["opentelemetry-otlp", "opentelemetry-otlp-zstd", "opentelemetry-prometheus"] }
+log_utils = { git = "https://github.com/juspay/framework-libs-rs", rev = "3cdcc24b461917b29641942b04f3aef8110b1adf", features = ["tracing"] }
+metrics_utils = { git = "https://github.com/juspay/framework-libs-rs", rev = "3cdcc24b461917b29641942b04f3aef8110b1adf", features = ["opentelemetry-otlp", "opentelemetry-otlp-zstd", "opentelemetry-prometheus"] }
 moka = { version = "0.12", default-features = false, features = ["future"] }
 rayon = "1.12.0"
 ring = { version = "0.17.14", features = ["std"] }
@@ -63,7 +63,7 @@ criterion = "0.8.2"
 rand = "0.10.2"
 
 [build-dependencies]
-build_info = { git = "https://github.com/juspay/framework-libs-rs", rev = "ba61fc2e40bde29e6fabbec0c592404bb4151738", features = ["cargo-workspace-build"] }
+build_info = { git = "https://github.com/juspay/framework-libs-rs", rev = "3cdcc24b461917b29641942b04f3aef8110b1adf", features = ["cargo-workspace-build"] }
 
 [profile.release]
 strip = true

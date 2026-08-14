@@ -10,7 +10,93 @@ use hyperswitch_masking::{ExposeInterface, PeekInterface};
 #[cfg(feature = "postgres_ssl")]
 use rustls::pki_types::pem::PemObject;
 
-use crate::storage::{Config, Connection, DbState, adapter::PostgreSQL, errors};
+use crate::{
+    env::metrics,
+    multitenancy::TenantId,
+    storage::{
+        Config, Connection, DbState, adapter::PostgreSQL, errors, metrics as storage_metrics,
+    },
+};
+
+pub struct PostgresPoolMetrics {
+    // The `ObservableCounter`s aren't read directly, we just need to keep them alive for metrics
+    // to be recorded.
+    _created_connections: metrics_utils::opentelemetry::ObservableCounter<u64>,
+    _closed_connections: metrics_utils::opentelemetry::ObservableCounter<u64>,
+}
+
+impl PostgresPoolMetrics {
+    pub(super) fn new(pool: Pool<AsyncPgConnection>, tenant_id: &TenantId) -> Self {
+        let db_pool = storage_metrics::DbPool::Primary;
+
+        let pool_clone = pool.clone();
+        let tenant_id_clone = tenant_id.to_owned();
+        let _created_connections = metrics::CRIPTA_METER
+            .u64_observable_counter("database.pool.created")
+            .with_description("Total database connections created")
+            .with_unit("{connection}")
+            .with_callback(move |observer| {
+                let stats = pool_clone.state().statistics;
+                let tenant_id = tenant_id_clone.clone().into_inner();
+
+                observer.observe(
+                    stats.connections_created,
+                    metrics_utils::metric_attributes!(("pool", db_pool), ("tenant_id", tenant_id)),
+                );
+            })
+            .build();
+
+        let pool_clone = pool.clone();
+        let tenant_id_clone = tenant_id.to_owned();
+        let _closed_connections = metrics::CRIPTA_METER
+            .u64_observable_counter("database.pool.closed")
+            .with_description("Total database connections closed")
+            .with_unit("{connection}")
+            .with_callback(move |observer| {
+                let stats = pool_clone.state().statistics;
+                let tenant_id = tenant_id_clone.clone().into_inner();
+
+                observer.observe(
+                    stats.connections_closed_broken,
+                    metrics_utils::metric_attributes!(
+                        ("pool", db_pool),
+                        ("tenant_id", tenant_id.clone()),
+                        ("reason", "broken")
+                    ),
+                );
+                observer.observe(
+                    stats.connections_closed_invalid,
+                    metrics_utils::metric_attributes!(
+                        ("pool", db_pool),
+                        ("tenant_id", tenant_id.clone()),
+                        ("reason", "invalid")
+                    ),
+                );
+                observer.observe(
+                    stats.connections_closed_max_lifetime,
+                    metrics_utils::metric_attributes!(
+                        ("pool", db_pool),
+                        ("tenant_id", tenant_id.clone()),
+                        ("reason", "max_lifetime")
+                    ),
+                );
+                observer.observe(
+                    stats.connections_closed_idle_timeout,
+                    metrics_utils::metric_attributes!(
+                        ("pool", db_pool),
+                        ("tenant_id", tenant_id),
+                        ("reason", "idle_timeout")
+                    ),
+                );
+            })
+            .build();
+
+        Self {
+            _created_connections,
+            _closed_connections,
+        }
+    }
+}
 
 fn no_tls_custom_setup(
     pg_config: tokio_postgres::Config,
@@ -60,7 +146,7 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     ///
     /// Panics if unable to connect to Database
     #[allow(clippy::expect_used)]
-    async fn from_config(config: &Config, schema: &str) -> Self {
+    async fn from_config(config: &Config, tenant_id: &TenantId, schema: &str) -> Self {
         let database = &config.database;
         let password = database.password.expose(config).await;
         let pg_config = build_pg_config(database, schema, password);
@@ -150,10 +236,9 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
             .await
             .expect("Failed to establish pool connection");
 
-        Self {
-            _adapter: std::marker::PhantomData,
-            pool,
-        }
+        let _metrics = PostgresPoolMetrics::new(pool.clone(), tenant_id);
+
+        Self { pool, _metrics }
     }
 
     async fn get_conn<'a>(

@@ -32,9 +32,12 @@ impl AppState {
         let mut tenants = FxHashMap::default();
 
         for (tenant_id, tenant) in &config.multitenancy.tenants.0 {
+            let tenant_id = TenantId::new(tenant_id.clone());
             tenants.insert(
-                TenantId::new(tenant_id.clone()),
-                TenantState::new(Arc::new(SessionState::from_config(&config, tenant).await)),
+                tenant_id.clone(),
+                TenantState::new(Arc::new(
+                    SessionState::from_config(&config, &tenant_id, tenant).await,
+                )),
             );
         }
 
@@ -57,9 +60,13 @@ impl SessionState {
     ///
     /// Panics if failed to build thread pool
     #[allow(clippy::expect_used)]
-    pub async fn from_config(config: &Config, tenant_config: &TenantConfig) -> Self {
+    pub async fn from_config(
+        config: &Config,
+        tenant_id: &TenantId,
+        tenant_config: &TenantConfig,
+    ) -> Self {
         let secrets = config.secrets.clone();
-        let db_pool = StorageState::from_config(config, &tenant_config.schema).await;
+        let db_pool = StorageState::from_config(config, tenant_id, &tenant_config.schema).await;
         let num_threads = config.pool_config.pool;
 
         Self {

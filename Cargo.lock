@@ -745,7 +745,7 @@ dependencies = [
 [[package]]
 name = "build_info"
 version = "0.1.0"
-source = "git+https://github.com/juspay/framework-libs-rs?rev=ba61fc2e40bde29e6fabbec0c592404bb4151738#ba61fc2e40bde29e6fabbec0c592404bb4151738"
+source = "git+https://github.com/juspay/framework-libs-rs?rev=3cdcc24b461917b29641942b04f3aef8110b1adf#3cdcc24b461917b29641942b04f3aef8110b1adf"
 dependencies = [
  "cargo_metadata",
  "vergen-gix",
@@ -3558,7 +3558,7 @@ checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
 [[package]]
 name = "log_utils"
 version = "0.1.0"
-source = "git+https://github.com/juspay/framework-libs-rs?rev=ba61fc2e40bde29e6fabbec0c592404bb4151738#ba61fc2e40bde29e6fabbec0c592404bb4151738"
+source = "git+https://github.com/juspay/framework-libs-rs?rev=3cdcc24b461917b29641942b04f3aef8110b1adf#3cdcc24b461917b29641942b04f3aef8110b1adf"
 dependencies = [
  "gethostname",
  "rustc-hash",
@@ -3640,7 +3640,7 @@ dependencies = [
 [[package]]
 name = "metrics_utils"
 version = "0.1.0"
-source = "git+https://github.com/juspay/framework-libs-rs?rev=ba61fc2e40bde29e6fabbec0c592404bb4151738#ba61fc2e40bde29e6fabbec0c592404bb4151738"
+source = "git+https://github.com/juspay/framework-libs-rs?rev=3cdcc24b461917b29641942b04f3aef8110b1adf#3cdcc24b461917b29641942b04f3aef8110b1adf"
 dependencies = [
  "opentelemetry",
  "opentelemetry-otlp",
