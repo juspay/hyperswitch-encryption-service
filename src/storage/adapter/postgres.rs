@@ -19,10 +19,13 @@ use crate::{
 };
 
 pub struct PostgresPoolMetrics {
-    // The `ObservableCounter`s aren't read directly, we just need to keep them alive for metrics
+    // The observable instruments aren't read directly, we just need to keep them alive for metrics
     // to be recorded.
     _created_connections: metrics_utils::opentelemetry::ObservableCounter<u64>,
     _closed_connections: metrics_utils::opentelemetry::ObservableCounter<u64>,
+    _pool_size: metrics_utils::opentelemetry::ObservableGauge<u64>,
+    _pool_available: metrics_utils::opentelemetry::ObservableGauge<u64>,
+    _pool_waiting: metrics_utils::opentelemetry::ObservableGauge<u64>,
 }
 
 impl PostgresPoolMetrics {
@@ -91,9 +94,63 @@ impl PostgresPoolMetrics {
             })
             .build();
 
+        let pool_clone = pool.clone();
+        let tenant_id_clone = tenant_id.to_owned();
+        let _pool_size = metrics::CRIPTA_METER
+            .u64_observable_gauge("database.pool.size")
+            .with_description("Total number of connections in the database pool")
+            .with_unit("{connection}")
+            .with_callback(move |observer| {
+                let state = pool_clone.state();
+                let tenant_id = tenant_id_clone.clone().into_inner();
+
+                observer.observe(
+                    u64::from(state.connections),
+                    metrics_utils::metric_attributes!(("pool", db_pool), ("tenant_id", tenant_id)),
+                );
+            })
+            .build();
+
+        let pool_clone = pool.clone();
+        let tenant_id_clone = tenant_id.to_owned();
+        let _pool_available = metrics::CRIPTA_METER
+            .u64_observable_gauge("database.pool.available")
+            .with_description("Number of available connections in the database pool")
+            .with_unit("{connection}")
+            .with_callback(move |observer| {
+                let state = pool_clone.state();
+                let tenant_id = tenant_id_clone.clone().into_inner();
+
+                observer.observe(
+                    u64::from(state.idle_connections),
+                    metrics_utils::metric_attributes!(("pool", db_pool), ("tenant_id", tenant_id)),
+                );
+            })
+            .build();
+
+        let pool_clone = pool.clone();
+        let tenant_id_clone = tenant_id.to_owned();
+        let _pool_waiting = metrics::CRIPTA_METER
+            .u64_observable_gauge("database.pool.waiting")
+            .with_description("Number of callers waiting for a database connection")
+            .with_unit("{connection}")
+            .with_callback(move |observer| {
+                let state = pool_clone.state();
+                let tenant_id = tenant_id_clone.clone().into_inner();
+
+                observer.observe(
+                    state.statistics.pending_gets(),
+                    metrics_utils::metric_attributes!(("pool", db_pool), ("tenant_id", tenant_id)),
+                );
+            })
+            .build();
+
         Self {
             _created_connections,
             _closed_connections,
+            _pool_size,
+            _pool_available,
+            _pool_waiting,
         }
     }
 }

@@ -178,12 +178,6 @@ pub fn spawn_bg_metrics_collector(
             interval.tick().await;
 
             for (tenant_id, tenant_state) in global_state.tenant_states.iter() {
-                #[cfg(not(feature = "cassandra"))]
-                // Collect DB pool state gauges
-                tenant_state
-                    .db_pool()
-                    .collect_db_pool_state(tenant_id.as_str());
-
                 // Collect cache entry count gauges
                 tenant_state
                     .caches
@@ -237,24 +231,6 @@ histogram_metric_f64!(
     description: "Duration of database connection acquisition attempts",
     unit: "s",
     buckets: f64_histogram_buckets().to_vec(),
-);
-gauge_metric!(
-    pub(crate) DATABASE_POOL_SIZE, CRIPTA_METER,
-    name: "database.pool.size",
-    description: "Total number of connections in the database pool",
-    unit: "{connection}",
-);
-gauge_metric!(
-    pub(crate) DATABASE_POOL_AVAILABLE, CRIPTA_METER,
-    name: "database.pool.available",
-    description: "Number of available connections in the database pool",
-    unit: "{connection}",
-);
-gauge_metric!(
-    pub(crate) DATABASE_POOL_WAITING, CRIPTA_METER,
-    name: "database.pool.waiting",
-    description: "Number of callers waiting for a database connection",
-    unit: "{connection}",
 );
 
 // Cache
