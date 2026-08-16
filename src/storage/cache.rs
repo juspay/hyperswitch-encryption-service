@@ -4,6 +4,7 @@ use crate::{
     config::CacheConfig,
     env::metrics,
     errors,
+    multitenancy::TenantId,
     types::{Key, key::Version},
 };
 
@@ -24,13 +25,22 @@ where
 {
     inner: MokaCache<CacheKey, V>,
     name: &'static str,
+    // The observable instruments aren't read directly, we just need to keep them alive for metrics
+    // to be recorded.
+    _entry_count: metrics_utils::opentelemetry::ObservableGauge<u64>,
 }
 
 impl<V> Cache<V>
 where
     V: Send + Sync + Clone + 'static,
 {
-    fn new(name: &'static str, time_to_live: u64, time_to_idle: u64, max_capacity: u64) -> Self {
+    fn new(
+        name: &'static str,
+        time_to_live: u64,
+        time_to_idle: u64,
+        max_capacity: u64,
+        tenant_id: &TenantId,
+    ) -> Self {
         let cache_builder = MokaCache::builder()
             .time_to_live(std::time::Duration::from_secs(time_to_live))
             .time_to_idle(std::time::Duration::from_secs(time_to_idle))
@@ -41,9 +51,33 @@ where
                 }
             });
 
+        let inner = cache_builder.build();
+
+        let _entry_count = {
+            let inner_clone = inner.clone();
+            let tenant_id_clone = tenant_id.to_owned();
+            metrics::CRIPTA_METER
+                .u64_observable_gauge("cache.entry.count")
+                .with_description("Current number of cache entries")
+                .with_unit("{entry}")
+                .with_callback(move |observer| {
+                    let tenant_id = tenant_id_clone.clone().into_inner();
+
+                    observer.observe(
+                        inner_clone.entry_count(),
+                        metrics_utils::metric_attributes!(
+                            ("cache", name),
+                            ("tenant_id", tenant_id)
+                        ),
+                    );
+                })
+                .build()
+        };
+
         Self {
-            inner: cache_builder.build(),
+            inner,
             name,
+            _entry_count,
         }
     }
 
@@ -65,18 +99,6 @@ where
 
         value
     }
-
-    async fn record_entry_count_metric(&self, tenant_id: &str) {
-        self.inner.run_pending_tasks().await;
-
-        metrics::CACHE_ENTRY_COUNT.record(
-            self.inner.entry_count(),
-            metrics_utils::metric_attributes!(
-                ("cache", self.name),
-                ("tenant_id", tenant_id.to_owned()),
-            ),
-        );
-    }
 }
 
 pub struct Caches {
@@ -85,26 +107,23 @@ pub struct Caches {
 }
 
 impl Caches {
-    pub fn from_config(config: &CacheConfig) -> Self {
+    pub fn from_config(config: &CacheConfig, tenant_id: &TenantId) -> Self {
         Self {
             version: Cache::new(
                 "version",
                 config.time_to_live_secs,
                 config.time_to_idle_secs,
                 config.max_capacity.get(),
+                tenant_id,
             ),
             key: Cache::new(
                 "key",
                 config.time_to_live_secs,
                 config.time_to_idle_secs,
                 config.max_capacity.get(),
+                tenant_id,
             ),
         }
-    }
-
-    pub async fn record_entry_count_metric(&self, tenant_id: &str) {
-        self.version.record_entry_count_metric(tenant_id).await;
-        self.key.record_entry_count_metric(tenant_id).await;
     }
 }
 

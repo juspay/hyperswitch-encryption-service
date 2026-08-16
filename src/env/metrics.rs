@@ -4,7 +4,7 @@ use std::{sync::Arc, time::Duration};
 
 use axum::Router;
 use metrics_utils::{
-    counter_metric, f64_histogram_buckets, gauge_metric, global_meter, histogram_metric_f64,
+    counter_metric, f64_histogram_buckets, global_meter, histogram_metric_f64,
     up_down_counter_metric,
 };
 
@@ -159,35 +159,6 @@ pub fn spawn_prometheus_metrics_server(
     Ok(())
 }
 
-pub fn spawn_bg_metrics_collector(
-    global_state: &Arc<AppState>,
-    background_metrics_collection_interval_secs: u64,
-) {
-    let interval = Duration::from_secs(background_metrics_collection_interval_secs);
-
-    let global_state = global_state.clone();
-
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(interval);
-
-        // Skip the first tick, which resolves immediately.
-        // We want to start metrics collection after the first interval has elapsed.
-        interval.tick().await;
-
-        loop {
-            interval.tick().await;
-
-            for (tenant_id, tenant_state) in global_state.tenant_states.iter() {
-                // Collect cache entry count gauges
-                tenant_state
-                    .caches
-                    .record_entry_count_metric(tenant_id.as_str())
-                    .await;
-            }
-        }
-    });
-}
-
 global_meter!(pub(crate) CRIPTA_METER, "encryption_service");
 
 // HTTP server
@@ -251,12 +222,6 @@ counter_metric!(
     name: "cache.removal.count",
     description: "Number of cache removal events",
     unit: "{event}",
-);
-gauge_metric!(
-    pub(crate) CACHE_ENTRY_COUNT, CRIPTA_METER,
-    name: "cache.entry.count",
-    description: "Current number of cache entries",
-    unit: "{entry}",
 );
 
 // Key manager
