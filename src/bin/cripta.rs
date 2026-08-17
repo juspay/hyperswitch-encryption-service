@@ -40,8 +40,6 @@ async fn main() {
 
     logger::info!(?config, "Application starting");
 
-    let background_metrics_interval = config.metrics.background_metrics_collection_interval_secs();
-
     #[cfg(any(feature = "mtls", feature = "postgres_ssl"))]
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
@@ -106,10 +104,6 @@ async fn main() {
             state.clone(),
         )
         .expect("Failed to start Prometheus metrics server");
-    }
-
-    if guards.metrics_handle().is_enabled() {
-        observability::spawn_bg_metrics_collector(&state, background_metrics_interval);
     }
 
     #[cfg(feature = "mtls")]

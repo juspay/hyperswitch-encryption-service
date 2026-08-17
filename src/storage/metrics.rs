@@ -120,22 +120,3 @@ where
 
     result
 }
-
-#[cfg(not(feature = "cassandra"))]
-impl
-    crate::storage::DbState<
-        diesel_async::pooled_connection::bb8::Pool<diesel_async::AsyncPgConnection>,
-        crate::storage::adapter::PostgreSQL,
-    >
-{
-    pub(crate) fn collect_db_pool_state(&self, tenant_id: &str) {
-        let state = self.pool.state();
-        let pool = DbPool::Primary;
-        let attrs =
-            metrics_utils::metric_attributes!(("pool", pool), ("tenant_id", tenant_id.to_owned()));
-
-        metrics::DATABASE_POOL_SIZE.record(u64::from(state.connections), attrs);
-        metrics::DATABASE_POOL_AVAILABLE.record(u64::from(state.idle_connections), attrs);
-        metrics::DATABASE_POOL_WAITING.record(state.statistics.pending_gets(), attrs);
-    }
-}

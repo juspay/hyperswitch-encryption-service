@@ -70,7 +70,7 @@ impl SessionState {
         let num_threads = config.pool_config.pool;
 
         Self {
-            caches: Caches::from_config(&config.cache),
+            caches: Caches::from_config(&config.cache, tenant_id),
             keymanager_client: secrets.create_keymanager_client().await,
             db_pool,
             thread_pool: ThreadPoolBuilder::new()

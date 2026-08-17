@@ -6,10 +6,7 @@ use super::{
 };
 pub use super::{
     logger::{LogConfig, LogLevel},
-    metrics::{
-        HttpRequestMetricsLayer, MetricsHandle, spawn_bg_metrics_collector,
-        spawn_prometheus_metrics_server,
-    },
+    metrics::{HttpRequestMetricsLayer, MetricsHandle, spawn_prometheus_metrics_server},
 };
 use crate::config::Config;
 
