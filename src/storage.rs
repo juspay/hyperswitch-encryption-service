@@ -10,12 +10,13 @@ use self::adapter::{DbAdapter, DbAdapterType};
 use crate::{
     config::Config,
     errors::{self, CustomResult},
+    multitenancy::TenantId,
 };
 
 #[derive(Clone)]
 pub struct DbState<C, T: DbAdapterType> {
     pub pool: C,
-    _adapter: std::marker::PhantomData<T>,
+    _metrics: T::Metrics,
 }
 
 type Connection<'a> = PooledConnection<'a, AsyncPgConnection>;
@@ -29,9 +30,10 @@ where
     /// Panics if unable to connect to Database
     pub async fn from_config(
         config: &Config,
+        tenant_id: &TenantId,
         schema: &str,
     ) -> DbState<<Self as DbAdapter>::Pool, <Self as DbAdapter>::AdapterType> {
-        <Self as DbAdapter>::from_config(config, schema).await
+        <Self as DbAdapter>::from_config(config, tenant_id, schema).await
     }
 
     pub async fn get_conn(

@@ -1,5 +1,3 @@
-#![allow(clippy::panic, clippy::expect_used)]
-
 use std::{net::SocketAddr, sync::Arc};
 
 use axum::{Router, body::Body};
@@ -23,6 +21,7 @@ fn default_headers() -> tower_http::set_header::SetResponseHeaderLayer<axum::htt
     )
 }
 
+#[expect(clippy::expect_used)]
 #[tokio::main]
 async fn main() {
     let config = config::Config::with_config_path(config::Environment::which(), None);
@@ -118,6 +117,7 @@ async fn main() {
         use axum_server::tls_rustls::RustlsConfig;
         use cripta::app::tls;
 
+        #[expect(clippy::panic)]
         let tls = tls::from_config(&state.conf)
             .await
             .unwrap_or_else(|err| panic!("unable to read the certificates. got err:{err:?}"));
