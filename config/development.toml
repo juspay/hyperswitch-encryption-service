@@ -9,6 +9,10 @@ pool = 2
 [server]
 host = "127.0.0.1"
 port = 5000
+# Disable Nagle's algorithm on accepted sockets. Leave true.
+set_tcp_nodelay = true
+# Offer HTTP/2 via ALPN (mtls builds only; plaintext is always HTTP/1.1).
+enable_http2 = true
 
 [database]
 user = "db_user"

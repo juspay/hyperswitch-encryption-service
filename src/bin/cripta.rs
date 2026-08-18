@@ -38,6 +38,8 @@ async fn main() {
         .parse()
         .expect("Unable to parse host");
 
+    let set_tcp_nodelay = config.server.set_tcp_nodelay;
+
     logger::info!(?config, "Application starting");
 
     #[cfg(any(feature = "mtls", feature = "postgres_ssl"))]
@@ -123,23 +125,37 @@ async fn main() {
         // axum-server's `DefaultAcceptor` leaves Nagle enabled: when two responses are
         // written back-to-back on one multiplexed HTTP/2 connection, the second is held
         // until the first is acknowledged, and the peer's delayed-ACK timer adds ~40ms.
-        let acceptor = RustlsAcceptor::new(RustlsConfig::from_config(Arc::new(tls)))
-            .acceptor(NoDelayAcceptor::new());
+        let tls_config = RustlsConfig::from_config(Arc::new(tls));
 
-        axum_server::bind(host)
-            .acceptor(acceptor)
-            .serve(app.into_make_service())
-            .await
-            .expect("unable to start the server")
+        if set_tcp_nodelay {
+            axum_server::bind(host)
+                .acceptor(RustlsAcceptor::new(tls_config).acceptor(NoDelayAcceptor::new()))
+                .serve(app.into_make_service())
+                .await
+                .expect("unable to start the server")
+        } else {
+            axum_server::bind(host)
+                .acceptor(RustlsAcceptor::new(tls_config))
+                .serve(app.into_make_service())
+                .await
+                .expect("unable to start the server")
+        }
     }
 
     #[cfg(not(feature = "mtls"))]
     {
         // See the mtls branch above: Nagle must be disabled on accepted sockets.
-        axum_server::bind(host)
-            .acceptor(axum_server::accept::NoDelayAcceptor::new())
-            .serve(app.into_make_service())
-            .await
-            .expect("unable to start the server")
+        if set_tcp_nodelay {
+            axum_server::bind(host)
+                .acceptor(axum_server::accept::NoDelayAcceptor::new())
+                .serve(app.into_make_service())
+                .await
+                .expect("unable to start the server")
+        } else {
+            axum_server::bind(host)
+                .serve(app.into_make_service())
+                .await
+                .expect("unable to start the server")
+        }
     }
 }
