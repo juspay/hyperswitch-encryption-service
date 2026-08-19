@@ -209,31 +209,23 @@ pub struct Server {
     pub port: u16,
     pub host: String,
 
-    /// Sets `TCP_NODELAY` on accepted sockets, disabling Nagle's algorithm.
-    /// Defaults to `true`, which is the correct setting for a request/response
-    /// service and matches what nginx, Envoy and gRPC do.
-    ///
-    /// With Nagle active, two responses written back-to-back on one connection
-    /// stall: the second is held until the first is acknowledged, and the
-    /// peer's delayed-ACK timer adds ~40ms. Only set this to `false` to
-    /// deliberately reproduce that behaviour.
-    #[serde(default = "default_true")]
+    /// Disables Nagle's algorithm on accepted sockets. Leave enabled: with Nagle
+    /// active, back-to-back responses on one connection stall on the peer's
+    /// delayed-ACK timer (~40ms).
+    #[serde(default = "default_tcp_nodelay")]
     pub set_tcp_nodelay: bool,
 
-    /// Offers HTTP/2 via ALPN during the TLS handshake. Defaults to `true`.
-    ///
-    /// Only meaningful with the `mtls` feature: ALPN is a TLS extension, so a
-    /// plaintext listener speaks HTTP/1.1 regardless of this setting.
-    ///
-    /// With HTTP/2, concurrent requests from one client are multiplexed onto a
-    /// single connection, which keeps TLS handshake cost flat as concurrency
-    /// grows. Setting this to `false` forces clients onto HTTP/1.1, giving each
-    /// concurrent request its own connection.
-    #[serde(default = "default_true")]
+    /// Offers HTTP/2 via ALPN. Only applies with the `mtls` feature, since ALPN
+    /// requires TLS; a plaintext listener is HTTP/1.1 either way.
+    #[serde(default = "default_http2")]
     pub enable_http2: bool,
 }
 
-fn default_true() -> bool {
+const fn default_tcp_nodelay() -> bool {
+    true
+}
+
+const fn default_http2() -> bool {
     true
 }
 
