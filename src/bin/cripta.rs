@@ -121,13 +121,10 @@ async fn main() {
             .await
             .unwrap_or_else(|err| panic!("unable to read the certificates. got err:{err:?}"));
 
-        // `NoDelayAcceptor` disables Nagle's algorithm on accepted sockets. Without it,
-        // axum-server's `DefaultAcceptor` leaves Nagle enabled: when two responses are
-        // written back-to-back on one multiplexed HTTP/2 connection, the second is held
-        // until the first is acknowledged, and the peer's delayed-ACK timer adds ~40ms.
         let tls_config = RustlsConfig::from_config(Arc::new(tls));
 
         if set_tcp_nodelay {
+            // NoDelayAcceptor disables Nagle's algorithm on accepted sockets.
             axum_server::bind(host)
                 .acceptor(RustlsAcceptor::new(tls_config).acceptor(NoDelayAcceptor::new()))
                 .serve(app.into_make_service())
@@ -144,8 +141,8 @@ async fn main() {
 
     #[cfg(not(feature = "mtls"))]
     {
-        // See the mtls branch above: Nagle must be disabled on accepted sockets.
         if set_tcp_nodelay {
+            // NoDelayAcceptor disables Nagle's algorithm on accepted sockets.
             axum_server::bind(host)
                 .acceptor(axum_server::accept::NoDelayAcceptor::new())
                 .serve(app.into_make_service())

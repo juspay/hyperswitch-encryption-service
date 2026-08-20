@@ -208,15 +208,8 @@ pub struct Secrets {
 pub struct Server {
     pub port: u16,
     pub host: String,
-
-    /// Disables Nagle's algorithm on accepted sockets. Leave enabled: with Nagle
-    /// active, back-to-back responses on one connection stall on the peer's
-    /// delayed-ACK timer (~40ms).
     #[serde(default = "default_tcp_nodelay")]
     pub set_tcp_nodelay: bool,
-
-    /// Offers HTTP/2 via ALPN. Only applies with the `mtls` feature, since ALPN
-    /// requires TLS; a plaintext listener is HTTP/1.1 either way.
     #[serde(default = "default_http2")]
     pub enable_http2: bool,
 }
