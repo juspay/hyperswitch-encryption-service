@@ -38,6 +38,8 @@ async fn main() {
         .parse()
         .expect("Unable to parse host");
 
+    let set_tcp_nodelay = config.server.set_tcp_nodelay;
+
     logger::info!(?config, "Application starting");
 
     #[cfg(any(feature = "mtls", feature = "postgres_ssl"))]
@@ -108,7 +110,10 @@ async fn main() {
 
     #[cfg(feature = "mtls")]
     {
-        use axum_server::tls_rustls::RustlsConfig;
+        use axum_server::{
+            accept::NoDelayAcceptor,
+            tls_rustls::{RustlsAcceptor, RustlsConfig},
+        };
         use cripta::app::tls;
 
         #[expect(clippy::panic)]
@@ -116,17 +121,38 @@ async fn main() {
             .await
             .unwrap_or_else(|err| panic!("unable to read the certificates. got err:{err:?}"));
 
-        axum_server::bind_rustls(host, RustlsConfig::from_config(Arc::new(tls)))
-            .serve(app.into_make_service())
-            .await
-            .expect("unable to start the server")
+        let tls_config = RustlsConfig::from_config(Arc::new(tls));
+
+        if set_tcp_nodelay {
+            // NoDelayAcceptor disables Nagle's algorithm on accepted sockets.
+            axum_server::bind(host)
+                .acceptor(RustlsAcceptor::new(tls_config).acceptor(NoDelayAcceptor::new()))
+                .serve(app.into_make_service())
+                .await
+                .expect("unable to start the server")
+        } else {
+            axum_server::bind(host)
+                .acceptor(RustlsAcceptor::new(tls_config))
+                .serve(app.into_make_service())
+                .await
+                .expect("unable to start the server")
+        }
     }
 
     #[cfg(not(feature = "mtls"))]
     {
-        axum_server::bind(host)
-            .serve(app.into_make_service())
-            .await
-            .expect("unable to start the server")
+        if set_tcp_nodelay {
+            // NoDelayAcceptor disables Nagle's algorithm on accepted sockets.
+            axum_server::bind(host)
+                .acceptor(axum_server::accept::NoDelayAcceptor::new())
+                .serve(app.into_make_service())
+                .await
+                .expect("unable to start the server")
+        } else {
+            axum_server::bind(host)
+                .serve(app.into_make_service())
+                .await
+                .expect("unable to start the server")
+        }
     }
 }

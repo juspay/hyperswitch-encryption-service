@@ -208,6 +208,12 @@ pub struct Secrets {
 pub struct Server {
     pub port: u16,
     pub host: String,
+    #[serde(default = "default_tcp_nodelay")]
+    pub set_tcp_nodelay: bool,
+}
+
+const fn default_tcp_nodelay() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, serde::Deserialize, Default)]

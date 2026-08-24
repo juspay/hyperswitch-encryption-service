@@ -6,6 +6,14 @@
 host = "127.0.0.1" # IP address the HTTP server listens on
 port = 5000        # Port the HTTP server listens on. Use a port that does not conflict with other services.
 
+# Sets TCP_NODELAY on accepted sockets, disabling Nagle's algorithm.
+# (optional, default: true — the correct setting for a request/response service)
+#
+# With Nagle active, two responses written back-to-back on one connection stall:
+# the second waits on the first's acknowledgement, and the peer's delayed-ACK
+# timer adds ~40ms. Set false only to deliberately reproduce that behaviour.
+set_tcp_nodelay = true
+
 # Database configuration
 [database]
 host = "localhost"                   # Database hostname or IP address

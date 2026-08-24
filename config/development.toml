@@ -9,6 +9,7 @@ pool = 2
 [server]
 host = "127.0.0.1"
 port = 5000
+set_tcp_nodelay = true
 
 [database]
 user = "db_user"
