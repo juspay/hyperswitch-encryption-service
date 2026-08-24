@@ -210,15 +210,9 @@ pub struct Server {
     pub host: String,
     #[serde(default = "default_tcp_nodelay")]
     pub set_tcp_nodelay: bool,
-    #[serde(default = "default_http2")]
-    pub enable_http2: bool,
 }
 
 const fn default_tcp_nodelay() -> bool {
-    true
-}
-
-const fn default_http2() -> bool {
     true
 }
 

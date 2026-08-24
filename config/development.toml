@@ -10,7 +10,6 @@ pool = 2
 host = "127.0.0.1"
 port = 5000
 set_tcp_nodelay = true
-enable_http2 = true
 
 [database]
 user = "db_user"

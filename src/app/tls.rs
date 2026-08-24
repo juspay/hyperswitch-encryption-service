@@ -11,7 +11,6 @@ use crate::config::Config;
 
 pub async fn from_config(config: &Config) -> io::Result<ServerConfig> {
     let certs = config.certs.clone();
-    let server = &config.server;
 
     let cert = CertificateDer::pem_slice_iter(certs.tls_cert.expose(config).await.peek().as_ref())
         .map(|it| it.map_err(io::Error::other))
@@ -38,13 +37,7 @@ pub async fn from_config(config: &Config) -> io::Result<ServerConfig> {
         .with_single_cert(cert, priv_key)
         .map_err(io::Error::other)?;
 
-    // ALPN decides whether concurrent requests from one client share a single
-    // multiplexed connection (h2) or take one connection each (http/1.1).
-    config.alpn_protocols = if server.enable_http2 {
-        vec![b"h2".to_vec(), b"http/1.1".to_vec()]
-    } else {
-        vec![b"http/1.1".to_vec()]
-    };
+    config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
 
     Ok(config)
 }

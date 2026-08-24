@@ -14,15 +14,6 @@ port = 5000        # Port the HTTP server listens on. Use a port that does not c
 # timer adds ~40ms. Set false only to deliberately reproduce that behaviour.
 set_tcp_nodelay = true
 
-# Offers HTTP/2 via ALPN during the TLS handshake.
-# (optional, default: true; requires the `mtls` feature — plaintext is HTTP/1.1)
-#
-# HTTP/2 multiplexes concurrent requests from one client onto a single
-# connection, keeping TLS handshake cost flat as concurrency grows. Setting this
-# to false forces clients onto HTTP/1.1, giving each concurrent request its own
-# connection.
-enable_http2 = true
-
 # Database configuration
 [database]
 host = "localhost"                   # Database hostname or IP address
