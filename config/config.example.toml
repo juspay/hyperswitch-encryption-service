@@ -60,6 +60,9 @@ log_format = "console"                     # Log output format. Possible values:
                                            # Overrides log levels for specific modules.
                                            # The default level applies to all modules not listed.
 
+# Uncomment when secrets.manager = "aws_kms" to avoid a tracing-subscriber panic on AWS SDK spans.
+# filtering_directive = "WARN,cripta=DEBUG,tower_http=DEBUG,aws_config=DEBUG,aws_smithy_runtime=DEBUG,aws_sdk_kms=DEBUG,aws_runtime=DEBUG"
+
 # Metrics configuration
 # Mode determines which metrics exporter to use.
 [metrics]
@@ -75,25 +78,36 @@ metrics_export_interval_secs = 15                  # Export interval in seconds
 # port = 6128                                       # Port the Prometheus HTTP server listens on
 
 # Secrets and encryption configuration
-# The service supports three mutually exclusive key management strategies chosen at compile time:
-#   - Local AES-256 (default, no feature flag needed)
-#   - AWS KMS (requires the `aws` feature flag)
-#   - HashiCorp Vault (requires the `vault` feature flag)
+# The service supports four mutually exclusive key management strategies, selected at
+# runtime by the `manager` field below:
+#   - "aes_local" (default, no feature flag needed) - a locally-held AES-256 master key
+#   - "aws_kms" (requires the `aws` compile-time feature flag)
+#   - "gcp_kms" (requires the `gcp` compile-time feature flag)
+#   - "hashicorp_vault" (requires the `vault` compile-time feature flag)
+# The corresponding sub-table below (e.g. [secrets.aws_kms]) must be present for
+# whichever manager is selected.
 [secrets]
-# Local AES-256 master key (32 bytes / 64 hex characters)
-# Used when neither the `aws` nor `vault` feature flag is enabled.
+manager = "aes_local"
+# Local AES-256 master key (32 bytes / 64 hex characters) - required when manager = "aes_local".
 # Replace this value with a key generated from a cryptographically secure source.
-master_key = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"
+aes_local = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"
 
-# AWS KMS configuration - uncomment and configure when the `aws` feature flag is enabled
-# [secrets.kms_config]
+# AWS KMS configuration - required when manager = "aws_kms"
+# [secrets.aws_kms]
 # key_id = "arn:aws:kms:us-east-1:123456789012:key/abc123..." # AWS KMS key identifier
 # region = "us-east-1"                                        # AWS region for KMS requests
 # skip_key_id_on_decrypt = false                              # When true, omits key_id from decrypt requests.
                                                               # AWS KMS determines the key from ciphertext metadata.
 
-# HashiCorp Vault configuration - uncomment and configure when the `vault` feature flag is enabled
-# [secrets.vault_config]
+# GCP Cloud KMS configuration - required when manager = "gcp_kms"
+# [secrets.gcp_kms]
+# project_id = "my-gcp-project"        # GCP project ID that owns the KMS key ring
+# location_id = "us-east1"             # GCP location ID of the KMS key ring (e.g. "global", "us-east1")
+# key_ring_id = "cripta-keyring"       # GCP KMS key ring ID
+# key_id = "cripta-master-key"         # GCP KMS key ID
+
+# HashiCorp Vault configuration - required when manager = "hashicorp_vault"
+# [secrets.hashicorp_vault]
 # url = "http://127.0.0.1:8200"   # HashiCorp Vault server URL
 # mount_point = "transit"         # Vault transit engine mount point
 # encryption_key = "cripta-key"   # Name of the encryption key in Vault

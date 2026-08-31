@@ -281,7 +281,11 @@ macro_rules! impl_metric_value_from {
 #[derive(Debug, Clone, Copy, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub(crate) enum KeyManagerBackend {
+    #[cfg(feature = "aws")]
     AwsKms,
+    #[cfg(feature = "gcp")]
+    GcpKms,
+    #[cfg(feature = "vault")]
     Vault,
     Aes256,
 }

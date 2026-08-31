@@ -14,7 +14,7 @@ The encryption service mainly has following functionalities:-
 - Application communicates with the service to create a key for the specific entity.
 - Next time application has to encrypt/decrypt the data related to the entity, it has to send the entity identifier and the base64-encoded data, the Key Manager will encrypt/decrypt it for the application.
 - All the communication between application and the encryption service are authorised by Mutual TLS
-- All the Data Encryption Keys are Encrypted by either by securely generated AES-256 Key or a hosted Key Management Service (AWS KMS, Hashicorp Vault etc.)
+- All the Data Encryption Keys are Encrypted by either a securely generated local AES-256 Key or a hosted Key Management Service (AWS KMS, GCP Cloud KMS, HashiCorp Vault), selected at runtime via the `secrets.manager` config value.
 
 ![Architectural diagram](./docs/images/FlowDiagram.png)
 

@@ -69,8 +69,6 @@ impl Crypto for AwsKmsClient {
                 .decrypt()
                 .ciphertext_blob(plaintext_blob);
 
-            // Only include key_id in decrypt if skip_key_id_on_decrypt is false
-            // When true, KMS determines the key from the ciphertext metadata
             if !self.skip_key_id_on_decrypt() {
                 decrypt_request = decrypt_request.key_id(self.key_id());
             }

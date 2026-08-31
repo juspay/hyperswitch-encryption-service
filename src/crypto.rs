@@ -1,5 +1,9 @@
 pub(crate) mod aes256;
-pub(crate) mod kms;
+#[cfg(feature = "gcp")]
+pub(crate) mod gcp;
+#[cfg(feature = "aws")]
+pub(crate) mod aws;
+#[cfg(feature = "vault")]
 pub(crate) mod vault;
 
 use std::{ops::Deref, sync::Arc};
@@ -7,11 +11,16 @@ use std::{ops::Deref, sync::Arc};
 use hyperswitch_masking::StrongSecret;
 use strum::{Display, EnumString};
 
+#[cfg(feature = "vault")]
+use crate::crypto::vault::Vault;
+#[cfg(feature = "aws")]
+use crate::services::aws::AwsKmsClient;
+#[cfg(feature = "gcp")]
+use crate::services::gcp::GcpKmsClient;
 use crate::{
-    crypto::{aes256::GcmAes256, vault::Vault},
+    crypto::aes256::GcmAes256,
     env::metrics,
     errors::{self, CustomResult},
-    services::aws::AwsKmsClient,
 };
 
 #[derive(Clone, EnumString, Display)]
@@ -19,6 +28,7 @@ pub enum Source {
     KMS,
     AESLocal,
     HashicorpVault,
+    GcpKms,
 }
 
 #[async_trait::async_trait]
@@ -49,6 +59,7 @@ pub trait KeyManagement {
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError>;
 }
 
+#[cfg(feature = "aws")]
 #[async_trait::async_trait]
 impl KeyManagement for AwsKmsClient {
     async fn generate_key(
@@ -124,6 +135,7 @@ impl KeyManagement for GcmAes256 {
     }
 }
 
+#[cfg(feature = "vault")]
 #[async_trait::async_trait]
 impl KeyManagement for Vault {
     async fn generate_key(
@@ -156,6 +168,45 @@ impl KeyManagement for Vault {
         record_key_manager_call(
             <Self as Crypto>::decrypt(self, input),
             metrics::KeyManagerBackend::Vault,
+            metrics::KeyManagerOperation::Decrypt,
+        )
+        .await
+    }
+}
+
+#[cfg(feature = "gcp")]
+#[async_trait::async_trait]
+impl KeyManagement for GcpKmsClient {
+    async fn generate_key(
+        &self,
+    ) -> CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError> {
+        record_key_manager_call(
+            <Self as Crypto>::generate_key(self),
+            metrics::KeyManagerBackend::GcpKms,
+            metrics::KeyManagerOperation::GenerateKey,
+        )
+        .await
+    }
+
+    async fn encrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+        record_key_manager_call(
+            <Self as Crypto>::encrypt(self, input),
+            metrics::KeyManagerBackend::GcpKms,
+            metrics::KeyManagerOperation::Encrypt,
+        )
+        .await
+    }
+
+    async fn decrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+        record_key_manager_call(
+            <Self as Crypto>::decrypt(self, input),
+            metrics::KeyManagerBackend::GcpKms,
             metrics::KeyManagerOperation::Decrypt,
         )
         .await
