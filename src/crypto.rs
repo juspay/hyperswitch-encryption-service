@@ -1,8 +1,8 @@
 pub(crate) mod aes256;
-#[cfg(feature = "gcp")]
-pub(crate) mod gcp;
 #[cfg(feature = "aws")]
 pub(crate) mod aws;
+#[cfg(feature = "gcp")]
+pub(crate) mod gcp;
 #[cfg(feature = "vault")]
 pub(crate) mod vault;
 
