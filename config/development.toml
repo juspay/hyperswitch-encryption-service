@@ -39,4 +39,4 @@ filtering_directive = "WARN,cripta=DEBUG,tower_http=DEBUG,aws_config=DEBUG,aws_s
 
 [secrets]
 manager = "aes_local"
-aes_local = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"
+master_key = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"

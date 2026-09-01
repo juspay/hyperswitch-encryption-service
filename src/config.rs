@@ -19,6 +19,8 @@ use vaultrs::{
     transit,
 };
 
+#[cfg(not(feature = "release"))]
+use crate::crypto::aes256::GcmAes256;
 #[cfg(feature = "vault")]
 use crate::crypto::vault::{Vault, VaultSettings};
 #[cfg(feature = "aws")]
@@ -26,7 +28,7 @@ use crate::services::aws::{AwsKmsClient, AwsKmsConfig};
 #[cfg(feature = "gcp")]
 use crate::services::gcp::{GcpKmsClient, GcpKmsConfig};
 use crate::{
-    crypto::{KeyManagerClient, aes256::GcmAes256},
+    crypto::KeyManagerClient,
     env::observability::LogConfig,
     errors::{self, CustomResult},
 };
@@ -162,6 +164,7 @@ impl SecretContainer {
                     .expect("Invalid secret"),
                 )
             }
+            #[cfg(not(feature = "release"))]
             Secrets::AesLocal { .. } => self.0.clone(),
         }
     }
@@ -250,8 +253,9 @@ pub enum Secrets {
     HashicorpVault {
         hashicorp_vault: VaultSettings,
     },
+    #[cfg(not(feature = "release"))]
     AesLocal {
-        aes_local: GcmAes256,
+        master_key: GcmAes256,
     },
 }
 
@@ -380,6 +384,7 @@ impl Secrets {
                 );
                 Ok(())
             }
+            #[cfg(not(feature = "release"))]
             Self::AesLocal { .. } => Ok(()),
         }
     }
@@ -505,7 +510,8 @@ impl Secrets {
                 let client = Vault::new(hashicorp_vault);
                 KeyManagerClient::new(Arc::new(client))
             }
-            Self::AesLocal { aes_local } => KeyManagerClient::new(Arc::new(aes_local)),
+            #[cfg(not(feature = "release"))]
+            Self::AesLocal { master_key } => KeyManagerClient::new(Arc::new(master_key)),
         })
     }
 }

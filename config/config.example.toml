@@ -80,7 +80,7 @@ metrics_export_interval_secs = 15                  # Export interval in seconds
 # Secrets and encryption configuration
 # The service supports four mutually exclusive key management strategies, selected at
 # runtime by the `manager` field below:
-#   - "aes_local" (default, no feature flag needed) - a locally-held AES-256 master key
+#   - "aes_local" (no feature flag needed, but unavailable in `release` builds) - a locally-held AES-256 master key
 #   - "aws_kms" (requires the `aws` compile-time feature flag)
 #   - "gcp_kms" (requires the `gcp` compile-time feature flag)
 #   - "hashicorp_vault" (requires the `vault` compile-time feature flag)
@@ -90,7 +90,7 @@ metrics_export_interval_secs = 15                  # Export interval in seconds
 manager = "aes_local"
 # Local AES-256 master key (32 bytes / 64 hex characters) - required when manager = "aes_local".
 # Replace this value with a key generated from a cryptographically secure source.
-aes_local = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"
+master_key = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"
 
 # AWS KMS configuration - required when manager = "aws_kms"
 # [secrets.aws_kms]
