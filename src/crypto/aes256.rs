@@ -1,6 +1,6 @@
 use core::fmt;
 
-use error_stack::{IntoReport, ResultExt};
+use error_stack::ResultExt;
 use hyperswitch_masking::{PeekInterface, StrongSecret};
 use ring::aead::{self, BoundKey, OpeningKey, SealingKey, UnboundKey};
 use serde::de::{self, Deserialize, Deserializer, Unexpected, Visitor};
@@ -21,15 +21,6 @@ impl GcmAes256 {
     }
     pub fn new(key: StrongSecret<[u8; 32]>) -> errors::CustomResult<Self, errors::CryptoError> {
         Ok(Self { key })
-    }
-
-    pub async fn from_vec(
-        key: StrongSecret<Vec<u8>>,
-    ) -> errors::CustomResult<Self, errors::CryptoError> {
-        let key = <[u8; 32]>::try_from(key.peek().to_vec())
-            .map_err(|_| errors::CryptoError::InvalidKey.into_report())?;
-
-        Ok(Self { key: key.into() })
     }
 }
 
