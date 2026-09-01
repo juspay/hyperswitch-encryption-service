@@ -242,21 +242,13 @@ pub struct Certs {
 #[serde(tag = "manager", rename_all = "snake_case")]
 pub enum Secrets {
     #[cfg(feature = "aws")]
-    AwsKms {
-        aws_kms: AwsKmsConfig,
-    },
+    AwsKms { aws_kms: AwsKmsConfig },
     #[cfg(feature = "gcp")]
-    GcpKms {
-        gcp_kms: GcpKmsConfig,
-    },
+    GcpKms { gcp_kms: GcpKmsConfig },
     #[cfg(feature = "vault")]
-    HashicorpVault {
-        hashicorp_vault: VaultSettings,
-    },
+    HashicorpVault { hashicorp_vault: VaultSettings },
     #[cfg(not(feature = "release"))]
-    AesLocal {
-        master_key: GcmAes256,
-    },
+    AesLocal { master_key: GcmAes256 },
 }
 
 #[derive(Deserialize, Debug)]
