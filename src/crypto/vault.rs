@@ -26,6 +26,32 @@ pub struct VaultSettings {
     pub vault_token: hyperswitch_masking::Secret<String>,
 }
 
+impl VaultSettings {
+    /// All four fields are required to authenticate and address the transit engine.
+    pub fn validate(&self) -> Result<(), &'static str> {
+        let fields = [
+            (self.url.as_str(), "Vault URL must not be empty"),
+            (
+                self.mount_point.as_str(),
+                "Vault mount point must not be empty",
+            ),
+            (
+                self.encryption_key.as_str(),
+                "Vault encryption key must not be empty",
+            ),
+            (
+                self.vault_token.peek().as_str(),
+                "Vault token must not be empty",
+            ),
+        ];
+
+        fields
+            .into_iter()
+            .find(|(value, _)| value.trim().is_empty())
+            .map_or(Ok(()), |(_, error)| Err(error))
+    }
+}
+
 pub struct Vault {
     inner_client: VaultClient,
     settings: VaultSettings,
@@ -46,6 +72,29 @@ impl Vault {
             inner_client: client,
             settings,
         }
+    }
+
+    /// Decrypts `data` (already in Vault's own transit ciphertext format, not base64) via
+    /// HashiCorp Vault. Used for bootstrap secrets read from TOML config.
+    pub async fn decrypt_secret(&self, data: &str) -> CustomResult<String, errors::CryptoError> {
+        let b64_encoded_str = transit::data::decrypt(
+            &self.inner_client,
+            &self.settings.mount_point,
+            &self.settings.encryption_key,
+            data,
+            None,
+        )
+        .await
+        .change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))?
+        .plaintext;
+
+        let decoded = BASE64_ENGINE
+            .decode(b64_encoded_str)
+            .change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))?;
+
+        String::from_utf8(decoded).change_context(CryptoError::ParseError(
+            "Invalid HashiCorp Vault decrypted secret".to_string(),
+        ))
     }
 }
 

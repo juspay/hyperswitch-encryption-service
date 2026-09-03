@@ -1,3 +1,3 @@
 mod config;
 
-pub use config::*;
+pub use config::{GcpKmsClient, GcpKmsConfig};

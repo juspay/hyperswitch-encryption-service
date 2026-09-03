@@ -4,23 +4,14 @@ use std::{
     sync::Arc,
 };
 
-#[cfg(feature = "aws")]
-use aws_sdk_kms::primitives::Blob;
 use config::File;
-#[cfg(feature = "gcp")]
-use google_cloud_kms::grpc::kms::v1::DecryptRequest;
 #[cfg(any(feature = "aws", feature = "gcp", feature = "vault"))]
 use hyperswitch_masking::PeekInterface;
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
-#[cfg(feature = "vault")]
-use vaultrs::{
-    client::{VaultClient, VaultClientSettingsBuilder},
-    transit,
-};
 
 #[cfg(not(feature = "release"))]
-use crate::crypto::aes256::GcmAes256;
+use crate::crypto::aes256::AesLocalConfig;
 #[cfg(feature = "vault")]
 use crate::crypto::vault::{Vault, VaultSettings};
 #[cfg(feature = "aws")]
@@ -73,96 +64,30 @@ impl SecretContainer {
         match &config.secrets {
             #[cfg(feature = "aws")]
             Secrets::AwsKms { aws_kms } => {
-                use base64::Engine;
-
-                let kms = AwsKmsClient::new(aws_kms).await;
-                let data = crate::consts::base64::BASE64_ENGINE
-                    .decode(self.0.peek())
-                    .expect("Unable to base64 decode secret");
-
-                let plaintext_blob = Blob::new(data);
-                let mut decrypt_request =
-                    kms.inner_client().decrypt().ciphertext_blob(plaintext_blob);
-
-                if !kms.skip_key_id_on_decrypt() {
-                    decrypt_request = decrypt_request.key_id(kms.key_id());
-                }
-
-                let decrypted_output = decrypt_request
-                    .send()
+                let secret = AwsKmsClient::new(aws_kms)
                     .await
-                    .expect("Unable to decrypt KMS encrypted secret")
-                    .plaintext
-                    .expect("Plaintext secret is empty")
-                    .into_inner();
-
-                let secret = String::from_utf8(decrypted_output).expect("Invalid secret");
+                    .decrypt_secret(self.0.peek())
+                    .await
+                    .expect("Unable to decrypt AWS KMS encrypted secret");
                 hyperswitch_masking::Secret::new(secret)
             }
             #[cfg(feature = "gcp")]
             Secrets::GcpKms { gcp_kms } => {
-                use base64::Engine;
-
-                let client = GcpKmsClient::new(gcp_kms)
+                let secret = GcpKmsClient::new(gcp_kms)
                     .await
-                    .expect("Unable to build GCP KMS client");
-
-                let ciphertext = crate::consts::base64::BASE64_ENGINE
-                    .decode(self.0.peek())
-                    .expect("Unable to base64 decode secret");
-
-                let request = DecryptRequest {
-                    name: client.key_name().to_owned(),
-                    ciphertext,
-                    additional_authenticated_data: Vec::new(),
-                    ciphertext_crc32c: None,
-                    additional_authenticated_data_crc32c: None,
-                };
-
-                let decrypted_output = client
-                    .inner_client()
-                    .decrypt(request, None)
+                    .expect("Unable to build GCP KMS client")
+                    .decrypt_secret(self.0.peek())
                     .await
-                    .expect("Unable to decrypt GCP KMS encrypted secret")
-                    .plaintext;
-
-                let secret = String::from_utf8(decrypted_output).expect("Invalid secret");
+                    .expect("Unable to decrypt GCP KMS encrypted secret");
                 hyperswitch_masking::Secret::new(secret)
             }
             #[cfg(feature = "vault")]
             Secrets::HashicorpVault { hashicorp_vault } => {
-                use base64::Engine;
-
-                let client = VaultClient::new(
-                    VaultClientSettingsBuilder::default()
-                        .address(&hashicorp_vault.url)
-                        .token(hashicorp_vault.vault_token.peek())
-                        .build()
-                        .expect("Unable to build HashiCorp Vault Settings"),
-                )
-                .expect("Unable to build HashiCorp Vault client");
-
-                let ciphertext = self.0.peek();
-
-                let b64_encoded_str = transit::data::decrypt(
-                    &client,
-                    &hashicorp_vault.mount_point,
-                    &hashicorp_vault.encryption_key,
-                    ciphertext,
-                    None,
-                )
-                .await
-                .expect("Failed while decrypting vault encrypted secret")
-                .plaintext;
-
-                hyperswitch_masking::Secret::new(
-                    String::from_utf8(
-                        crate::consts::base64::BASE64_ENGINE
-                            .decode(b64_encoded_str)
-                            .expect("Failed to base64 decode the vault data"),
-                    )
-                    .expect("Invalid secret"),
-                )
+                let secret = Vault::new(hashicorp_vault.clone())
+                    .decrypt_secret(self.0.peek())
+                    .await
+                    .expect("Unable to decrypt HashiCorp Vault encrypted secret");
+                hyperswitch_masking::Secret::new(secret)
             }
             #[cfg(not(feature = "release"))]
             Secrets::AesLocal { .. } => self.0.clone(),
@@ -248,7 +173,7 @@ pub enum Secrets {
     #[cfg(feature = "vault")]
     HashicorpVault { hashicorp_vault: VaultSettings },
     #[cfg(not(feature = "release"))]
-    AesLocal { master_key: GcmAes256 },
+    AesLocal { aes_local: AesLocalConfig },
 }
 
 #[derive(Deserialize, Debug)]
@@ -355,26 +280,20 @@ impl Secrets {
     fn validate(&self) -> CustomResult<(), errors::ParsingError> {
         match self {
             #[cfg(feature = "aws")]
-            Self::AwsKms { aws_kms } => {
-                error_stack::ensure!(
-                    !aws_kms.eq(&AwsKmsConfig::default()),
-                    errors::ParsingError::DecodingFailed("AWS config is not provided".to_string())
-                );
-                Ok(())
-            }
+            Self::AwsKms { aws_kms } => aws_kms.validate().map_err(|message| {
+                error_stack::Report::new(errors::ParsingError::DecodingFailed(message.to_string()))
+            }),
             #[cfg(feature = "gcp")]
             Self::GcpKms { gcp_kms } => gcp_kms.validate().map_err(|message| {
                 error_stack::Report::new(errors::ParsingError::DecodingFailed(message.to_string()))
             }),
             #[cfg(feature = "vault")]
             Self::HashicorpVault { hashicorp_vault } => {
-                error_stack::ensure!(
-                    !hashicorp_vault.eq(&VaultSettings::default()),
-                    errors::ParsingError::DecodingFailed(
-                        "Vault config is not provided".to_string()
-                    )
-                );
-                Ok(())
+                hashicorp_vault.validate().map_err(|message| {
+                    error_stack::Report::new(errors::ParsingError::DecodingFailed(
+                        message.to_string(),
+                    ))
+                })
             }
             #[cfg(not(feature = "release"))]
             Self::AesLocal { .. } => Ok(()),
@@ -503,7 +422,7 @@ impl Secrets {
                 KeyManagerClient::new(Arc::new(client))
             }
             #[cfg(not(feature = "release"))]
-            Self::AesLocal { master_key } => KeyManagerClient::new(Arc::new(master_key)),
+            Self::AesLocal { aes_local } => KeyManagerClient::new(Arc::new(aes_local.master_key)),
         })
     }
 }

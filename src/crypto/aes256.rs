@@ -24,6 +24,13 @@ impl GcmAes256 {
     }
 }
 
+/// `GcmAes256`'s `Deserialize` only accepts a plain string.
+#[cfg(not(feature = "release"))]
+#[derive(Clone, Debug, Default, serde::Deserialize)]
+pub struct AesLocalConfig {
+    pub master_key: GcmAes256,
+}
+
 #[derive(Clone, Debug)]
 struct NonceSequence(u128);
 

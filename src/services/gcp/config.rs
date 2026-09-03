@@ -1,5 +1,9 @@
+use base64::Engine;
 use error_stack::ResultExt;
-use google_cloud_kms::client::{Client, ClientConfig};
+use google_cloud_kms::{
+    client::{Client, ClientConfig},
+    grpc::kms::v1::DecryptRequest,
+};
 
 use crate::errors::{self, CustomResult};
 
@@ -90,5 +94,37 @@ impl GcpKmsClient {
 
     pub fn location(&self) -> &str {
         &self.location
+    }
+
+    /// Decrypts base64-encoded `data` via GCP Cloud KMS. Used for bootstrap secrets read
+    /// from TOML config.
+    pub async fn decrypt_secret(
+        &self,
+        data: impl AsRef<[u8]>,
+    ) -> CustomResult<String, errors::CryptoError> {
+        let ciphertext = crate::consts::base64::BASE64_ENGINE
+            .decode(data)
+            .change_context(errors::CryptoError::ParseError(
+                "Failed to base64 decode GCP KMS ciphertext".to_string(),
+            ))?;
+
+        let request = DecryptRequest {
+            name: self.key_name.clone(),
+            ciphertext,
+            additional_authenticated_data: Vec::new(),
+            ciphertext_crc32c: None,
+            additional_authenticated_data_crc32c: None,
+        };
+
+        let plaintext = self
+            .inner_client
+            .decrypt(request, None)
+            .await
+            .change_context(errors::CryptoError::DecryptionFailed("GCP KMS"))?
+            .plaintext;
+
+        String::from_utf8(plaintext).change_context(errors::CryptoError::ParseError(
+            "Invalid GCP KMS decrypted secret".to_string(),
+        ))
     }
 }
