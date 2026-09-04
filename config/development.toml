@@ -1,7 +1,9 @@
-[metrics]
-mode = "prometheus"
+[management_server]
 host = "127.0.0.1"
 port = 6128
+
+[metrics]
+mode = "prometheus"
 
 [pool_config]
 pool = 2
@@ -9,6 +11,7 @@ pool = 2
 [server]
 host = "127.0.0.1"
 port = 5000
+set_tcp_nodelay = true
 
 [database]
 user = "db_user"

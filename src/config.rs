@@ -103,6 +103,8 @@ pub struct PoolConfig {
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub server: Server,
+    #[serde(default)]
+    pub management_server: ManagementServer,
     pub database: Database,
     pub secrets: Secrets,
     #[serde(default)]
@@ -180,6 +182,49 @@ pub enum Secrets {
 pub struct Server {
     pub port: u16,
     pub host: String,
+    #[serde(default = "default_tcp_nodelay")]
+    pub set_tcp_nodelay: bool,
+}
+
+const fn default_tcp_nodelay() -> bool {
+    true
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ManagementServer {
+    pub host: String,
+    pub port: u16,
+}
+
+impl Default for ManagementServer {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".to_string(),
+            port: 6128,
+        }
+    }
+}
+
+impl ManagementServer {
+    pub fn validate(&self) -> CustomResult<(), errors::ParsingError> {
+        if self.host.parse::<std::net::IpAddr>().is_err() {
+            return Err(error_stack::Report::new(
+                errors::ParsingError::DecodingFailed(
+                    r#"management_server.host must be a valid IP address"#.into(),
+                ),
+            ));
+        }
+
+        if self.port == 0 {
+            return Err(error_stack::Report::new(
+                errors::ParsingError::DecodingFailed(
+                    r#"management_server.port must be a non-zero value"#.into(),
+                ),
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, serde::Deserialize, Default)]
@@ -196,12 +241,7 @@ pub enum MetricsConfig {
         metrics_export_interval_secs: u64,
     },
 
-    Prometheus {
-        #[serde(default = "default_prometheus_host")]
-        host: String,
-        #[serde(default = "default_prometheus_port")]
-        port: u16,
-    },
+    Prometheus,
 }
 
 const fn default_endpoint_timeout() -> u64 {
@@ -210,14 +250,6 @@ const fn default_endpoint_timeout() -> u64 {
 
 const fn default_export_interval() -> u64 {
     15
-}
-
-fn default_prometheus_host() -> String {
-    "127.0.0.1".to_string()
-}
-
-const fn default_prometheus_port() -> u16 {
-    6128
 }
 
 impl MetricsConfig {
@@ -234,25 +266,7 @@ impl MetricsConfig {
                 }
                 Ok(())
             }
-            Self::Prometheus { host, port, .. } => {
-                if host.parse::<std::net::IpAddr>().is_err() {
-                    return Err(error_stack::Report::new(
-                        errors::ParsingError::DecodingFailed(
-                            r#"metrics.host must be a valid IP address when mode is "prometheus""#
-                                .into(),
-                        ),
-                    ));
-                }
-                if *port == 0 {
-                    return Err(error_stack::Report::new(
-                        errors::ParsingError::DecodingFailed(
-                            r#"metrics.port must be a non-zero value when mode is "prometheus""#
-                                .into(),
-                        ),
-                    ));
-                }
-                Ok(())
-            }
+            Self::Prometheus => Ok(()),
         }
     }
 }
@@ -383,6 +397,10 @@ impl Config {
     /// Panics for a validation fail
     #[allow(clippy::panic, clippy::expect_used)]
     pub fn validate(&self) {
+        self.management_server
+            .validate()
+            .expect("Failed to validate management server configuration");
+
         self.secrets
             .validate()
             .expect("Failed to valdiate secrets some missing configuration found");

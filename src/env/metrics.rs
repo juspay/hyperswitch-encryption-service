@@ -1,27 +1,20 @@
 mod middleware;
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
-use axum::Router;
 use metrics_utils::{
     counter_metric, f64_histogram_buckets, global_meter, histogram_metric_f64,
     up_down_counter_metric,
 };
 
 pub use self::middleware::HttpRequestMetricsLayer;
-use crate::{app::AppState, config::MetricsConfig, errors, routes::Health};
+use crate::config::MetricsConfig;
 
 #[derive(Debug)]
 pub enum MetricsHandle {
     Disabled,
-    Otlp {
-        inner: metrics_utils::MetricsHandle,
-    },
-    Prometheus {
-        inner: metrics_utils::MetricsHandle,
-        host: String,
-        port: u16,
-    },
+    Otlp { inner: metrics_utils::MetricsHandle },
+    Prometheus { inner: metrics_utils::MetricsHandle },
 }
 
 impl MetricsHandle {
@@ -70,7 +63,7 @@ pub fn init_metrics(config: &MetricsConfig, service_name: &'static str) -> Metri
             }
         }
 
-        MetricsConfig::Prometheus { host, port, .. } => {
+        MetricsConfig::Prometheus => {
             let metrics_config = metrics_utils::MetricsConfig {
                 service_name: String::from(service_name),
                 resource_attributes: Vec::new(),
@@ -81,11 +74,7 @@ pub fn init_metrics(config: &MetricsConfig, service_name: &'static str) -> Metri
             match metrics_utils::init_metrics(&metrics_config) {
                 Ok(inner) => {
                     inner.register_as_global();
-                    MetricsHandle::Prometheus {
-                        inner,
-                        host: host.clone(),
-                        port: *port,
-                    }
+                    MetricsHandle::Prometheus { inner }
                 }
                 Err(error) => {
                     tracing::warn!(
@@ -97,66 +86,6 @@ pub fn init_metrics(config: &MetricsConfig, service_name: &'static str) -> Metri
             }
         }
     }
-}
-
-pub fn spawn_prometheus_metrics_server(
-    host: &str,
-    port: u16,
-    registry: metrics_utils::prometheus::Registry,
-    state: Arc<AppState>,
-) -> errors::CustomResult<(), errors::ParsingError> {
-    use metrics_utils::prometheus::Encoder;
-
-    let addr = match host.parse::<std::net::IpAddr>() {
-        Ok(ip) => std::net::SocketAddr::new(ip, port),
-        Err(_) => {
-            return Err(error_stack::Report::new(
-                errors::ParsingError::DecodingFailed(format!(
-                    r#"metrics.host "{host}" is not a valid IP address"#
-                )),
-            ));
-        }
-    };
-
-    let app = Router::new()
-        .route(
-            "/metrics",
-            axum::routing::get(move || {
-                let registry = registry.clone();
-                async move {
-                    let encoder = metrics_utils::prometheus::TextEncoder::new();
-                    let mut buffer = Vec::new();
-
-                    if let Err(error) = encoder.encode(&registry.gather(), &mut buffer) {
-                        tracing::warn!(?error, "Failed to encode prometheus metrics");
-                    }
-
-                    (
-                        axum::http::StatusCode::OK,
-                        String::from_utf8(buffer).unwrap_or_default(),
-                    )
-                }
-            }),
-        )
-        .nest("/health", Health::server(state.clone()))
-        .with_state(state);
-
-    tokio::spawn(async move {
-        match tokio::net::TcpListener::bind(addr).await {
-            Ok(listener) => {
-                tracing::info!("Starting Prometheus metrics server at `{addr}`");
-
-                if let Err(error) = axum::serve(listener, app).await {
-                    tracing::warn!(?error, "Prometheus metrics server failed");
-                }
-            }
-            Err(error) => {
-                tracing::error!(?error, "Failed to bind prometheus metrics server");
-            }
-        }
-    });
-
-    Ok(())
 }
 
 global_meter!(pub(crate) CRIPTA_METER, "encryption_service");

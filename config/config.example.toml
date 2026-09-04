@@ -5,6 +5,21 @@
 [server]
 host = "127.0.0.1" # IP address the HTTP server listens on
 port = 5000        # Port the HTTP server listens on. Use a port that does not conflict with other services.
+# Sets TCP_NODELAY on accepted sockets, disabling Nagle's algorithm.
+# (optional, default: true — the correct setting for a request/response service)
+#
+# With Nagle active, two responses written back-to-back on one connection stall:
+# the second waits on the first's acknowledgement, and the peer's delayed-ACK
+# timer adds ~40ms. Set false only to deliberately reproduce that behaviour.
+set_tcp_nodelay = true
+
+# Management server configuration
+# Plain HTTP listener that always runs.
+# Serves `/health` unconditionally, and `/metrics` when `metrics.mode` is `"prometheus"`.
+# Use this port for Kubernetes liveness and readiness probes when the main server enforces mTLS.
+[management_server]
+host = "127.0.0.1"  # IP address the management server listens on (optional, default: 127.0.0.1)
+port = 6128         # Port the management server listens on (optional, default: 6128)
 
 # Database configuration
 [database]
@@ -70,9 +85,8 @@ endpoint = "http://127.0.0.1:4317"                 # OTLP gRPC endpoint
 endpoint_timeout_secs = 10                         # Connection timeout in seconds
 metrics_export_interval_secs = 15                  # Export interval in seconds
 
-# When mode is "prometheus", configure the Prometheus HTTP server:
-# host = "127.0.0.1"                                # IP address the Prometheus HTTP server listens on
-# port = 6128                                       # Port the Prometheus HTTP server listens on
+# When mode is "prometheus", the `/metrics` endpoint is served on the management server.
+# See `[management_server]` section for host and port configuration.
 
 # Secrets and encryption configuration
 # The service supports four mutually exclusive key management strategies, selected at

@@ -21,6 +21,61 @@ fn default_headers() -> tower_http::set_header::SetResponseHeaderLayer<axum::htt
     )
 }
 
+async fn spawn_management_server(
+    host: &str,
+    port: u16,
+    prometheus_registry: Option<metrics_utils::prometheus::Registry>,
+    state: Arc<AppState>,
+) {
+    use metrics_utils::prometheus::Encoder;
+
+    #[expect(clippy::expect_used)]
+    let addr: SocketAddr = format!("{host}:{port}")
+        .parse()
+        .expect("Unable to parse management server address");
+
+    let mut app = Router::new();
+
+    if let Some(registry) = prometheus_registry {
+        app = app.route(
+            "/metrics",
+            axum::routing::get(move || {
+                let registry = registry.clone();
+                async move {
+                    let encoder = metrics_utils::prometheus::TextEncoder::new();
+                    let mut buffer = Vec::new();
+
+                    if let Err(error) = encoder.encode(&registry.gather(), &mut buffer) {
+                        tracing::warn!(?error, "Failed to encode prometheus metrics");
+                    }
+
+                    (
+                        axum::http::StatusCode::OK,
+                        String::from_utf8(buffer).unwrap_or_default(),
+                    )
+                }
+            }),
+        );
+    }
+
+    let app = app
+        .nest("/health", Health::server(state.clone()))
+        .with_state(state);
+
+    #[expect(clippy::expect_used)]
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .expect("Unable to bind management server");
+
+    tokio::spawn(async move {
+        tracing::info!("Starting management server at `{addr}`");
+
+        if let Err(error) = axum::serve(listener, app).await {
+            tracing::warn!(?error, "Management server failed");
+        }
+    });
+}
+
 #[expect(clippy::expect_used)]
 #[tokio::main]
 async fn main() {
@@ -37,6 +92,8 @@ async fn main() {
     let host: SocketAddr = format!("{}:{}", config.server.host, config.server.port)
         .parse()
         .expect("Unable to parse host");
+
+    let set_tcp_nodelay = config.server.set_tcp_nodelay;
 
     logger::info!(?config, "Application starting");
 
@@ -93,22 +150,26 @@ async fn main() {
         .layer(middleware)
         .with_state(state.clone());
 
-    if let observability::MetricsHandle::Prometheus { inner, host, port } = guards.metrics_handle()
-        && let Some(registry) = inner.prometheus_registry()
-    {
-        // Spawn metrics server without mtls in a seperate port
-        observability::spawn_prometheus_metrics_server(
-            host,
-            *port,
-            registry.clone(),
-            state.clone(),
-        )
-        .expect("Failed to start Prometheus metrics server");
-    }
+    let prometheus_registry = match guards.metrics_handle() {
+        observability::MetricsHandle::Prometheus { inner } => inner.prometheus_registry().cloned(),
+        _ => None,
+    };
+
+    // Spawn management server without mtls in a separate port
+    spawn_management_server(
+        &state.conf.management_server.host,
+        state.conf.management_server.port,
+        prometheus_registry,
+        state.clone(),
+    )
+    .await;
 
     #[cfg(feature = "mtls")]
     {
-        use axum_server::tls_rustls::RustlsConfig;
+        use axum_server::{
+            accept::NoDelayAcceptor,
+            tls_rustls::{RustlsAcceptor, RustlsConfig},
+        };
         use cripta::app::tls;
 
         #[expect(clippy::panic)]
@@ -116,17 +177,38 @@ async fn main() {
             .await
             .unwrap_or_else(|err| panic!("unable to read the certificates. got err:{err:?}"));
 
-        axum_server::bind_rustls(host, RustlsConfig::from_config(Arc::new(tls)))
-            .serve(app.into_make_service())
-            .await
-            .expect("unable to start the server")
+        let tls_config = RustlsConfig::from_config(Arc::new(tls));
+
+        if set_tcp_nodelay {
+            // NoDelayAcceptor disables Nagle's algorithm on accepted sockets.
+            axum_server::bind(host)
+                .acceptor(RustlsAcceptor::new(tls_config).acceptor(NoDelayAcceptor::new()))
+                .serve(app.into_make_service())
+                .await
+                .expect("unable to start the server")
+        } else {
+            axum_server::bind(host)
+                .acceptor(RustlsAcceptor::new(tls_config))
+                .serve(app.into_make_service())
+                .await
+                .expect("unable to start the server")
+        }
     }
 
     #[cfg(not(feature = "mtls"))]
     {
-        axum_server::bind(host)
-            .serve(app.into_make_service())
-            .await
-            .expect("unable to start the server")
+        if set_tcp_nodelay {
+            // NoDelayAcceptor disables Nagle's algorithm on accepted sockets.
+            axum_server::bind(host)
+                .acceptor(axum_server::accept::NoDelayAcceptor::new())
+                .serve(app.into_make_service())
+                .await
+                .expect("unable to start the server")
+        } else {
+            axum_server::bind(host)
+                .serve(app.into_make_service())
+                .await
+                .expect("unable to start the server")
+        }
     }
 }
