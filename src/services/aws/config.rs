@@ -73,14 +73,14 @@ impl AwsKmsClient {
         &self,
         data: impl AsRef<[u8]>,
     ) -> CustomResult<String, errors::CryptoError> {
-        let plaintext_blob_data = crate::consts::base64::BASE64_ENGINE
+        let ciphertext_blob_data = crate::consts::base64::BASE64_ENGINE
             .decode(data)
             .change_context(errors::CryptoError::ParseError(
                 "Failed to base64 decode AWS KMS ciphertext".to_string(),
             ))?;
 
-        let plaintext_blob = Blob::new(plaintext_blob_data);
-        let mut decrypt_request = self.inner_client.decrypt().ciphertext_blob(plaintext_blob);
+        let ciphertext_blob = Blob::new(ciphertext_blob_data);
+        let mut decrypt_request = self.inner_client.decrypt().ciphertext_blob(ciphertext_blob);
 
         if !self.skip_key_id_on_decrypt {
             decrypt_request = decrypt_request.key_id(&self.key_id);
