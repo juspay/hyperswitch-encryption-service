@@ -71,7 +71,10 @@ impl SessionState {
 
         Self {
             caches: Caches::from_config(&config.cache, tenant_id),
-            keymanager_client: secrets.create_keymanager_client().await,
+            keymanager_client: secrets
+                .create_keymanager_client()
+                .await
+                .expect("Failed to create the key management client"),
             db_pool,
             thread_pool: ThreadPoolBuilder::new()
                 .num_threads(num_threads)

@@ -39,4 +39,7 @@ log_level = "debug"
 log_format = "console"
 
 [secrets]
+manager = "aes_local"
+
+[secrets.aes_local]
 master_key = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"
