@@ -1,6 +1,6 @@
 use base64::Engine;
-use error_stack::ResultExt;
-use masking::PeekInterface;
+use error_stack::{IntoReport, ResultExt};
+use hyperswitch_masking::PeekInterface;
 
 use crate::{
     consts::base64::BASE64_ENGINE,
@@ -9,7 +9,7 @@ use crate::{
     env::observability as logger,
     errors::{self, SwitchError},
     multitenancy::TenantState,
-    storage::dek::DataKeyStorageInterface,
+    storage::{dek::DataKeyStorageInterface, metrics as storage_metrics},
     types::{Key, key::Version, requests::TransferKeyRequest, response::DataKeyCreateResponse},
 };
 
@@ -22,9 +22,7 @@ pub async fn transfer_data_key(
         errors::ApplicationErrorResponse::InternalServerError("Failed to decode the base64 key"),
     )?;
     let key = <[u8; 32]>::try_from(key).map_err(|_| {
-        error_stack::report!(errors::ApplicationErrorResponse::InternalServerError(
-            "Invalid key found"
-        ))
+        errors::ApplicationErrorResponse::InternalServerError("Invalid key found").into_report()
     })?;
     let key = Key {
         version: Version::default(),
@@ -40,7 +38,10 @@ pub async fn transfer_data_key(
         err
     })?;
 
-    let data_key = db.get_or_insert_data_key(key).await.switch()?;
+    let data_key = db
+        .get_or_insert_data_key(storage_metrics::DataKeyStorageOperation::Create, key)
+        .await
+        .switch()?;
 
     Ok(DataKeyCreateResponse {
         identifier: req.identifier,

@@ -1,4 +1,5 @@
 use axum::response::{IntoResponse, Response};
+use error_stack::IntoReport;
 use hyper::StatusCode;
 
 use super::SwitchError;
@@ -37,7 +38,7 @@ where
     <T as std::str::FromStr>::Err: core::fmt::Display,
 {
     fn switch(self) -> super::CustomResult<T, ParsingError> {
-        self.map_err(|err| error_stack::report!(ParsingError::ParsingFailed(err.to_string())))
+        self.map_err(|err| ParsingError::ParsingFailed(err.to_string()).into_report())
     }
 }
 

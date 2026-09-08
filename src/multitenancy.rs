@@ -12,12 +12,20 @@ use crate::{
 
 pub type MultiTenant<T> = FxHashMap<TenantId, T>;
 
-#[derive(Debug, Eq, Hash, PartialEq)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub struct TenantId(String);
 
 impl TenantId {
     pub fn new(val: String) -> Self {
         Self(val)
+    }
+
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
@@ -42,7 +50,6 @@ impl std::ops::Deref for TenantState {
     }
 }
 
-#[axum::async_trait]
 impl axum::extract::FromRequestParts<Arc<AppState>> for TenantState {
     type Rejection = ApiErrorContainer;
     async fn from_request_parts(

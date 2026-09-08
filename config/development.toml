@@ -1,6 +1,9 @@
-[metrics_server]
+[management_server]
 host = "127.0.0.1"
 port = 6128
+
+[metrics]
+mode = "prometheus"
 
 [pool_config]
 pool = 2
@@ -8,6 +11,7 @@ pool = 2
 [server]
 host = "127.0.0.1"
 port = 5000
+set_tcp_nodelay = true
 
 [database]
 user = "db_user"
@@ -18,20 +22,26 @@ dbname = "encryption_db"
 pool_size = 5
 min_idle = 2
 enable_ssl = false
+max_lifetime_secs = 1800
+idle_timeout_secs = 600
+connection_acquire_timeout_secs = 30
+connect_timeout_secs = 5
 
 [multitenancy.tenants.public]
-cache_prefix = "public"
 schema = "public"
 
 [multitenancy.tenants.global]
-cache_prefix = "global"
 schema = "global"
 
 [log]
+enabled = true
 log_level = "debug"
 log_format = "console"
 
 [secrets]
+manager = "aes_local"
+
+[secrets.aes_local]
 master_key = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"
 
 # [secrets.kms_config]

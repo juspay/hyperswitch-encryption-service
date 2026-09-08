@@ -1,7 +1,6 @@
-mod cargo_workspace {
-    include!("src/workspace.rs");
-}
-
 fn main() {
-    cargo_workspace::set_cargo_workspace_members_env();
+    build_info::set_cargo_workspace_members_env();
+
+    #[cfg(feature = "vergen")]
+    build_info::generate_vergen_cargo_instructions();
 }

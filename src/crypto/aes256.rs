@@ -1,7 +1,7 @@
 use core::fmt;
 
 use error_stack::ResultExt;
-use masking::{PeekInterface, StrongSecret};
+use hyperswitch_masking::{PeekInterface, StrongSecret};
 use ring::aead::{self, BoundKey, OpeningKey, SealingKey, UnboundKey};
 use serde::de::{self, Deserialize, Deserializer, Unexpected, Visitor};
 
@@ -22,16 +22,13 @@ impl GcmAes256 {
     pub fn new(key: StrongSecret<[u8; 32]>) -> errors::CustomResult<Self, errors::CryptoError> {
         Ok(Self { key })
     }
+}
 
-    #[allow(dead_code)]
-    pub async fn from_vec(
-        key: StrongSecret<Vec<u8>>,
-    ) -> errors::CustomResult<Self, errors::CryptoError> {
-        let key = <[u8; 32]>::try_from(key.peek().to_vec())
-            .map_err(|_| error_stack::report!(errors::CryptoError::InvalidKey))?;
-
-        Ok(Self { key: key.into() })
-    }
+// `GcmAes256`'s `Deserialize` only accepts a plain string.
+#[cfg(not(feature = "release"))]
+#[derive(Clone, Debug, Default, serde::Deserialize)]
+pub struct AesLocalConfig {
+    pub master_key: GcmAes256,
 }
 
 #[derive(Clone, Debug)]
@@ -170,7 +167,7 @@ impl Crypto for GcmAes256 {
             <[u8; aead::NONCE_LEN]>::try_from(
                 msg.get(..aead::NONCE_LEN)
                     .ok_or(errors::CryptoError::DecryptionFailed("AES256"))
-                    .attach_printable("Failed to read the nonce form the encrypted ciphertext")?,
+                    .attach("Failed to read the nonce form the encrypted ciphertext")?,
             )
             .change_context(errors::CryptoError::DecryptionFailed("AES256"))?,
         );

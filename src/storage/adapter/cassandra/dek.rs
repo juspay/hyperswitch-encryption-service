@@ -11,19 +11,23 @@ use crate::{
     storage::{
         adapter::Cassandra,
         dek::DataKeyStorageInterface,
-        types::{DataKey, DataKeyNew},
+        metrics,
+        types::{CassandraDataKey, DataKey, DataKeyNew},
     },
     types::{Identifier, key::Version},
 };
 
 #[async_trait::async_trait]
-impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
+impl DataKeyStorageInterface
+    for DbState<scylla::client::caching_session::CachingSession, Cassandra>
+{
     async fn get_or_insert_data_key(
         &self,
+        _operation: metrics::DataKeyStorageOperation,
         new: DataKeyNew,
     ) -> CustomResult<DataKey, errors::DatabaseError> {
         let connection = self.get_conn().await.switch()?;
-        let key: DataKey = new.into();
+        let key = CassandraDataKey::from(DataKey::from(new));
 
         let find_query = self
             .get_key(
@@ -45,7 +49,7 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
                     .execute(connection)
                     .await
                     .switch()?;
-                Ok(key)
+                Ok(DataKey::from(key))
             }
         }
     }
@@ -57,11 +61,12 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
         let (data_id, key_id) = identifier.get_identifier();
         let connection = self.get_conn().await.switch()?;
 
-        let data_key = DataKey::find_first_by_key_identifier_and_data_identifier(key_id, data_id)
-            .consistency(scylla::statement::Consistency::LocalQuorum)
-            .execute(connection)
-            .await
-            .switch()?;
+        let data_key =
+            CassandraDataKey::find_first_by_key_identifier_and_data_identifier(key_id, data_id)
+                .consistency(scylla::statement::Consistency::LocalQuorum)
+                .execute(connection)
+                .await
+                .switch()?;
 
         Ok(data_key.version)
     }
@@ -74,22 +79,23 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
         let (data_id, key_id) = identifier.get_identifier();
         let connection = self.get_conn().await.switch()?;
 
-        let data_key =
-            DataKey::find_by_key_identifier_and_data_identifier_and_version(key_id, data_id, v)
-                .consistency(scylla::statement::Consistency::LocalQuorum)
-                .execute(connection)
-                .await
-                .switch()?;
+        let data_key = CassandraDataKey::find_by_key_identifier_and_data_identifier_and_version(
+            key_id, data_id, v,
+        )
+        .consistency(scylla::statement::Consistency::LocalQuorum)
+        .execute(connection)
+        .await
+        .switch()?;
 
-        Ok(data_key)
+        Ok(DataKey::from(data_key))
     }
 
     async fn get_keys_by_filter(
         &self,
         _key_source: Option<Source>,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
-        Err(error_stack::report!(errors::DatabaseError::Others)
-            .attach_printable("get_keys_by_filter is not supported for Cassandra"))
+        Err(error_stack::Report::new(errors::DatabaseError::Others)
+            .attach("get_keys_by_filter is not supported for Cassandra"))
     }
 
     #[cfg(feature = "aws")]
@@ -97,8 +103,8 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
         &self,
         _ids: Option<&[i32]>,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
-        Err(error_stack::report!(errors::DatabaseError::Others)
-            .attach_printable("get_keys_by_ids is not supported for Cassandra"))
+        Err(error_stack::Report::new(errors::DatabaseError::Others)
+            .attach("get_keys_by_ids is not supported for Cassandra"))
     }
 
     #[cfg(feature = "aws")]
@@ -106,7 +112,7 @@ impl DataKeyStorageInterface for DbState<scylla::CachingSession, Cassandra> {
         &self,
         _key: &UpdateReEncryptedKey,
     ) -> CustomResult<(), errors::DatabaseError> {
-        Err(error_stack::report!(errors::DatabaseError::Others)
-            .attach_printable("update_key is not supported for Cassandra"))
+        Err(error_stack::Report::new(errors::DatabaseError::Others)
+            .attach("update_key is not supported for Cassandra"))
     }
 }

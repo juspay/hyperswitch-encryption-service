@@ -1,9 +1,9 @@
 use std::pin::Pin;
 
 use base64::Engine;
-use error_stack::report;
+use error_stack::{IntoReport, ResultExt};
 use futures::Future;
-use masking::{PeekInterface, StrongSecret};
+use hyperswitch_masking::{PeekInterface, StrongSecret};
 use serde::Deserialize;
 use vaultrs::{
     api,
@@ -23,7 +23,33 @@ pub struct VaultSettings {
     pub url: String,
     pub mount_point: String,
     pub encryption_key: String,
-    pub vault_token: masking::Secret<String>,
+    pub vault_token: hyperswitch_masking::Secret<String>,
+}
+
+impl VaultSettings {
+    /// All four fields are required to authenticate and address the transit engine.
+    pub fn validate(&self) -> Result<(), &'static str> {
+        let fields = [
+            (self.url.as_str(), "Vault URL must not be empty"),
+            (
+                self.mount_point.as_str(),
+                "Vault mount point must not be empty",
+            ),
+            (
+                self.encryption_key.as_str(),
+                "Vault encryption key must not be empty",
+            ),
+            (
+                self.vault_token.peek().as_str(),
+                "Vault token must not be empty",
+            ),
+        ];
+
+        fields
+            .into_iter()
+            .find(|(value, _)| value.trim().is_empty())
+            .map_or(Ok(()), |(_, error)| Err(error))
+    }
 }
 
 pub struct Vault {
@@ -46,6 +72,29 @@ impl Vault {
             inner_client: client,
             settings,
         }
+    }
+
+    /// Decrypts `data` (already in Vault's own transit ciphertext format, not base64) via
+    /// HashiCorp Vault. Used for bootstrap secrets read from TOML config.
+    pub async fn decrypt_secret(&self, data: &str) -> CustomResult<String, errors::CryptoError> {
+        let b64_encoded_str = transit::data::decrypt(
+            &self.inner_client,
+            &self.settings.mount_point,
+            &self.settings.encryption_key,
+            data,
+            None,
+        )
+        .await
+        .change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))?
+        .plaintext;
+
+        let decoded = BASE64_ENGINE
+            .decode(b64_encoded_str)
+            .change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))?;
+
+        String::from_utf8(decoded).change_context(CryptoError::ParseError(
+            "Invalid HashiCorp Vault decrypted secret".to_string(),
+        ))
     }
 }
 
@@ -72,14 +121,16 @@ impl Crypto for Vault {
             None,
         )
         .await
-        .map_err(|err| report!(err).change_context(errors::CryptoError::KeyGeneration))?;
+        .change_context(errors::CryptoError::KeyGeneration)?;
         let key = BASE64_ENGINE
             .decode(response.random_bytes)
-            .map_err(|err| report!(err).change_context(CryptoError::KeyGeneration))?;
+            .change_context(CryptoError::KeyGeneration)?;
         let buffer: [u8; 32] = key.try_into().map_err(|err: Vec<u8>| {
-            let err_bytes = format!("{err:?}");
-            logger::debug!(err_bytes);
-            report!(CryptoError::KeyGeneration)
+            logger::debug!(
+                key_length = err.len(),
+                "Unexpected key length returned by Vault transit"
+            );
+            CryptoError::KeyGeneration.into_report()
         })?;
         Ok((Source::HashicorpVault, buffer.into()))
     }
@@ -95,9 +146,7 @@ impl Crypto for Vault {
                 None,
             )
             .await
-            .map_err(|err| {
-                report!(err).change_context(CryptoError::EncryptionFailed("HashiCorp Vault"))
-            })?
+            .change_context(CryptoError::EncryptionFailed("HashiCorp Vault"))?
             .ciphertext
             .as_bytes()
             .to_vec()
@@ -107,26 +156,21 @@ impl Crypto for Vault {
 
     fn decrypt(&self, input: StrongSecret<Vec<u8>>) -> Self::DataReturn<'_> {
         Box::pin(async move {
-            let cypher_text = String::from_utf8(input.peek().to_vec()).map_err(|err| {
-                report!(err).change_context(CryptoError::DecryptionFailed("Vault"))
-            })?;
+            let ciphertext = String::from_utf8(input.peek().to_vec())
+                .change_context(CryptoError::DecryptionFailed("Vault"))?;
             let b64_encoded_str = transit::data::decrypt(
                 &self.inner_client,
                 &self.settings.mount_point,
                 &self.settings.encryption_key,
-                &cypher_text,
+                &ciphertext,
                 None,
             )
             .await
-            .map_err(|err| {
-                report!(err).change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))
-            })?
+            .change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))?
             .plaintext;
             Ok(BASE64_ENGINE
                 .decode(b64_encoded_str)
-                .map_err(|err| {
-                    report!(err).change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))
-                })?
+                .change_context(CryptoError::DecryptionFailed("HashiCorp Vault"))?
                 .into())
         })
     }

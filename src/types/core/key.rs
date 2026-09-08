@@ -9,10 +9,10 @@ use diesel::{
     serialize::ToSql,
     sql_types,
 };
-use masking::{Deserialize, Serialize, StrongSecret};
+use hyperswitch_masking::{Deserialize, Serialize, StrongSecret};
 use rustc_hash::{FxHashMap, FxHashSet};
 use scylla::{
-    deserialize::{DeserializeValue, FrameSlice},
+    deserialize::{FrameSlice, value::DeserializeValue},
     frame::response::result::ColumnType,
 };
 use serde::de::{self, Deserializer, Unexpected, Visitor};
@@ -48,9 +48,8 @@ impl Key {
         };
 
         cache::get_or_populate_cache(
-            state,
             format!("key_{identifier}:{version}"),
-            &cache::KEY_CACHE,
+            &state.caches.key,
             get_and_decrypt_key(),
         )
         .await
@@ -71,9 +70,8 @@ impl Key {
             Ok::<_, error_stack::Report<errors::DatabaseError>>((
                 v,
                 cache::get_or_populate_cache(
-                    state,
                     format!("key_{identifier}:{v}"),
-                    &cache::KEY_CACHE,
+                    &state.caches.key,
                     get_and_decrypt_key(v),
                 )
                 .await?,
@@ -169,14 +167,14 @@ impl Version {
         let db = state.get_db_pool();
         let latest_version = db.get_latest_version(identifier);
         let v = cache::get_or_populate_cache(
-            state,
             format!("latest_version_{identifier}"),
-            &cache::VERSION_CACHE,
+            &state.caches.version,
             latest_version,
         )
         .await;
 
-        v.unwrap_or_default()
+        v.inspect_err(|error| logger::error!(?error, "Failed to get the latest version"))
+            .unwrap_or_default()
     }
 
     pub fn increment(self) -> errors::CustomResult<Self, errors::ParsingError> {
