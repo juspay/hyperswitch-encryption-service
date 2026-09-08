@@ -2,7 +2,10 @@ use charybdis::{operations::Insert, options::Consistency};
 use error_stack::ResultExt;
 
 use super::DbState;
+#[cfg(feature = "aws")]
+use crate::storage::types::UpdateReEncryptedKey;
 use crate::{
+    crypto::Source,
     env::observability as logger,
     errors::{self, CustomResult, DatabaseError, SwitchError},
     storage::{
@@ -85,5 +88,31 @@ impl DataKeyStorageInterface
         .switch()?;
 
         Ok(DataKey::from(data_key))
+    }
+
+    async fn get_keys_by_filter(
+        &self,
+        _key_source: Option<Source>,
+    ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
+        Err(error_stack::Report::new(errors::DatabaseError::Others)
+            .attach("get_keys_by_filter is not supported for Cassandra"))
+    }
+
+    #[cfg(feature = "aws")]
+    async fn get_keys_by_ids(
+        &self,
+        _ids: Option<&[i32]>,
+    ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
+        Err(error_stack::Report::new(errors::DatabaseError::Others)
+            .attach("get_keys_by_ids is not supported for Cassandra"))
+    }
+
+    #[cfg(feature = "aws")]
+    async fn update_key(
+        &self,
+        _key: &UpdateReEncryptedKey,
+    ) -> CustomResult<(), errors::DatabaseError> {
+        Err(error_stack::Report::new(errors::DatabaseError::Others)
+            .attach("update_key is not supported for Cassandra"))
     }
 }

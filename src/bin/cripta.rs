@@ -1,10 +1,13 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use axum::{Router, body::Body};
+use axum::{Router, body::Body, routing::post};
+#[cfg(feature = "aws")]
+use cripta::core::datakey::reencrypt_data_keys_handler;
 use cripta::{
     app::AppState,
     config,
     consts::{TENANT_HEADER, X_REQUEST_ID},
+    core::datakey::list_data_keys_handler,
     env::{observability, observability as logger},
     request_id::MakeUuidV7,
     routes::*,
@@ -60,7 +63,12 @@ async fn spawn_management_server(
 
     let app = app
         .nest("/health", Health::server(state.clone()))
-        .with_state(state);
+        .route("/key/list", post(list_data_keys_handler));
+
+    #[cfg(feature = "aws")]
+    let app = app.route("/key/reencrypt", post(reencrypt_data_keys_handler));
+
+    let app = app.with_state(state);
 
     #[expect(clippy::expect_used)]
     let listener = tokio::net::TcpListener::bind(addr)

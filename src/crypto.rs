@@ -9,6 +9,7 @@ pub(crate) mod vault;
 use std::{ops::Deref, sync::Arc};
 
 use hyperswitch_masking::StrongSecret;
+use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
 #[cfg(feature = "vault")]
@@ -23,7 +24,7 @@ use crate::{
     errors::{self, CustomResult},
 };
 
-#[derive(Clone, EnumString, Display)]
+#[derive(Copy, Clone, EnumString, Display, Deserialize, Serialize)]
 pub enum Source {
     KMS,
     AESLocal,
@@ -57,6 +58,9 @@ pub trait KeyManagement {
         &self,
         input: StrongSecret<Vec<u8>>,
     ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError>;
+
+    /// Support downcasting for type-specific operations
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 #[cfg(feature = "aws")]
@@ -96,6 +100,10 @@ impl KeyManagement for AwsKmsClient {
         )
         .await
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 #[async_trait::async_trait]
 impl KeyManagement for GcmAes256 {
@@ -132,6 +140,10 @@ impl KeyManagement for GcmAes256 {
             metrics::KeyManagerOperation::Decrypt,
         )
         .await
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -172,6 +184,10 @@ impl KeyManagement for Vault {
         )
         .await
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 #[cfg(feature = "gcp")]
@@ -210,6 +226,10 @@ impl KeyManagement for GcpKmsClient {
             metrics::KeyManagerOperation::Decrypt,
         )
         .await
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
