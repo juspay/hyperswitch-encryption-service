@@ -1,5 +1,5 @@
 use charybdis::{operations::Insert, options::Consistency};
-use error_stack::ResultExt;
+use error_stack::{IntoReport, ResultExt};
 
 use super::DbState;
 #[cfg(feature = "aws")]
@@ -94,8 +94,9 @@ impl DataKeyStorageInterface
         &self,
         _key_source: Option<Source>,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
-        Err(error_stack::report!(errors::DatabaseError::Others)
-            .attach_printable("get_keys_by_filter is not supported for Cassandra"))
+        Err(errors::DatabaseError::Others
+            .into_report()
+            .attach("get_keys_by_filter is not supported for Cassandra"))
     }
 
     #[cfg(feature = "aws")]
@@ -103,8 +104,9 @@ impl DataKeyStorageInterface
         &self,
         _ids: Option<&[i32]>,
     ) -> CustomResult<Vec<DataKey>, errors::DatabaseError> {
-        Err(error_stack::report!(errors::DatabaseError::Others)
-            .attach_printable("get_keys_by_ids is not supported for Cassandra"))
+        Err(errors::DatabaseError::Others
+            .into_report()
+            .attach("get_keys_by_ids is not supported for Cassandra"))
     }
 
     #[cfg(feature = "aws")]
@@ -112,7 +114,8 @@ impl DataKeyStorageInterface
         &self,
         _key: &UpdateReEncryptedKey,
     ) -> CustomResult<(), errors::DatabaseError> {
-        Err(error_stack::report!(errors::DatabaseError::Others)
-            .attach_printable("update_key is not supported for Cassandra"))
+        Err(errors::DatabaseError::Others
+            .into_report()
+            .attach("update_key is not supported for Cassandra"))
     }
 }

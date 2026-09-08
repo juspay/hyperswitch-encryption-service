@@ -1,7 +1,6 @@
 use charybdis::macros::charybdis_model;
 use diesel::{Identifiable, Insertable, Queryable};
 use hyperswitch_masking::StrongSecret;
-use serde::{Deserialize, Serialize};
 use time::{OffsetDateTime, PrimitiveDateTime};
 
 use crate::{schema::data_key_store, types::key::Version};

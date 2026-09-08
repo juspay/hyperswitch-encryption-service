@@ -1,5 +1,5 @@
 use futures::stream::{self, StreamExt};
-use masking::StrongSecret;
+use hyperswitch_masking::StrongSecret;
 
 use crate::{
     env::observability as logger,
@@ -27,10 +27,10 @@ pub async fn reencrypt_data_keys(
     let backend = state.keymanager_client.client();
     if let Some(aws_client) = backend.as_any().downcast_ref::<AwsKmsClient>() {
         if !aws_client.skip_key_id_on_decrypt() {
-            return Err(error_stack::report!(
+            return Err(error_stack::Report::new(
                 errors::ApplicationErrorResponse::InternalServerError(
-                    "skip_key_id_on_decrypt must be enabled in KMS config for re-encryption"
-                )
+                    "skip_key_id_on_decrypt must be enabled in KMS config for re-encryption",
+                ),
             ));
         }
         kms_key_id = aws_client.key_id().to_string();
@@ -138,14 +138,15 @@ async fn reencrypt_single_key(
             .as_any()
             .downcast_ref::<AwsKmsClient>()
             .ok_or_else(|| {
-                error_stack::report!(errors::ApplicationErrorResponse::InternalServerError(
-                    "decrypt_with_metadata is only supported for AWS KMS backend"
+                error_stack::Report::new(errors::ApplicationErrorResponse::InternalServerError(
+                    "decrypt_with_metadata is only supported for AWS KMS backend",
                 ))
             })?;
-        aws_client
+        let result: errors::CustomResult<_, errors::ApplicationErrorResponse> = aws_client
             .decrypt_with_metadata(data_key.encryption_key.clone())
             .await
-            .switch()?
+            .switch();
+        result?
     };
 
     // Check if already encrypted with current key by comparing key IDs

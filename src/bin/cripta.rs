@@ -1,13 +1,10 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use axum::{Router, body::Body, routing::post};
-#[cfg(feature = "aws")]
-use cripta::core::datakey::reencrypt_data_keys_handler;
+use axum::{Router, body::Body};
 use cripta::{
     app::AppState,
     config,
     consts::{TENANT_HEADER, X_REQUEST_ID},
-    core::datakey::list_data_keys_handler,
     env::{observability, observability as logger},
     request_id::MakeUuidV7,
     routes::*,

@@ -107,9 +107,9 @@ impl AwsKmsClient {
 
         let key_id = decrypt_output.key_id().map(|s| s.to_string());
 
-        let plaintext = decrypt_output.plaintext.ok_or(error_stack::report!(
-            errors::CryptoError::DecryptionFailed("KMS")
-        ))?;
+        let plaintext = decrypt_output
+            .plaintext
+            .ok_or_else(|| errors::CryptoError::DecryptionFailed("KMS").into_report())?;
 
         Ok((plaintext.into_inner().into(), key_id))
     }
