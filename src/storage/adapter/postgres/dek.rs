@@ -161,10 +161,10 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
 
         let mut query = DataKey::table().into_boxed();
 
-        if let Some(key_ids) = ids {
-            if !key_ids.is_empty() {
-                query = query.filter(id.eq_any(key_ids));
-            }
+        if let Some(key_ids) = ids
+            && !key_ids.is_empty()
+        {
+            query = query.filter(id.eq_any(key_ids));
         }
 
         query
