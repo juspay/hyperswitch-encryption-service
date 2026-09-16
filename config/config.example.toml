@@ -43,6 +43,55 @@ idle_timeout_secs = 600              # Close idle connections beyond `min_idle` 
 connection_acquire_timeout_secs = 30 # Duration in seconds to wait for a connection to be acquired from the pool (optional).
 connect_timeout_secs = 5             # Per-socket TCP connection timeout in seconds (optional).
 
+# Optional read-replica configuration
+# When present, a second connection pool is built against the replica and pure reads
+# (data encrypt/decrypt key lookups) are routed to it according to `read_strategy`.
+# Nothing is inherited from [database]: every field below is required when the
+# section is present. Leave the section absent to keep all reads on the primary.
+#
+# Caveat 1 — version staleness: the latest key version is cached for
+# `cache.time_to_live_secs` (default 30s) and errors fall back to v1. A stale
+# replica read therefore persists for up to `replication_lag + TTL`, during which
+# encryption uses the previous key version. This is correctness-safe (the version
+# is embedded in the ciphertext and decrypt looks up per-version keys), but a
+# rotate can appear not to take effect for ~30s. Prefer "replica_then_primary";
+# note that bare "replica" produces sporadic 404s on encrypt immediately after
+# key/create.
+#
+# Caveat 2 — pool sizing is independent: `pool_size` here is not deducted from
+# the primary's. Total connections become
+# N_tenants x (primary.pool_size + replica_database.pool_size) per instance.
+#
+# [replica_database]
+# host = "replica.internal"                     # Replica hostname or IP address
+# port = 5432                                   # Replica port
+# user = "db_user"                              # Username for replica authentication
+# password = "db_pass"                          # Replica password.
+#                                               # Must be a base64-encoded KMS ciphertext when the `aws` feature is enabled.
+# dbname = "encryption_db"                      # Name of the database on the replica
+# read_strategy = "replica_then_primary"        # "primary" (kill switch; pool still built),
+#                                               # "replica" (failures surfaced to the caller),
+#                                               # or "replica_then_primary" (retry on the
+#                                               # primary on ANY replica failure, incl. NotFound
+#                                               # from replication lag). Recommended.
+# pool_size = 5                                 # Maximum number of connections in the replica pool
+# min_idle = 2                                  # Minimum number of idle connections to maintain
+# enable_ssl = false                            # Enable or disable TLS for replica connections.
+#                                               # Requires the `postgres_ssl` feature flag.
+# # root_ca = ""                                # Required when enable_ssl is true.
+#                                               # Must be a base64-encoded KMS ciphertext when the `aws` feature is enabled.
+# max_lifetime_secs = 1800                      # Max connection lifetime in seconds
+# idle_timeout_secs = 600                       # Close idle connections beyond min_idle after this duration
+# connection_acquire_timeout_secs = 2           # Keep low so replica-then-primary fallback is fast
+# connect_timeout_secs = 5                      # Per-socket TCP connection timeout in seconds
+#
+# Notes:
+# - A replica that is unreachable at boot does NOT prevent the service from starting;
+#   connections are established lazily.
+# - `POST /key/rotate` always reads the latest version from the primary regardless of
+#   `read_strategy`, so rotation is safe under replication lag.
+# - Fallbacks are observable as `database_read_fallback_count{table,operation,reason}`.
+
 # Thread pool configuration
 [pool_config]
 pool = 2 # Number of worker threads in the Rayon thread pool

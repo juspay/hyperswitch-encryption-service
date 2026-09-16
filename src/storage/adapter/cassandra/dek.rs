@@ -6,9 +6,10 @@ use crate::{
     env::observability as logger,
     errors::{self, CustomResult, DatabaseError, SwitchError},
     storage::{
+        ReadDbPool,
         adapter::Cassandra,
-        dek::DataKeyStorageInterface,
-        metrics,
+        dek::{DataKeyReadInterface, DataKeyStorageInterface},
+        metrics::{self, DbPool},
         types::{CassandraDataKey, DataKey, DataKeyNew},
     },
     types::{Identifier, key::Version},
@@ -23,9 +24,11 @@ impl DataKeyStorageInterface
         _operation: metrics::DataKeyStorageOperation,
         new: DataKeyNew,
     ) -> CustomResult<DataKey, errors::DatabaseError> {
-        let connection = self.get_conn().await.switch()?;
+        let connection = self.get_conn(DbPool::Primary).await.switch()?;
         let key = CassandraDataKey::from(DataKey::from(new));
 
+        // Read-your-own-write: `get_key` on this trait is pinned to the
+        // primary (the only pool).
         let find_query = self
             .get_key(
                 key.version,
@@ -56,7 +59,7 @@ impl DataKeyStorageInterface
         identifier: &Identifier,
     ) -> CustomResult<Version, errors::DatabaseError> {
         let (data_id, key_id) = identifier.get_identifier();
-        let connection = self.get_conn().await.switch()?;
+        let connection = self.get_conn(DbPool::Primary).await.switch()?;
 
         let data_key =
             CassandraDataKey::find_first_by_key_identifier_and_data_identifier(key_id, data_id)
@@ -74,7 +77,7 @@ impl DataKeyStorageInterface
         identifier: &Identifier,
     ) -> CustomResult<DataKey, errors::DatabaseError> {
         let (data_id, key_id) = identifier.get_identifier();
-        let connection = self.get_conn().await.switch()?;
+        let connection = self.get_conn(DbPool::Primary).await.switch()?;
 
         let data_key = CassandraDataKey::find_by_key_identifier_and_data_identifier_and_version(
             key_id, data_id, v,
@@ -85,5 +88,27 @@ impl DataKeyStorageInterface
         .switch()?;
 
         Ok(DataKey::from(data_key))
+    }
+}
+
+// Cassandra has no replica concept: routing degenerates to the primary, so
+// the read view simply delegates to the pinned storage interface.
+#[async_trait::async_trait]
+impl DataKeyReadInterface
+    for ReadDbPool<'_, DbState<scylla::client::caching_session::CachingSession, Cassandra>>
+{
+    async fn get_latest_version(
+        &self,
+        identifier: &Identifier,
+    ) -> CustomResult<Version, errors::DatabaseError> {
+        self.state.get_latest_version(identifier).await
+    }
+
+    async fn get_key(
+        &self,
+        v: Version,
+        identifier: &Identifier,
+    ) -> CustomResult<DataKey, errors::DatabaseError> {
+        self.state.get_key(v, identifier).await
     }
 }

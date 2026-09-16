@@ -27,17 +27,23 @@ impl super::DbAdapter for DbState<scylla::client::caching_session::CachingSessio
             .expect("Unable to build the cassandra Pool");
 
         Self {
-            pool: scylla::client::caching_session::CachingSession::from(
-                session,
-                config.cassandra.cache_size,
-            ),
-            _metrics: CassandraMetrics,
+            primary: crate::storage::PoolHandle {
+                pool: scylla::client::caching_session::CachingSession::from(
+                    session,
+                    config.cassandra.cache_size,
+                ),
+                _metrics: CassandraMetrics,
+            },
+            // Cassandra has no replica concept in this service.
+            replica: None,
+            read_strategy: crate::config::ReadFrom::Primary,
         }
     }
 
     async fn get_conn<'a>(
         &'a self,
+        _from: crate::storage::metrics::DbPool,
     ) -> errors::CustomResult<Self::Conn<'a>, errors::ConnectionError> {
-        Ok(&self.pool)
+        Ok(&self.primary.pool)
     }
 }

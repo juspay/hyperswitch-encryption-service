@@ -106,6 +106,9 @@ pub struct Config {
     #[serde(default)]
     pub management_server: ManagementServer,
     pub database: Database,
+    /// Optional read replica. Absent ⇒ no replica pool, all reads on the primary.
+    #[serde(default)]
+    pub replica_database: Option<ReplicaDatabase>,
     pub secrets: Secrets,
     #[serde(default)]
     pub cassandra: Cassandra,
@@ -156,6 +159,79 @@ pub struct Database {
     pub idle_timeout_secs: Option<NonZeroU64>,
     pub connection_acquire_timeout_secs: Option<NonZeroU64>,
     pub connect_timeout_secs: Option<NonZeroU64>,
+}
+
+/// Which pool a read is routed to.
+#[derive(Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq, strum::IntoStaticStr)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum ReadFrom {
+    /// Always read from the primary.
+    #[default]
+    Primary,
+    /// Always read from the replica; a failure is returned to the caller.
+    Replica,
+    /// Read from the replica, retrying on the primary on *any* failure,
+    /// including `NotFound` (replication lag).
+    ReplicaThenPrimary,
+}
+
+/// Optional read replica. Every field is required when the section is present;
+/// nothing is inherited from `[database]`.
+#[derive(Deserialize, Debug)]
+pub struct ReplicaDatabase {
+    pub host: String,
+    pub port: u16,
+    pub user: hyperswitch_masking::Secret<String>,
+    pub password: SecretContainer,
+    pub dbname: hyperswitch_masking::Secret<String>,
+    pub read_strategy: ReadFrom,
+    pub pool_size: u32,
+    pub min_idle: u32,
+    pub enable_ssl: bool,
+    /// Required when `enable_ssl` is true; checked in `Config::validate`.
+    pub root_ca: Option<SecretContainer>,
+    pub max_lifetime_secs: NonZeroU64,
+    pub idle_timeout_secs: NonZeroU64,
+    pub connection_acquire_timeout_secs: NonZeroU64,
+    pub connect_timeout_secs: NonZeroU64,
+}
+
+impl ReplicaDatabase {
+    /// Map this section onto the shape `build_pg_config` already consumes.
+    ///
+    /// `Database`'s tuning fields are all `Option` because they fall back to
+    /// pool-builder defaults; here every value is known, so each is wrapped in
+    /// `Some(..)`.
+    pub(crate) fn as_database(&self) -> Database {
+        Database {
+            host: self.host.clone(),
+            port: self.port,
+            user: self.user.clone(),
+            password: self.password.clone(),
+            dbname: self.dbname.clone(),
+            pool_size: Some(self.pool_size),
+            min_idle: Some(self.min_idle),
+            enable_ssl: Some(self.enable_ssl),
+            root_ca: self.root_ca.clone(),
+            max_lifetime_secs: Some(self.max_lifetime_secs),
+            idle_timeout_secs: Some(self.idle_timeout_secs),
+            connection_acquire_timeout_secs: Some(self.connection_acquire_timeout_secs),
+            connect_timeout_secs: Some(self.connect_timeout_secs),
+        }
+    }
+
+    fn validate(&self) -> CustomResult<(), errors::ParsingError> {
+        error_stack::ensure!(
+            !(self.enable_ssl && self.root_ca.is_none()),
+            errors::ParsingError::DecodingFailed(
+                r#"replica_database.root_ca is required when replica_database.enable_ssl is true"#
+                    .to_string(),
+            )
+        );
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -416,6 +492,12 @@ impl Config {
         self.multitenancy
             .validate()
             .expect("Failed to validate multitenancy, some missing configuration found");
+
+        if let Some(replica_database) = &self.replica_database {
+            replica_database
+                .validate()
+                .expect("Failed to validate replica database configuration");
+        }
     }
 }
 

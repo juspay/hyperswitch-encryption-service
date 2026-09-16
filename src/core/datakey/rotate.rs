@@ -12,6 +12,10 @@ pub async fn generate_and_rotate_data_key(
     req: RotateDataKeyRequest,
 ) -> errors::CustomResult<DataKeyCreateResponse, errors::ApplicationErrorResponse> {
     let db = state.get_db_pool();
+    // Read-before-write: `get_latest_version` on the storage interface is
+    // pinned to the primary (config-routed reads would go through
+    // `state.get_read_db_pool()`), so a lagging replica cannot compute a
+    // version that collides with an existing key.
     let version = db
         .get_latest_version(&req.identifier)
         .await
