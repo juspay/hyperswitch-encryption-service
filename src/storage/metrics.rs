@@ -4,9 +4,7 @@ use std::future::Future;
 
 use crate::env::metrics;
 
-// `pub` (not `pub(crate)`) so it can appear in `DbAdapter::get_conn`'s
-// signature without tripping `private_interfaces`; the `metrics` module is
-// `pub(crate)`, so the type remains unreachable outside the crate.
+// `pub` (module is `pub(crate)`) so it can appear in `DbAdapter::get_conn`'s signature without tripping `private_interfaces`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub enum DbPool {
@@ -64,8 +62,7 @@ where
     result
 }
 
-/// Extract the table name from `T`'s module path
-/// (`crate::schema::data_key_store::table` ⇒ `"data_key_store"`).
+/// Extract the table name from `T`'s module path (e.g. `data_key_store`).
 fn table_name<T>() -> &'static str
 where
     T: diesel::associations::HasTable<Table = T>,
@@ -92,9 +89,6 @@ where
 }
 
 /// Record that a replica read was retried on the primary.
-///
-/// No `tenant_id` attribute, consistent with the query metrics; the retry
-/// itself already emits `database.query.count{pool="primary"}`.
 pub(super) fn record_db_read_fallback<T>(operation: DbOperation, reason: &'static str)
 where
     T: diesel::associations::HasTable<Table = T>,

@@ -171,13 +171,11 @@ pub enum ReadFrom {
     Primary,
     /// Always read from the replica; a failure is returned to the caller.
     Replica,
-    /// Read from the replica, retrying on the primary on *any* failure,
-    /// including `NotFound` (replication lag).
+    /// Read from the replica, retrying on the primary on *any* failure, including `NotFound` (replication lag).
     ReplicaThenPrimary,
 }
 
-/// Optional read replica. Every field is required when the section is present;
-/// nothing is inherited from `[database]`.
+/// Optional read replica. Every field is required when the section is present; nothing is inherited from `[database]`.
 #[derive(Deserialize, Debug)]
 pub struct ReplicaDatabase {
     pub host: String,
@@ -199,10 +197,6 @@ pub struct ReplicaDatabase {
 
 impl ReplicaDatabase {
     /// Map this section onto the shape `build_pg_config` already consumes.
-    ///
-    /// `Database`'s tuning fields are all `Option` because they fall back to
-    /// pool-builder defaults; here every value is known, so each is wrapped in
-    /// `Some(..)`.
     pub(crate) fn as_database(&self) -> Database {
         Database {
             host: self.host.clone(),

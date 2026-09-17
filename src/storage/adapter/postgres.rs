@@ -252,13 +252,7 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     }
 }
 
-/// Build one physical pool plus its metrics.
-///
-/// # Panics
-///
-/// Panics if the primary pool cannot be established, or when TLS is requested
-/// without a `root_ca`. The replica is built lazily (`build_unchecked`) so an
-/// unreachable replica does not take the service down at boot.
+/// Build one physical pool plus its metrics. Panics if the primary pool cannot be established, or when TLS is requested without a `root_ca`.
 #[allow(clippy::expect_used, clippy::panic)]
 async fn build_pool(
     config: &Config,
@@ -356,9 +350,7 @@ async fn build_pool(
             .build(mgr)
             .await
             .expect("Failed to establish primary database pool connection"),
-        // A replica that is unreachable at boot must not take the service down:
-        // connections are established lazily and `replica_then_primary`
-        // routing covers the gap until the replica comes back.
+        // Built lazily so an unreachable replica does not take the service down at boot.
         storage_metrics::DbPool::Replica => pool_builder.build_unchecked(mgr),
     };
 

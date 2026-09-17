@@ -72,9 +72,6 @@ impl DbState<Pool<AsyncPgConnection>, PostgreSQL> {
 }
 
 /// Map a replica failure to a bounded-cardinality metric label.
-///
-/// Exhaustive by design: a compile error here is the reminder to extend the
-/// label set when a `DatabaseError` variant is added.
 const fn fallback_reason(error: &errors::DatabaseError) -> &'static str {
     match error {
         errors::DatabaseError::ConnectionError(_) => "connection_error",
@@ -86,13 +83,7 @@ const fn fallback_reason(error: &errors::DatabaseError) -> &'static str {
     }
 }
 
-/// Run a read against the pool(s) selected by `route`.
-///
-/// `ReplicaThenPrimary` retries on the primary when the replica fails for
-/// *any* reason, including `NotFound` (replication lag). The whole attempt —
-/// connection acquire, query construction, execution, per-attempt metrics —
-/// lives inside `attempt`, so the two attempts never hold overlapping borrows
-/// and the query is rebuilt fresh each time.
+/// Run a read against the pool(s) selected by `route`. `ReplicaThenPrimary` retries on the primary when the replica fails for *any* reason, including `NotFound` (replication lag).
 async fn with_read_fallback<T, F, Fut, R>(
     route: ReadRoute,
     db_op: metrics::DbOperation,
@@ -115,8 +106,7 @@ where
                     "Replica read failed; retrying on primary"
                 );
                 metrics::record_db_read_fallback::<T>(db_op, reason);
-                // The primary is authoritative: when both pools fail, its
-                // error is returned with the replica's reason attached.
+                // The primary is authoritative: when both pools fail, its error is returned with the replica's reason attached.
                 attempt(DbPool::Primary)
                     .await
                     .attach(format!("replica read failed first: {reason}"))
@@ -137,7 +127,6 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
 
         let v = new.version;
 
-        // A write: the insert always goes to the primary.
         let mut connection = self.get_conn(DbPool::Primary).await.switch()?;
         let query = diesel::insert_into(DataKey::table()).values(new);
 
@@ -173,9 +162,7 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
                             ("outcome", metrics::DataKeyStorageOutcome::FoundExisting),
                         ),
                     );
-                    // Read-your-own-write: `get_key` on this trait is pinned
-                    // to the primary, so a lagging replica cannot 404 on a
-                    // row that definitely exists.
+                    // Read-your-own-write: `get_key` on this trait is pinned to the primary.
                     self.get_key(
                         v,
                         &identifier

@@ -27,8 +27,6 @@ impl DataKeyStorageInterface
         let connection = self.get_conn(DbPool::Primary).await.switch()?;
         let key = CassandraDataKey::from(DataKey::from(new));
 
-        // Read-your-own-write: `get_key` on this trait is pinned to the
-        // primary (the only pool).
         let find_query = self
             .get_key(
                 key.version,
@@ -91,8 +89,7 @@ impl DataKeyStorageInterface
     }
 }
 
-// Cassandra has no replica concept: routing degenerates to the primary, so
-// the read view simply delegates to the pinned storage interface.
+// No replica concept for Cassandra: the read view just delegates to the primary.
 #[async_trait::async_trait]
 impl DataKeyReadInterface
     for ReadDbPool<'_, DbState<scylla::client::caching_session::CachingSession, Cassandra>>

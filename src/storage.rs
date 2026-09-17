@@ -21,14 +21,9 @@ pub struct PoolHandle<C, T: DbAdapterType> {
 }
 
 /// Storage handle owned by `SessionState`.
-// No `#[derive(Clone)]`: the compiler-inferred `where T::Metrics: Clone`
-// predicate that lets a bare `_metrics: T::Metrics` field derive `Clone` does
-// not extend to a projection nested inside `Option<PoolHandle<C, T>>`, and
-// nothing in the tree clones a `DbState`.
 pub struct DbState<C, T: DbAdapterType> {
     primary: PoolHandle<C, T>,
-    /// `None` when `[replica_database]` is absent, or for adapters with no
-    /// replica concept (Cassandra).
+    /// `None` when `[replica_database]` is absent, or for adapters with no replica concept (Cassandra).
     replica: Option<PoolHandle<C, T>>,
     read_strategy: ReadFrom,
 }
@@ -41,9 +36,6 @@ pub(crate) enum ReadRoute {
 }
 
 /// Pure resolution of a caller's strategy against the pools that exist.
-///
-/// Free function so it is unit-testable without a live pool, and so the
-/// `DbPool::Replica` construction site stays in feature-independent code.
 pub(crate) const fn read_route(strategy: ReadFrom, has_replica: bool) -> ReadRoute {
     if !has_replica {
         return ReadRoute::Only(metrics::DbPool::Primary);
@@ -55,19 +47,13 @@ pub(crate) const fn read_route(strategy: ReadFrom, has_replica: bool) -> ReadRou
     }
 }
 
-/// A read view over a `DbState`, carrying the route resolved once from the
-/// configured strategy and the pools that exist.
-///
-/// Obtained via `DbState::read_db_pool`. Config-routed reads are implemented
-/// on this view (see `storage::dek::DataKeyReadInterface`); write paths and
-/// reads that must observe their own writes stay on `DbState` itself.
+/// A read view over a `DbState`, carrying the route resolved once from the configured strategy and the pools that exist.
 pub(crate) struct ReadDbPool<'a, S> {
     state: &'a S,
     route: ReadRoute,
 }
 
-// Manual (not derived) so the bounds stay honest: the view only holds a
-// shared reference, and the derived impls would wrongly require `S: Copy`.
+// Manual (not derived): the derived impls would wrongly require `S: Copy`.
 impl<S> Clone for ReadDbPool<'_, S> {
     fn clone(&self) -> Self {
         *self
@@ -79,8 +65,6 @@ impl<S> Copy for ReadDbPool<'_, S> {}
 type Connection<'a> = PooledConnection<'a, AsyncPgConnection>;
 
 impl<C, T: DbAdapterType> DbState<C, T> {
-    /// A read view over this state, routing reads per the configured
-    /// strategy.
     pub(crate) fn read_db_pool(&self) -> ReadDbPool<'_, Self> {
         ReadDbPool {
             state: self,
@@ -88,8 +72,7 @@ impl<C, T: DbAdapterType> DbState<C, T> {
         }
     }
 
-    /// Normalise a requested pool so metric labels never lie: a `Replica`
-    /// request degrades to `Primary` when no replica is configured.
+    /// Normalise a requested pool so metric labels never lie: a `Replica` request degrades to `Primary` when no replica is configured.
     pub(crate) fn effective_pool(&self, from: metrics::DbPool) -> metrics::DbPool {
         match from {
             metrics::DbPool::Replica if self.replica.is_none() => metrics::DbPool::Primary,
@@ -97,9 +80,7 @@ impl<C, T: DbAdapterType> DbState<C, T> {
         }
     }
 
-    /// The handle for `from`, falling back to the primary when no replica
-    /// exists. The invariant is enforced upstream by `effective_pool`; the
-    /// `unwrap_or` is defensive so a routing bug degrades instead of panicking.
+    /// The handle for `from`, falling back to the primary when no replica exists.
     pub(crate) fn handle(&self, from: metrics::DbPool) -> &PoolHandle<C, T> {
         match self.effective_pool(from) {
             metrics::DbPool::Replica => self.replica.as_ref().unwrap_or(&self.primary),
