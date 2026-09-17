@@ -132,6 +132,12 @@ histogram_metric_f64!(
     unit: "s",
     buckets: f64_histogram_buckets().to_vec(),
 );
+counter_metric!(
+    pub(crate) DATABASE_READ_FALLBACK_COUNT, CRIPTA_METER,
+    name: "database.read.fallback.count",
+    description: "Number of replica reads retried on the primary",
+    unit: "{query}",
+);
 
 // Cache
 counter_metric!(

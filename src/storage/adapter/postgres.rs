@@ -29,9 +29,11 @@ pub struct PostgresPoolMetrics {
 }
 
 impl PostgresPoolMetrics {
-    pub(super) fn new(pool: Pool<AsyncPgConnection>, tenant_id: &TenantId) -> Self {
-        let db_pool = storage_metrics::DbPool::Primary;
-
+    pub(super) fn new(
+        pool: Pool<AsyncPgConnection>,
+        tenant_id: &TenantId,
+        db_pool: storage_metrics::DbPool,
+    ) -> Self {
         let _pool_size = Self::build_pool_gauge(
             "database.pool.size",
             "Total number of connections in the database pool",
@@ -195,108 +197,156 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     /// # Panics
     ///
     /// Panics if unable to connect to Database
-    #[allow(clippy::expect_used)]
     async fn from_config(config: &Config, tenant_id: &TenantId, schema: &str) -> Self {
-        let database = &config.database;
-        let password = database.password.expose(config).await;
-        let pg_config = build_pg_config(database, schema, password);
+        let primary = build_pool(
+            config,
+            &config.database,
+            tenant_id,
+            schema,
+            storage_metrics::DbPool::Primary,
+        )
+        .await;
 
-        // Minimal URL passed to `AsyncDieselConnectionManager::new_with_config()`,
-        // our `custom_setup` closure currently ignores the URL.
-        let database_url = format!(
-            "postgres://{}@{}:{}/{}",
-            database.user.peek(),
-            database.host,
-            database.port,
-            database.dbname.peek(),
-        );
+        let replica = match &config.replica_database {
+            Some(replica_database) => {
+                let database = replica_database.as_database();
+                Some(
+                    build_pool(
+                        config,
+                        &database,
+                        tenant_id,
+                        schema,
+                        storage_metrics::DbPool::Replica,
+                    )
+                    .await,
+                )
+            }
+            None => None,
+        };
 
-        let mut mgr_config = ManagerConfig::default();
-
-        #[cfg(feature = "postgres_ssl")]
-        if database.enable_ssl == Some(true) {
-            let root_ca = database
-                .root_ca
-                .clone()
-                .expect("Failed to load db server root cert from the config")
-                .expose(config)
-                .await;
-            let pg_config_for_closure = pg_config.clone();
-
-            mgr_config.custom_setup = Box::new(move |_url| {
-                let pg_config = pg_config_for_closure.clone();
-                let root_ca = root_ca.clone();
-                Box::pin({
-                    let root_ca = root_ca.clone();
-                    async move {
-                        let mut root_certificate = rustls::RootCertStore::empty();
-                        for cert in rustls::pki_types::CertificateDer::pem_slice_iter(
-                            root_ca.peek().as_ref(),
-                        ) {
-                            root_certificate
-                                .add(cert.expect("Failed to load db server root cert"))
-                                .expect("Failed to add cert to RootCertStore");
-                        }
-                        let rustls_config = rustls::ClientConfig::builder()
-                            .with_root_certificates(root_certificate)
-                            .with_no_client_auth();
-                        let tls = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
-                        let (client, conn) = pg_config
-                            .connect(tls)
-                            .await
-                            .map_err(|e| ConnectionError::BadConnection(e.to_string()))?;
-                        AsyncPgConnection::try_from_client_and_connection(client, conn).await
-                    }
-                })
-            });
-        } else {
-            mgr_config.custom_setup = no_tls_custom_setup(pg_config);
+        Self {
+            primary,
+            replica,
+            read_strategy: config.database.read_strategy,
         }
-
-        #[cfg(not(feature = "postgres_ssl"))]
-        {
-            mgr_config.custom_setup = no_tls_custom_setup(pg_config);
-        }
-
-        let mgr = AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
-            database_url,
-            mgr_config,
-        );
-
-        let mut pool_builder = Pool::builder()
-            .max_size(database.pool_size.unwrap_or(10))
-            .min_idle(database.min_idle);
-
-        if let Some(max_lifetime) = database.max_lifetime_secs {
-            pool_builder =
-                pool_builder.max_lifetime(std::time::Duration::from_secs(max_lifetime.get()));
-        }
-        if let Some(idle_timeout) = database.idle_timeout_secs {
-            pool_builder =
-                pool_builder.idle_timeout(std::time::Duration::from_secs(idle_timeout.get()));
-        }
-        if let Some(connection_acquire_timeout) = database.connection_acquire_timeout_secs {
-            pool_builder = pool_builder.connection_timeout(std::time::Duration::from_secs(
-                connection_acquire_timeout.get(),
-            ));
-        }
-
-        let pool = pool_builder
-            .build(mgr)
-            .await
-            .expect("Failed to establish pool connection");
-
-        let _metrics = PostgresPoolMetrics::new(pool.clone(), tenant_id);
-
-        Self { pool, _metrics }
     }
 
     async fn get_conn<'a>(
         &'a self,
+        from: crate::storage::metrics::DbPool,
     ) -> errors::CustomResult<Self::Conn<'a>, errors::ConnectionError> {
-        let pool = crate::storage::metrics::DbPool::Primary;
-        crate::storage::metrics::record_db_connection_acquire_duration(self.pool.get(), pool)
-            .await
-            .change_context(errors::ConnectionError::ConnectionEstablishFailed)
+        crate::storage::metrics::record_db_connection_acquire_duration(
+            self.handle(from).pool.get(),
+            from,
+        )
+        .await
+        .change_context(errors::ConnectionError::ConnectionEstablishFailed)
     }
+}
+
+/// Build one physical pool plus its metrics. Panics if the primary pool cannot be established, or when TLS is requested without a `root_ca`.
+#[allow(clippy::expect_used, clippy::panic)]
+async fn build_pool(
+    config: &Config,
+    database: &crate::config::Database,
+    tenant_id: &TenantId,
+    schema: &str,
+    db_pool: storage_metrics::DbPool,
+) -> crate::storage::PoolHandle<Pool<AsyncPgConnection>, PostgreSQL> {
+    let password = database.password.expose(config).await;
+    let pg_config = build_pg_config(database, schema, password);
+
+    // Minimal URL passed to `AsyncDieselConnectionManager::new_with_config()`,
+    // our `custom_setup` closure currently ignores the URL.
+    let database_url = format!(
+        "postgres://{}@{}:{}/{}",
+        database.user.peek(),
+        database.host,
+        database.port,
+        database.dbname.peek(),
+    );
+
+    let mut mgr_config = ManagerConfig::default();
+
+    #[cfg(feature = "postgres_ssl")]
+    if database.enable_ssl == Some(true) {
+        let pool_name = <&'static str>::from(db_pool);
+        let root_ca = database.root_ca.clone().unwrap_or_else(|| {
+            panic!(
+                "Failed to load db server root cert from the config for the {pool_name} database"
+            )
+        });
+        let root_ca = root_ca.expose(config).await;
+        let pg_config_for_closure = pg_config.clone();
+
+        mgr_config.custom_setup = Box::new(move |_url| {
+            let pg_config = pg_config_for_closure.clone();
+            let root_ca = root_ca.clone();
+            Box::pin({
+                let root_ca = root_ca.clone();
+                async move {
+                    let mut root_certificate = rustls::RootCertStore::empty();
+                    for cert in
+                        rustls::pki_types::CertificateDer::pem_slice_iter(root_ca.peek().as_ref())
+                    {
+                        root_certificate
+                            .add(cert.expect("Failed to load db server root cert"))
+                            .expect("Failed to add cert to RootCertStore");
+                    }
+                    let rustls_config = rustls::ClientConfig::builder()
+                        .with_root_certificates(root_certificate)
+                        .with_no_client_auth();
+                    let tls = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
+                    let (client, conn) = pg_config
+                        .connect(tls)
+                        .await
+                        .map_err(|e| ConnectionError::BadConnection(e.to_string()))?;
+                    AsyncPgConnection::try_from_client_and_connection(client, conn).await
+                }
+            })
+        });
+    } else {
+        mgr_config.custom_setup = no_tls_custom_setup(pg_config);
+    }
+
+    #[cfg(not(feature = "postgres_ssl"))]
+    {
+        mgr_config.custom_setup = no_tls_custom_setup(pg_config);
+    }
+
+    let mgr = AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
+        database_url,
+        mgr_config,
+    );
+
+    let mut pool_builder = Pool::builder()
+        .max_size(database.pool_size.unwrap_or(10))
+        .min_idle(database.min_idle);
+
+    if let Some(max_lifetime) = database.max_lifetime_secs {
+        pool_builder =
+            pool_builder.max_lifetime(std::time::Duration::from_secs(max_lifetime.get()));
+    }
+    if let Some(idle_timeout) = database.idle_timeout_secs {
+        pool_builder =
+            pool_builder.idle_timeout(std::time::Duration::from_secs(idle_timeout.get()));
+    }
+    if let Some(connection_acquire_timeout) = database.connection_acquire_timeout_secs {
+        pool_builder = pool_builder.connection_timeout(std::time::Duration::from_secs(
+            connection_acquire_timeout.get(),
+        ));
+    }
+
+    let pool = match db_pool {
+        storage_metrics::DbPool::Primary => pool_builder
+            .build(mgr)
+            .await
+            .expect("Failed to establish primary database pool connection"),
+        // Built lazily so an unreachable replica does not take the service down at boot.
+        storage_metrics::DbPool::Replica => pool_builder.build_unchecked(mgr),
+    };
+
+    let _metrics = PostgresPoolMetrics::new(pool.clone(), tenant_id, db_pool);
+
+    crate::storage::PoolHandle { pool, _metrics }
 }

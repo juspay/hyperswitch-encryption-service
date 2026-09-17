@@ -6,8 +6,9 @@ use crate::{
     env::observability as logger,
     errors::{self, CustomResult, DatabaseError, SwitchError},
     storage::{
+        ReadView,
         adapter::Cassandra,
-        dek::DataKeyStorageInterface,
+        dek::{DataKeyReadInterface, DataKeyStorageInterface},
         metrics,
         types::{CassandraDataKey, DataKey, DataKeyNew},
     },
@@ -21,32 +22,36 @@ impl DataKeyStorageInterface
     async fn get_or_insert_data_key(
         &self,
         _operation: metrics::DataKeyStorageOperation,
-        new: DataKeyNew,
+        new_key: DataKeyNew,
     ) -> CustomResult<DataKey, errors::DatabaseError> {
-        let connection = self.get_conn().await.switch()?;
-        let key = CassandraDataKey::from(DataKey::from(new));
+        let connection = self.get_write_pool().await.switch()?;
+        let new_row = CassandraDataKey::from(DataKey::from(new_key));
 
-        let find_query = self
+        let existing = self
             .get_key(
-                key.version,
-                &Identifier::try_from((key.data_identifier.clone(), key.key_identifier.clone()))
-                    .change_context(errors::DatabaseError::Others)?,
+                new_row.version,
+                &Identifier::try_from((
+                    new_row.data_identifier.clone(),
+                    new_row.key_identifier.clone(),
+                ))
+                .change_context(errors::DatabaseError::Others)?,
             )
             .await;
 
-        match find_query {
-            Ok(key) => Ok(key),
+        match existing {
+            Ok(existing_key) => Ok(existing_key),
             Err(err) => {
                 if let DatabaseError::NotFound = err.current_context() {
                     logger::error!(database_err=?err);
                 }
 
-                key.insert()
+                new_row
+                    .insert()
                     .consistency(Consistency::EachQuorum)
                     .execute(connection)
                     .await
                     .switch()?;
-                Ok(DataKey::from(key))
+                Ok(DataKey::from(new_row))
             }
         }
     }
@@ -56,7 +61,7 @@ impl DataKeyStorageInterface
         identifier: &Identifier,
     ) -> CustomResult<Version, errors::DatabaseError> {
         let (data_id, key_id) = identifier.get_identifier();
-        let connection = self.get_conn().await.switch()?;
+        let connection = self.get_write_pool().await.switch()?;
 
         let data_key =
             CassandraDataKey::find_first_by_key_identifier_and_data_identifier(key_id, data_id)
@@ -70,14 +75,14 @@ impl DataKeyStorageInterface
 
     async fn get_key(
         &self,
-        v: Version,
+        key_version: Version,
         identifier: &Identifier,
     ) -> CustomResult<DataKey, errors::DatabaseError> {
         let (data_id, key_id) = identifier.get_identifier();
-        let connection = self.get_conn().await.switch()?;
+        let connection = self.get_write_pool().await.switch()?;
 
         let data_key = CassandraDataKey::find_by_key_identifier_and_data_identifier_and_version(
-            key_id, data_id, v,
+            key_id, data_id, key_version,
         )
         .consistency(scylla::statement::Consistency::LocalQuorum)
         .execute(connection)
@@ -85,5 +90,26 @@ impl DataKeyStorageInterface
         .switch()?;
 
         Ok(DataKey::from(data_key))
+    }
+}
+
+// No replica concept for Cassandra: the read view just delegates to the primary.
+#[async_trait::async_trait]
+impl DataKeyReadInterface
+    for ReadView<'_, DbState<scylla::client::caching_session::CachingSession, Cassandra>>
+{
+    async fn get_latest_version(
+        &self,
+        identifier: &Identifier,
+    ) -> CustomResult<Version, errors::DatabaseError> {
+        self.state.get_latest_version(identifier).await
+    }
+
+    async fn get_key(
+        &self,
+        key_version: Version,
+        identifier: &Identifier,
+    ) -> CustomResult<DataKey, errors::DatabaseError> {
+        self.state.get_key(key_version, identifier).await
     }
 }
