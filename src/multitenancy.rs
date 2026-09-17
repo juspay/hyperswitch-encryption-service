@@ -42,8 +42,8 @@ impl TenantState {
     }
 
     /// A config-routed read view over this tenant's storage.
-    pub(crate) fn get_read_db_pool(&self) -> crate::storage::ReadDbPool<'_, StorageState> {
-        self.get_db_pool().read_db_pool()
+    pub(crate) fn get_read_view(&self) -> crate::storage::ReadView<'_, StorageState> {
+        self.get_db_pool().read_view()
     }
 }
 

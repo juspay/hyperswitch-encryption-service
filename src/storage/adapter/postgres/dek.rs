@@ -1,14 +1,18 @@
 use diesel::{BoolExpressionMethods, ExpressionMethods, QueryDsl, associations::HasTable};
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::bb8::Pool};
+use diesel_async::{
+    AsyncPgConnection, RunQueryDsl,
+    pooled_connection::bb8::{Pool, PooledConnection},
+};
 use error_stack::ResultExt;
 
 use super::DbState;
 use crate::{
+    config::ReadStrategy,
     env::observability as logger,
     errors::{self, CustomResult, SwitchError},
     schema::data_key_store::*,
     storage::{
-        ReadDbPool, ReadRoute,
+        ReadView,
         adapter::PostgreSQL,
         dek::{DataKeyReadInterface, DataKeyStorageInterface},
         metrics::{self, DbPool},
@@ -17,58 +21,54 @@ use crate::{
     types::{Identifier, key::Version},
 };
 
-impl DbState<Pool<AsyncPgConnection>, PostgreSQL> {
-    async fn get_latest_version_from(
-        &self,
-        from: DbPool,
-        identifier: &Identifier,
-    ) -> CustomResult<Version, errors::DatabaseError> {
-        let mut connection = self.get_conn(from).await.switch()?;
+/// Build and run the latest-version query on `connection`, labelling metrics with `pool`.
+async fn query_latest_version(
+    connection: &mut PooledConnection<'_, AsyncPgConnection>,
+    identifier: &Identifier,
+    pool: DbPool,
+) -> CustomResult<Version, errors::DatabaseError> {
+    let (data_id, key_id) = identifier.get_identifier();
+    let query = DataKey::table()
+        .select(version)
+        .filter(data_identifier.eq(data_id).and(key_identifier.eq(key_id)))
+        .order_by(version.desc())
+        .limit(1);
 
-        let (d_id, k_id) = identifier.get_identifier();
-        let query = DataKey::table()
-            .select(version)
-            .filter(data_identifier.eq(d_id).and(key_identifier.eq(k_id)))
-            .order_by(version.desc())
-            .limit(1);
+    metrics::log_db_query::<table, _>(&query, metrics::DbOperation::Filter, pool);
 
-        metrics::log_db_query::<table, _>(&query, metrics::DbOperation::Filter, from);
+    metrics::record_db_query::<table, _, _, _>(
+        query.get_result(connection),
+        metrics::DbOperation::Filter,
+        pool,
+    )
+    .await
+    .switch()
+}
 
-        metrics::record_db_query::<table, _, _, _>(
-            query.get_result(&mut connection),
-            metrics::DbOperation::Filter,
-            from,
-        )
-        .await
-        .switch()
-    }
+/// Build and run the find-key query on `connection`, labelling metrics with `pool`.
+async fn query_key(
+    connection: &mut PooledConnection<'_, AsyncPgConnection>,
+    key_version: Version,
+    identifier: &Identifier,
+    pool: DbPool,
+) -> CustomResult<DataKey, errors::DatabaseError> {
+    let (data_id, key_id) = identifier.get_identifier();
 
-    async fn get_key_from(
-        &self,
-        from: DbPool,
-        v: Version,
-        identifier: &Identifier,
-    ) -> CustomResult<DataKey, errors::DatabaseError> {
-        let mut connection = self.get_conn(from).await.switch()?;
+    let query = DataKey::table().filter(
+        version
+            .eq(key_version)
+            .and(data_identifier.eq(data_id).and(key_identifier.eq(key_id))),
+    );
 
-        let (d_id, k_id) = identifier.get_identifier();
+    metrics::log_db_query::<table, _>(&query, metrics::DbOperation::FindOne, pool);
 
-        let query = DataKey::table().filter(
-            version
-                .eq(v)
-                .and(data_identifier.eq(d_id).and(key_identifier.eq(k_id))),
-        );
-
-        metrics::log_db_query::<table, _>(&query, metrics::DbOperation::FindOne, from);
-
-        metrics::record_db_query::<table, _, _, _>(
-            query.get_result(&mut connection),
-            metrics::DbOperation::FindOne,
-            from,
-        )
-        .await
-        .switch()
-    }
+    metrics::record_db_query::<table, _, _, _>(
+        query.get_result(connection),
+        metrics::DbOperation::FindOne,
+        pool,
+    )
+    .await
+    .switch()
 }
 
 /// Map a replica failure to a bounded-cardinality metric label.
@@ -83,9 +83,9 @@ const fn fallback_reason(error: &errors::DatabaseError) -> &'static str {
     }
 }
 
-/// Run a read against the pool(s) selected by `route`. `ReplicaThenPrimary` retries on the primary when the replica fails for *any* reason, including `NotFound` (replication lag).
+/// Run a read against the pool(s) selected by `strategy`. `ReplicaThenPrimary` retries on the primary when the replica fails for *any* reason, including `NotFound` (replication lag).
 async fn with_read_fallback<T, F, Fut, R>(
-    route: ReadRoute,
+    strategy: ReadStrategy,
     db_op: metrics::DbOperation,
     attempt: F,
 ) -> CustomResult<R, errors::DatabaseError>
@@ -94,13 +94,16 @@ where
     F: Fn(DbPool) -> Fut,
     Fut: std::future::Future<Output = CustomResult<R, errors::DatabaseError>>,
 {
-    match route {
-        ReadRoute::Only(pool) => attempt(pool).await,
-        ReadRoute::ReplicaThenPrimary => match attempt(DbPool::Replica).await {
+    match strategy {
+        ReadStrategy::Primary => attempt(DbPool::Primary).await,
+        ReadStrategy::Replica => attempt(DbPool::Replica).await,
+        ReadStrategy::ReplicaThenPrimary => match attempt(DbPool::Replica).await {
             Ok(value) => Ok(value),
             Err(replica_error) => {
                 let reason = fallback_reason(replica_error.current_context());
-                logger::warn!(
+                // debug, not warn: under a replica outage this fires per read;
+                // `database.read.fallback.count` is the aggregated alerting signal.
+                logger::debug!(
                     error = ?replica_error,
                     reason,
                     "Replica read failed; retrying on primary"
@@ -120,15 +123,15 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     async fn get_or_insert_data_key(
         &self,
         operation: metrics::DataKeyStorageOperation,
-        new: DataKeyNew,
+        new_key: DataKeyNew,
     ) -> CustomResult<DataKey, errors::DatabaseError> {
         let identifier: errors::CustomResult<Identifier, errors::ParsingError> =
-            (new.data_identifier.clone(), new.key_identifier.clone()).try_into();
+            (new_key.data_identifier.clone(), new_key.key_identifier.clone()).try_into();
 
-        let v = new.version;
+        let key_version = new_key.version;
 
-        let mut connection = self.get_conn(DbPool::Primary).await.switch()?;
-        let query = diesel::insert_into(DataKey::table()).values(new);
+        let mut connection = self.get_write_pool().await.switch()?;
+        let query = diesel::insert_into(DataKey::table()).values(new_key);
 
         let pool = DbPool::Primary;
         let db_op = metrics::DbOperation::Insert;
@@ -162,9 +165,9 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
                             ("outcome", metrics::DataKeyStorageOutcome::FoundExisting),
                         ),
                     );
-                    // Read-your-own-write: `get_key` on this trait is pinned to the primary.
+                    // Read-your-own-write: `get_key` on this trait uses the write pool.
                     self.get_key(
-                        v,
+                        key_version,
                         &identifier
                             .change_context(errors::DatabaseError::Others)
                             .attach("Failed to parse identifier")?,
@@ -189,44 +192,51 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
         &self,
         identifier: &Identifier,
     ) -> CustomResult<Version, errors::DatabaseError> {
-        self.get_latest_version_from(DbPool::Primary, identifier)
-            .await
+        let mut connection = self.get_write_pool().await.switch()?;
+        query_latest_version(&mut connection, identifier, DbPool::Primary).await
     }
 
     async fn get_key(
         &self,
-        v: Version,
+        key_version: Version,
         identifier: &Identifier,
     ) -> CustomResult<DataKey, errors::DatabaseError> {
-        self.get_key_from(DbPool::Primary, v, identifier).await
+        let mut connection = self.get_write_pool().await.switch()?;
+        query_key(&mut connection, key_version, identifier, DbPool::Primary).await
     }
 }
 
 #[async_trait::async_trait]
-impl DataKeyReadInterface for ReadDbPool<'_, DbState<Pool<AsyncPgConnection>, PostgreSQL>> {
+impl DataKeyReadInterface for ReadView<'_, DbState<Pool<AsyncPgConnection>, PostgreSQL>> {
     async fn get_latest_version(
         &self,
         identifier: &Identifier,
     ) -> CustomResult<Version, errors::DatabaseError> {
         let state = self.state;
         with_read_fallback::<table, _, _, _>(
-            self.route,
+            self.strategy,
             metrics::DbOperation::Filter,
-            move |pool| state.get_latest_version_from(pool, identifier),
+            move |pool| async move {
+                let mut connection = state.get_conn(pool).await.switch()?;
+                query_latest_version(&mut connection, identifier, pool).await
+            },
         )
         .await
     }
 
     async fn get_key(
         &self,
-        v: Version,
+        key_version: Version,
         identifier: &Identifier,
     ) -> CustomResult<DataKey, errors::DatabaseError> {
         let state = self.state;
         with_read_fallback::<table, _, _, _>(
-            self.route,
+            self.strategy,
             metrics::DbOperation::FindOne,
-            move |pool| state.get_key_from(pool, v, identifier),
+            move |pool| async move {
+                let mut connection = state.get_conn(pool).await.switch()?;
+                query_key(&mut connection, key_version, identifier, pool).await
+            },
         )
         .await
     }

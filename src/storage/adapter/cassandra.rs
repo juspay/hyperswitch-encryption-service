@@ -36,7 +36,7 @@ impl super::DbAdapter for DbState<scylla::client::caching_session::CachingSessio
             },
             // Cassandra has no replica concept in this service.
             replica: None,
-            read_strategy: crate::config::ReadFrom::Primary,
+            read_strategy: crate::config::ReadStrategy::Primary,
         }
     }
 

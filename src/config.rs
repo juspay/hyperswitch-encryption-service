@@ -159,13 +159,16 @@ pub struct Database {
     pub idle_timeout_secs: Option<NonZeroU64>,
     pub connection_acquire_timeout_secs: Option<NonZeroU64>,
     pub connect_timeout_secs: Option<NonZeroU64>,
+    /// Read-routing policy. Only applies when `[replica_database]` is configured; otherwise reads use the primary.
+    #[serde(default)]
+    pub read_strategy: ReadStrategy,
 }
 
 /// Which pool a read is routed to.
 #[derive(Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq, strum::IntoStaticStr)]
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
-pub enum ReadFrom {
+pub enum ReadStrategy {
     /// Always read from the primary.
     #[default]
     Primary,
@@ -183,7 +186,6 @@ pub struct ReplicaDatabase {
     pub user: hyperswitch_masking::Secret<String>,
     pub password: SecretContainer,
     pub dbname: hyperswitch_masking::Secret<String>,
-    pub read_strategy: ReadFrom,
     pub pool_size: u32,
     pub min_idle: u32,
     pub enable_ssl: bool,
@@ -212,6 +214,8 @@ impl ReplicaDatabase {
             idle_timeout_secs: Some(self.idle_timeout_secs),
             connection_acquire_timeout_secs: Some(self.connection_acquire_timeout_secs),
             connect_timeout_secs: Some(self.connect_timeout_secs),
+            // Irrelevant for the replica pool; routing is read from `[database]`.
+            read_strategy: ReadStrategy::default(),
         }
     }
 

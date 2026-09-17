@@ -224,17 +224,10 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
             None => None,
         };
 
-        let read_strategy = config
-            .replica_database
-            .as_ref()
-            .map_or(crate::config::ReadFrom::Primary, |replica| {
-                replica.read_strategy
-            });
-
         Self {
             primary,
             replica,
-            read_strategy,
+            read_strategy: config.database.read_strategy,
         }
     }
 
@@ -242,10 +235,9 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
         &'a self,
         from: crate::storage::metrics::DbPool,
     ) -> errors::CustomResult<Self::Conn<'a>, errors::ConnectionError> {
-        let db_pool = self.effective_pool(from);
         crate::storage::metrics::record_db_connection_acquire_duration(
-            self.handle(db_pool).pool.get(),
-            db_pool,
+            self.handle(from).pool.get(),
+            from,
         )
         .await
         .change_context(errors::ConnectionError::ConnectionEstablishFailed)

@@ -41,7 +41,7 @@ impl Key {
         identifier: &Identifier,
         version: Version,
     ) -> errors::CustomResult<Self, errors::DatabaseError> {
-        let db = state.get_read_db_pool();
+        let db = state.get_read_view();
         let get_and_decrypt_key = || async {
             let key = db.get_key(version, identifier).await?;
             key.decrypt(state).await.switch()
@@ -58,21 +58,21 @@ impl Key {
     pub async fn get_multiple_keys(
         state: &TenantState,
         identifier: &Identifier,
-        version: FxHashSet<Version>,
+        versions: FxHashSet<Version>,
     ) -> errors::CustomResult<FxHashMap<Version, Self>, errors::DatabaseError> {
-        let db = state.get_read_db_pool();
-        let get_and_decrypt_key = |v: Version| async move {
-            let key = db.get_key(v, identifier).await?;
+        let db = state.get_read_view();
+        let get_and_decrypt_key = |key_version: Version| async move {
+            let key = db.get_key(key_version, identifier).await?;
             key.decrypt(state).await.switch()
         };
 
-        let futures = version.into_iter().map(|v| async move {
+        let futures = versions.into_iter().map(|key_version| async move {
             Ok::<_, error_stack::Report<errors::DatabaseError>>((
-                v,
+                key_version,
                 cache::get_or_populate_cache(
-                    format!("key_{identifier}:{v}"),
+                    format!("key_{identifier}:{key_version}"),
                     &state.caches.key,
-                    get_and_decrypt_key(v),
+                    get_and_decrypt_key(key_version),
                 )
                 .await?,
             ))
@@ -164,16 +164,17 @@ impl Serialize for Version {
 
 impl Version {
     pub async fn get_latest(identifier: &Identifier, state: &TenantState) -> Self {
-        let db = state.get_read_db_pool();
-        let latest_version = db.get_latest_version(identifier);
-        let v = cache::get_or_populate_cache(
+        let db = state.get_read_view();
+        let fetch_latest_version = db.get_latest_version(identifier);
+        let latest_version = cache::get_or_populate_cache(
             format!("latest_version_{identifier}"),
             &state.caches.version,
-            latest_version,
+            fetch_latest_version,
         )
         .await;
 
-        v.inspect_err(|error| logger::error!(?error, "Failed to get the latest version"))
+        latest_version
+            .inspect_err(|error| logger::error!(?error, "Failed to get the latest version"))
             .unwrap_or_default()
     }
 

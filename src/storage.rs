@@ -8,7 +8,7 @@ use diesel_async::{AsyncPgConnection, pooled_connection::bb8::PooledConnection};
 
 use self::adapter::{DbAdapter, DbAdapterType};
 use crate::{
-    config::{Config, ReadFrom},
+    config::{Config, ReadStrategy},
     errors::{self, CustomResult},
     multitenancy::TenantId,
 };
@@ -25,64 +25,54 @@ pub struct DbState<C, T: DbAdapterType> {
     primary: PoolHandle<C, T>,
     /// `None` when `[replica_database]` is absent, or for adapters with no replica concept (Cassandra).
     replica: Option<PoolHandle<C, T>>,
-    read_strategy: ReadFrom,
+    read_strategy: ReadStrategy,
 }
 
-/// The resolved route for a single logical read.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ReadRoute {
-    Only(metrics::DbPool),
-    ReplicaThenPrimary,
-}
-
-/// Pure resolution of a caller's strategy against the pools that exist.
-pub(crate) const fn read_route(strategy: ReadFrom, has_replica: bool) -> ReadRoute {
-    if !has_replica {
-        return ReadRoute::Only(metrics::DbPool::Primary);
-    }
-    match strategy {
-        ReadFrom::Primary => ReadRoute::Only(metrics::DbPool::Primary),
-        ReadFrom::Replica => ReadRoute::Only(metrics::DbPool::Replica),
-        ReadFrom::ReplicaThenPrimary => ReadRoute::ReplicaThenPrimary,
+/// Resolve the configured strategy against whether a replica exists. With no
+/// replica every strategy collapses to `Primary`, so the read path never
+/// re-derives replica existence and a metric label never names a missing pool.
+pub(crate) const fn resolve_read_strategy(
+    strategy: ReadStrategy,
+    has_replica: bool,
+) -> ReadStrategy {
+    if has_replica {
+        strategy
+    } else {
+        ReadStrategy::Primary
     }
 }
 
-/// A read view over a `DbState`, carrying the route resolved once from the configured strategy and the pools that exist.
-pub(crate) struct ReadDbPool<'a, S> {
+/// A read view over a `DbState`, carrying the strategy resolved once from the
+/// configured value and the pools that exist.
+pub(crate) struct ReadView<'a, S> {
     state: &'a S,
-    route: ReadRoute,
+    strategy: ReadStrategy,
 }
 
 // Manual (not derived): the derived impls would wrongly require `S: Copy`.
-impl<S> Clone for ReadDbPool<'_, S> {
+impl<S> Clone for ReadView<'_, S> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<S> Copy for ReadDbPool<'_, S> {}
+impl<S> Copy for ReadView<'_, S> {}
 
 type Connection<'a> = PooledConnection<'a, AsyncPgConnection>;
 
 impl<C, T: DbAdapterType> DbState<C, T> {
-    pub(crate) fn read_db_pool(&self) -> ReadDbPool<'_, Self> {
-        ReadDbPool {
+    pub(crate) fn read_view(&self) -> ReadView<'_, Self> {
+        ReadView {
             state: self,
-            route: read_route(self.read_strategy, self.replica.is_some()),
+            strategy: resolve_read_strategy(self.read_strategy, self.replica.is_some()),
         }
     }
 
-    /// Normalise a requested pool so metric labels never lie: a `Replica` request degrades to `Primary` when no replica is configured.
-    pub(crate) fn effective_pool(&self, from: metrics::DbPool) -> metrics::DbPool {
-        match from {
-            metrics::DbPool::Replica if self.replica.is_none() => metrics::DbPool::Primary,
-            pool => pool,
-        }
-    }
-
-    /// The handle for `from`, falling back to the primary when no replica exists.
+    /// The handle for `from`. A `Replica` request with no replica configured
+    /// falls back to the primary (the routing layer never asks for a replica
+    /// that does not exist; this keeps the pool valid regardless).
     pub(crate) fn handle(&self, from: metrics::DbPool) -> &PoolHandle<C, T> {
-        match self.effective_pool(from) {
+        match from {
             metrics::DbPool::Replica => self.replica.as_ref().unwrap_or(&self.primary),
             metrics::DbPool::Primary => &self.primary,
         }
@@ -104,7 +94,18 @@ where
         <Self as DbAdapter>::from_config(config, tenant_id, schema).await
     }
 
-    pub(crate) async fn get_conn(
+    /// A connection to the write pool (primary). Use for writes and for reads a
+    /// write depends on — read-before-write (rotate) and read-your-own-write
+    /// (create/transfer) — where a lagging replica would break correctness.
+    pub(crate) async fn get_write_pool(
+        &self,
+    ) -> CustomResult<<Self as DbAdapter>::Conn<'_>, errors::ConnectionError> {
+        self.get_conn(metrics::DbPool::Primary).await
+    }
+
+    /// Acquire from a specific pool. Only the read-routing layer chooses `from`;
+    /// every other caller goes through `get_write_pool`.
+    async fn get_conn(
         &self,
         from: metrics::DbPool,
     ) -> CustomResult<<Self as DbAdapter>::Conn<'_>, errors::ConnectionError> {

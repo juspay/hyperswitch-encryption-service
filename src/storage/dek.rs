@@ -23,12 +23,12 @@ pub trait DataKeyStorageInterface {
 
     async fn get_key(
         &self,
-        v: Version,
+        key_version: Version,
         identifier: &Identifier,
     ) -> CustomResult<DataKey, errors::DatabaseError>;
 }
 
-/// Config-routed reads following the configured `read_strategy`. Implemented for `ReadDbPool`.
+/// Config-routed reads following the configured `read_strategy`. Implemented for `ReadView`.
 #[async_trait::async_trait]
 pub trait DataKeyReadInterface {
     async fn get_latest_version(
@@ -38,7 +38,7 @@ pub trait DataKeyReadInterface {
 
     async fn get_key(
         &self,
-        v: Version,
+        key_version: Version,
         identifier: &Identifier,
     ) -> CustomResult<DataKey, errors::DatabaseError>;
 }
