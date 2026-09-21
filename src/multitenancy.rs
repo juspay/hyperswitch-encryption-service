@@ -40,6 +40,11 @@ impl TenantState {
     pub(crate) fn get_db_pool(&self) -> &StorageState {
         self.db_pool()
     }
+
+    /// A config-routed read view over this tenant's storage.
+    pub(crate) fn get_read_view(&self) -> crate::storage::ReadView<'_, StorageState> {
+        self.get_db_pool().read_view()
+    }
 }
 
 impl std::ops::Deref for TenantState {

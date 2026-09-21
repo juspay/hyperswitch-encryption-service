@@ -42,6 +42,29 @@ max_lifetime_secs = 1800             # Max connection lifetime in seconds (optio
 idle_timeout_secs = 600              # Close idle connections beyond `min_idle` after this duration in seconds (optional).
 connection_acquire_timeout_secs = 30 # Duration in seconds to wait for a connection to be acquired from the pool (optional).
 connect_timeout_secs = 5             # Per-socket TCP connection timeout in seconds (optional).
+read_strategy = "primary"            # "primary" | "replica" | "replica_then_primary" (optional, default "primary"). Only used when [replica_database] is set.
+                                     # Non-primary strategies read from a lagging replica: right after a key rotate/transfer, the replica can
+                                     # still serve the previous key version. That is a stale-but-successful read, so even replica_then_primary
+                                     # does not fall back. Encrypts may use the superseded version until replication catches up; decrypts are
+                                     # pinned to the version in the ciphertext and are unaffected.
+                                     # https://github.com/juspay/hyperswitch-encryption-service/pull/85#issuecomment-5759998517
+
+# Optional read replica: when present, reads are routed per [database].read_strategy. Fields are optional and default the same way as [database]; nothing is inherited from [database].
+#
+# [replica_database]
+# host = "replica.internal"                     # Replica hostname or IP address
+# port = 5432                                   # Replica port
+# user = "db_user"                              # Username for replica authentication
+# password = "db_pass"                          # Replica password (base64 KMS ciphertext with the `aws` feature)
+# dbname = "encryption_db"                      # Name of the database on the replica
+# pool_size = 5                                 # Maximum number of connections in the replica pool
+# min_idle = 2                                  # Minimum number of idle connections to maintain
+# enable_ssl = false                            # Enable or disable TLS (requires the `postgres_ssl` feature)
+# # root_ca = ""                                # Required when enable_ssl is true (base64 KMS ciphertext with the `aws` feature)
+# max_lifetime_secs = 1800                      # Max connection lifetime in seconds
+# idle_timeout_secs = 600                       # Close idle connections beyond min_idle after this duration
+# connection_acquire_timeout_secs = 2           # Duration in seconds to wait for a connection from the pool
+# connect_timeout_secs = 5                      # Per-socket TCP connection timeout in seconds
 
 # Thread pool configuration
 [pool_config]

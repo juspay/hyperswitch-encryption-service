@@ -10,7 +10,8 @@ pub enum ConnectionError {
     ConnectionEstablishFailed,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
 pub enum DatabaseError {
     #[error("Failed to get the connection out of the pool")]
     ConnectionError(error_stack::Report<ConnectionError>),

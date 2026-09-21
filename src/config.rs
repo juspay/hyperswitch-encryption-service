@@ -106,6 +106,9 @@ pub struct Config {
     #[serde(default)]
     pub management_server: ManagementServer,
     pub database: Database,
+    /// Optional read replica. Absent ⇒ no replica pool, all reads on the primary.
+    #[serde(default)]
+    pub replica_database: Option<ReplicaDatabase>,
     pub secrets: Secrets,
     #[serde(default)]
     pub cassandra: Cassandra,
@@ -156,6 +159,83 @@ pub struct Database {
     pub idle_timeout_secs: Option<NonZeroU64>,
     pub connection_acquire_timeout_secs: Option<NonZeroU64>,
     pub connect_timeout_secs: Option<NonZeroU64>,
+    /// Read-routing policy. Only applies when `[replica_database]` is configured; otherwise reads use the primary.
+    #[serde(default)]
+    pub read_strategy: ReadStrategy,
+}
+
+/// Which pool a read is routed to.
+#[derive(Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq, strum::IntoStaticStr)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum ReadStrategy {
+    /// Always read from the primary.
+    #[default]
+    Primary,
+    /// Always read from the replica; a failure is returned to the caller. A stale-but-successful
+    /// replica read is used as-is (see the caveat on `ReplicaThenPrimary`).
+    Replica,
+    /// Read from the replica, retrying on the primary on *any* failure, including `NotFound` (replication lag).
+    ///
+    /// Caveat: the retry is error-driven. A replica read that *succeeds* with a stale row —
+    /// e.g. after a rotate/transfer writes a new version to the primary while the replica still
+    /// holds the previous one — is used as-is, so encrypts may briefly keep using the superseded
+    /// latest version until replication catches up. Decrypts are pinned to the version in the
+    /// ciphertext and are unaffected.
+    /// <https://github.com/juspay/hyperswitch-encryption-service/pull/85#issuecomment-5759998517>
+    ReplicaThenPrimary,
+}
+
+/// Optional read replica; its own host and credentials, nothing inherited from `[database]`.
+#[derive(Deserialize, Debug)]
+pub struct ReplicaDatabase {
+    pub host: String,
+    pub port: u16,
+    pub user: hyperswitch_masking::Secret<String>,
+    pub password: SecretContainer,
+    pub dbname: hyperswitch_masking::Secret<String>,
+    pub pool_size: Option<u32>,
+    pub min_idle: Option<u32>,
+    pub enable_ssl: Option<bool>,
+    pub root_ca: Option<SecretContainer>,
+    pub max_lifetime_secs: Option<NonZeroU64>,
+    pub idle_timeout_secs: Option<NonZeroU64>,
+    pub connection_acquire_timeout_secs: Option<NonZeroU64>,
+    pub connect_timeout_secs: Option<NonZeroU64>,
+}
+
+impl ReplicaDatabase {
+    /// Map this section onto the shape `build_pg_config` already consumes.
+    pub(crate) fn as_database(&self) -> Database {
+        Database {
+            host: self.host.clone(),
+            port: self.port,
+            user: self.user.clone(),
+            password: self.password.clone(),
+            dbname: self.dbname.clone(),
+            pool_size: self.pool_size,
+            min_idle: self.min_idle,
+            enable_ssl: self.enable_ssl,
+            root_ca: self.root_ca.clone(),
+            max_lifetime_secs: self.max_lifetime_secs,
+            idle_timeout_secs: self.idle_timeout_secs,
+            connection_acquire_timeout_secs: self.connection_acquire_timeout_secs,
+            connect_timeout_secs: self.connect_timeout_secs,
+            read_strategy: ReadStrategy::default(),
+        }
+    }
+
+    fn validate(&self) -> CustomResult<(), errors::ParsingError> {
+        error_stack::ensure!(
+            !(self.enable_ssl == Some(true) && self.root_ca.is_none()),
+            errors::ParsingError::DecodingFailed(
+                r#"replica_database.root_ca is required when replica_database.enable_ssl is true"#
+                    .to_string(),
+            )
+        );
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -416,6 +496,27 @@ impl Config {
         self.multitenancy
             .validate()
             .expect("Failed to validate multitenancy, some missing configuration found");
+
+        if let Some(replica_database) = &self.replica_database {
+            replica_database
+                .validate()
+                .expect("Failed to validate replica database configuration");
+        }
+
+        self.validate_read_strategy()
+            .expect("Failed to validate database read strategy configuration");
+    }
+
+    fn validate_read_strategy(&self) -> CustomResult<(), errors::ParsingError> {
+        error_stack::ensure!(
+            self.database.read_strategy == ReadStrategy::Primary || self.replica_database.is_some(),
+            errors::ParsingError::DecodingFailed(
+                "database.read_strategy is non-primary but no [replica_database] is configured"
+                    .to_string(),
+            )
+        );
+
+        Ok(())
     }
 }
 

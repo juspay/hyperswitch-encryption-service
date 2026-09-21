@@ -1,7 +1,12 @@
 mod cassandra;
 mod postgres;
 
-use crate::{config::Config, errors, multitenancy::TenantId, storage::DbState};
+use crate::{
+    config::Config,
+    errors,
+    multitenancy::TenantId,
+    storage::{DbState, metrics::DbPool},
+};
 
 #[derive(Clone)]
 pub struct PostgreSQL;
@@ -35,5 +40,6 @@ pub trait DbAdapter {
 
     async fn get_conn<'a>(
         &'a self,
+        pool: DbPool,
     ) -> errors::CustomResult<Self::Conn<'a>, errors::ConnectionError>;
 }
