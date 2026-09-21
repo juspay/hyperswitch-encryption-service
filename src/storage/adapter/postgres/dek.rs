@@ -113,8 +113,11 @@ impl DataKeyStorageInterface for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
         operation: metrics::DataKeyStorageOperation,
         new_key: DataKeyNew,
     ) -> CustomResult<DataKey, errors::DatabaseError> {
-        let identifier: errors::CustomResult<Identifier, errors::ParsingError> =
-            (new_key.data_identifier.clone(), new_key.key_identifier.clone()).try_into();
+        let identifier: errors::CustomResult<Identifier, errors::ParsingError> = (
+            new_key.data_identifier.clone(),
+            new_key.key_identifier.clone(),
+        )
+            .try_into();
 
         let key_version = new_key.version;
 

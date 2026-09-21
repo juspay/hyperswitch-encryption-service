@@ -82,7 +82,9 @@ impl DataKeyStorageInterface
         let connection = self.get_write_pool().await.switch()?;
 
         let data_key = CassandraDataKey::find_by_key_identifier_and_data_identifier_and_version(
-            key_id, data_id, key_version,
+            key_id,
+            data_id,
+            key_version,
         )
         .consistency(scylla::statement::Consistency::LocalQuorum)
         .execute(connection)
