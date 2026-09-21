@@ -43,6 +43,11 @@ idle_timeout_secs = 600              # Close idle connections beyond `min_idle` 
 connection_acquire_timeout_secs = 30 # Duration in seconds to wait for a connection to be acquired from the pool (optional).
 connect_timeout_secs = 5             # Per-socket TCP connection timeout in seconds (optional).
 read_strategy = "primary"            # "primary" | "replica" | "replica_then_primary" (optional, default "primary"). Only used when [replica_database] is set.
+                                     # Non-primary strategies read from a lagging replica: right after a key rotate/transfer, the replica can
+                                     # still serve the previous key version. That is a stale-but-successful read, so even replica_then_primary
+                                     # does not fall back. Encrypts may use the superseded version until replication catches up; decrypts are
+                                     # pinned to the version in the ciphertext and are unaffected.
+                                     # https://github.com/juspay/hyperswitch-encryption-service/pull/85#issuecomment-5759998517
 
 # Optional read replica: when present, reads are routed per [database].read_strategy. Fields are optional and default the same way as [database]; nothing is inherited from [database].
 #

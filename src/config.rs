@@ -172,9 +172,17 @@ pub enum ReadStrategy {
     /// Always read from the primary.
     #[default]
     Primary,
-    /// Always read from the replica; a failure is returned to the caller.
+    /// Always read from the replica; a failure is returned to the caller. A stale-but-successful
+    /// replica read is used as-is (see the caveat on `ReplicaThenPrimary`).
     Replica,
     /// Read from the replica, retrying on the primary on *any* failure, including `NotFound` (replication lag).
+    ///
+    /// Caveat: the retry is error-driven. A replica read that *succeeds* with a stale row —
+    /// e.g. after a rotate/transfer writes a new version to the primary while the replica still
+    /// holds the previous one — is used as-is, so encrypts may briefly keep using the superseded
+    /// latest version until replication catches up. Decrypts are pinned to the version in the
+    /// ciphertext and are unaffected.
+    /// <https://github.com/juspay/hyperswitch-encryption-service/pull/85#issuecomment-5759998517>
     ReplicaThenPrimary,
 }
 

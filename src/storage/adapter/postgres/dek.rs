@@ -72,6 +72,11 @@ async fn query_key(
 }
 
 /// Run a read against the pool(s) selected by `strategy`. `ReplicaThenPrimary` retries on the primary when the replica fails for *any* reason, including `NotFound` (replication lag).
+///
+/// Only errors trigger the retry: a stale-but-successful replica row is returned as-is
+/// (post-rotate lag — the replica still holds the previous version while the primary has the
+/// new one). Callers treating "latest" strictly must pin to the primary instead.
+/// <https://github.com/juspay/hyperswitch-encryption-service/pull/85#issuecomment-5759998517>
 async fn with_read_fallback<T, F, Fut, R>(
     strategy: ReadStrategy,
     db_op: metrics::DbOperation,
