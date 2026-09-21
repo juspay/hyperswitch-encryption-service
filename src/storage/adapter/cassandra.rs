@@ -42,7 +42,7 @@ impl super::DbAdapter for DbState<scylla::client::caching_session::CachingSessio
 
     async fn get_conn<'a>(
         &'a self,
-        _from: crate::storage::metrics::DbPool,
+        _pool: crate::storage::metrics::DbPool,
     ) -> errors::CustomResult<Self::Conn<'a>, errors::ConnectionError> {
         Ok(&self.primary.pool)
     }

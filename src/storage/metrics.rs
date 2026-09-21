@@ -4,7 +4,6 @@ use std::future::Future;
 
 use crate::env::metrics;
 
-// `pub` (module is `pub(crate)`) so it can appear in `DbAdapter::get_conn`'s signature without tripping `private_interfaces`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 pub enum DbPool {

@@ -71,18 +71,6 @@ async fn query_key(
     .switch()
 }
 
-/// Map a replica failure to a bounded-cardinality metric label.
-const fn fallback_reason(error: &errors::DatabaseError) -> &'static str {
-    match error {
-        errors::DatabaseError::ConnectionError(_) => "connection_error",
-        errors::DatabaseError::NotFound => "not_found",
-        errors::DatabaseError::UniqueViolation => "unique_violation",
-        errors::DatabaseError::NotNullViolation => "not_null_violation",
-        errors::DatabaseError::InvalidValue => "invalid_value",
-        errors::DatabaseError::Others => "others",
-    }
-}
-
 /// Run a read against the pool(s) selected by `strategy`. `ReplicaThenPrimary` retries on the primary when the replica fails for *any* reason, including `NotFound` (replication lag).
 async fn with_read_fallback<T, F, Fut, R>(
     strategy: ReadStrategy,
@@ -100,7 +88,7 @@ where
         ReadStrategy::ReplicaThenPrimary => match attempt(DbPool::Replica).await {
             Ok(value) => Ok(value),
             Err(replica_error) => {
-                let reason = fallback_reason(replica_error.current_context());
+                let reason: &'static str = replica_error.current_context().into();
                 // debug, not warn: under a replica outage this fires per read;
                 // `database.read.fallback.count` is the aggregated alerting signal.
                 logger::debug!(

@@ -40,6 +40,6 @@ pub trait DbAdapter {
 
     async fn get_conn<'a>(
         &'a self,
-        from: DbPool,
+        pool: DbPool,
     ) -> errors::CustomResult<Self::Conn<'a>, errors::ConnectionError>;
 }

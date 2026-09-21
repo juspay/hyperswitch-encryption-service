@@ -28,20 +28,6 @@ pub struct DbState<C, T: DbAdapterType> {
     read_strategy: ReadStrategy,
 }
 
-/// Resolve the configured strategy against whether a replica exists. With no
-/// replica every strategy collapses to `Primary`, so the read path never
-/// re-derives replica existence and a metric label never names a missing pool.
-pub(crate) const fn resolve_read_strategy(
-    strategy: ReadStrategy,
-    has_replica: bool,
-) -> ReadStrategy {
-    if has_replica {
-        strategy
-    } else {
-        ReadStrategy::Primary
-    }
-}
-
 /// A read view over a `DbState`, carrying the strategy resolved once from the
 /// configured value and the pools that exist.
 pub(crate) struct ReadView<'a, S> {
@@ -62,17 +48,21 @@ type Connection<'a> = PooledConnection<'a, AsyncPgConnection>;
 
 impl<C, T: DbAdapterType> DbState<C, T> {
     pub(crate) fn read_view(&self) -> ReadView<'_, Self> {
+        // No replica ⇒ every strategy collapses to `Primary`.
+        let strategy = if self.replica.is_some() {
+            self.read_strategy
+        } else {
+            ReadStrategy::Primary
+        };
         ReadView {
             state: self,
-            strategy: resolve_read_strategy(self.read_strategy, self.replica.is_some()),
+            strategy,
         }
     }
 
-    /// The handle for `from`. A `Replica` request with no replica configured
-    /// falls back to the primary (the routing layer never asks for a replica
-    /// that does not exist; this keeps the pool valid regardless).
-    pub(crate) fn handle(&self, from: metrics::DbPool) -> &PoolHandle<C, T> {
-        match from {
+    /// Pool handle for `pool`; falls back to the primary when no replica exists.
+    pub(crate) fn handle(&self, pool: metrics::DbPool) -> &PoolHandle<C, T> {
+        match pool {
             metrics::DbPool::Replica => self.replica.as_ref().unwrap_or(&self.primary),
             metrics::DbPool::Primary => &self.primary,
         }
@@ -103,12 +93,12 @@ where
         self.get_conn(metrics::DbPool::Primary).await
     }
 
-    /// Acquire from a specific pool. Only the read-routing layer chooses `from`;
+    /// Acquire from a specific pool. Only the read-routing layer chooses `pool`;
     /// every other caller goes through `get_write_pool`.
     async fn get_conn(
         &self,
-        from: metrics::DbPool,
+        pool: metrics::DbPool,
     ) -> CustomResult<<Self as DbAdapter>::Conn<'_>, errors::ConnectionError> {
-        <Self as DbAdapter>::get_conn(self, from).await
+        <Self as DbAdapter>::get_conn(self, pool).await
     }
 }

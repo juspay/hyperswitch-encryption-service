@@ -44,7 +44,7 @@ connection_acquire_timeout_secs = 30 # Duration in seconds to wait for a connect
 connect_timeout_secs = 5             # Per-socket TCP connection timeout in seconds (optional).
 read_strategy = "primary"            # "primary" | "replica" | "replica_then_primary" (optional, default "primary"). Only used when [replica_database] is set.
 
-# Optional read replica: when present, reads are routed per [database].read_strategy. Every field is required; nothing is inherited from [database].
+# Optional read replica: when present, reads are routed per [database].read_strategy. Fields are optional and default the same way as [database]; nothing is inherited from [database].
 #
 # [replica_database]
 # host = "replica.internal"                     # Replica hostname or IP address

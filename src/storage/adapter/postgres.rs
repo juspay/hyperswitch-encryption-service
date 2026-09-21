@@ -11,7 +11,7 @@ use hyperswitch_masking::{ExposeInterface, PeekInterface};
 use rustls::pki_types::pem::PemObject;
 
 use crate::{
-    env::metrics,
+    env::{metrics, observability as logger},
     multitenancy::TenantId,
     storage::{
         Config, Connection, DbState, adapter::PostgreSQL, errors, metrics as storage_metrics,
@@ -197,6 +197,7 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
     /// # Panics
     ///
     /// Panics if unable to connect to Database
+    #[expect(clippy::expect_used)]
     async fn from_config(config: &Config, tenant_id: &TenantId, schema: &str) -> Self {
         let primary = build_pool(
             config,
@@ -205,21 +206,19 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
             schema,
             storage_metrics::DbPool::Primary,
         )
-        .await;
+        .await
+        .expect("Failed to establish primary database pool connection");
 
         let replica = match &config.replica_database {
             Some(replica_database) => {
-                let database = replica_database.as_database();
-                Some(
-                    build_pool(
-                        config,
-                        &database,
-                        tenant_id,
-                        schema,
-                        storage_metrics::DbPool::Replica,
-                    )
-                    .await,
+                build_pool(
+                    config,
+                    &replica_database.as_database(),
+                    tenant_id,
+                    schema,
+                    storage_metrics::DbPool::Replica,
                 )
+                .await
             }
             None => None,
         };
@@ -233,26 +232,26 @@ impl super::DbAdapter for DbState<Pool<AsyncPgConnection>, PostgreSQL> {
 
     async fn get_conn<'a>(
         &'a self,
-        from: crate::storage::metrics::DbPool,
+        pool: crate::storage::metrics::DbPool,
     ) -> errors::CustomResult<Self::Conn<'a>, errors::ConnectionError> {
         crate::storage::metrics::record_db_connection_acquire_duration(
-            self.handle(from).pool.get(),
-            from,
+            self.handle(pool).pool.get(),
+            pool,
         )
         .await
         .change_context(errors::ConnectionError::ConnectionEstablishFailed)
     }
 }
 
-/// Build one physical pool plus its metrics. Panics if the primary pool cannot be established, or when TLS is requested without a `root_ca`.
-#[allow(clippy::expect_used, clippy::panic)]
+/// Build one physical pool plus its metrics; `None` if it can't be established.
+#[cfg_attr(feature = "postgres_ssl", expect(clippy::expect_used))]
 async fn build_pool(
     config: &Config,
     database: &crate::config::Database,
     tenant_id: &TenantId,
     schema: &str,
     db_pool: storage_metrics::DbPool,
-) -> crate::storage::PoolHandle<Pool<AsyncPgConnection>, PostgreSQL> {
+) -> Option<crate::storage::PoolHandle<Pool<AsyncPgConnection>, PostgreSQL>> {
     let password = database.password.expose(config).await;
     let pg_config = build_pg_config(database, schema, password);
 
@@ -270,13 +269,12 @@ async fn build_pool(
 
     #[cfg(feature = "postgres_ssl")]
     if database.enable_ssl == Some(true) {
-        let pool_name = <&'static str>::from(db_pool);
-        let root_ca = database.root_ca.clone().unwrap_or_else(|| {
-            panic!(
-                "Failed to load db server root cert from the config for the {pool_name} database"
-            )
-        });
-        let root_ca = root_ca.expose(config).await;
+        let root_ca = database
+            .root_ca
+            .clone()
+            .expect("Failed to load db server root cert from the config")
+            .expose(config)
+            .await;
         let pg_config_for_closure = pg_config.clone();
 
         mgr_config.custom_setup = Box::new(move |_url| {
@@ -337,16 +335,20 @@ async fn build_pool(
         ));
     }
 
-    let pool = match db_pool {
-        storage_metrics::DbPool::Primary => pool_builder
-            .build(mgr)
-            .await
-            .expect("Failed to establish primary database pool connection"),
-        // Built lazily so an unreachable replica does not take the service down at boot.
-        storage_metrics::DbPool::Replica => pool_builder.build_unchecked(mgr),
+    let pool = match pool_builder.build(mgr).await {
+        Ok(pool) => pool,
+        // Non-fatal here; the caller decides (primary fatal, replica degrades).
+        Err(error) => {
+            logger::error!(
+                ?error,
+                pool = <&'static str>::from(db_pool),
+                "Failed to establish database pool connection",
+            );
+            return None;
+        }
     };
 
     let _metrics = PostgresPoolMetrics::new(pool.clone(), tenant_id, db_pool);
 
-    crate::storage::PoolHandle { pool, _metrics }
+    Some(crate::storage::PoolHandle { pool, _metrics })
 }

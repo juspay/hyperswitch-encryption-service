@@ -178,7 +178,7 @@ pub enum ReadStrategy {
     ReplicaThenPrimary,
 }
 
-/// Optional read replica. Every field is required when the section is present; nothing is inherited from `[database]`.
+/// Optional read replica; its own host and credentials, nothing inherited from `[database]`.
 #[derive(Deserialize, Debug)]
 pub struct ReplicaDatabase {
     pub host: String,
@@ -186,15 +186,14 @@ pub struct ReplicaDatabase {
     pub user: hyperswitch_masking::Secret<String>,
     pub password: SecretContainer,
     pub dbname: hyperswitch_masking::Secret<String>,
-    pub pool_size: u32,
-    pub min_idle: u32,
-    pub enable_ssl: bool,
-    /// Required when `enable_ssl` is true; checked in `Config::validate`.
+    pub pool_size: Option<u32>,
+    pub min_idle: Option<u32>,
+    pub enable_ssl: Option<bool>,
     pub root_ca: Option<SecretContainer>,
-    pub max_lifetime_secs: NonZeroU64,
-    pub idle_timeout_secs: NonZeroU64,
-    pub connection_acquire_timeout_secs: NonZeroU64,
-    pub connect_timeout_secs: NonZeroU64,
+    pub max_lifetime_secs: Option<NonZeroU64>,
+    pub idle_timeout_secs: Option<NonZeroU64>,
+    pub connection_acquire_timeout_secs: Option<NonZeroU64>,
+    pub connect_timeout_secs: Option<NonZeroU64>,
 }
 
 impl ReplicaDatabase {
@@ -206,22 +205,21 @@ impl ReplicaDatabase {
             user: self.user.clone(),
             password: self.password.clone(),
             dbname: self.dbname.clone(),
-            pool_size: Some(self.pool_size),
-            min_idle: Some(self.min_idle),
-            enable_ssl: Some(self.enable_ssl),
+            pool_size: self.pool_size,
+            min_idle: self.min_idle,
+            enable_ssl: self.enable_ssl,
             root_ca: self.root_ca.clone(),
-            max_lifetime_secs: Some(self.max_lifetime_secs),
-            idle_timeout_secs: Some(self.idle_timeout_secs),
-            connection_acquire_timeout_secs: Some(self.connection_acquire_timeout_secs),
-            connect_timeout_secs: Some(self.connect_timeout_secs),
-            // Irrelevant for the replica pool; routing is read from `[database]`.
+            max_lifetime_secs: self.max_lifetime_secs,
+            idle_timeout_secs: self.idle_timeout_secs,
+            connection_acquire_timeout_secs: self.connection_acquire_timeout_secs,
+            connect_timeout_secs: self.connect_timeout_secs,
             read_strategy: ReadStrategy::default(),
         }
     }
 
     fn validate(&self) -> CustomResult<(), errors::ParsingError> {
         error_stack::ensure!(
-            !(self.enable_ssl && self.root_ca.is_none()),
+            !(self.enable_ssl == Some(true) && self.root_ca.is_none()),
             errors::ParsingError::DecodingFailed(
                 r#"replica_database.root_ca is required when replica_database.enable_ssl is true"#
                     .to_string(),
@@ -496,6 +494,21 @@ impl Config {
                 .validate()
                 .expect("Failed to validate replica database configuration");
         }
+
+        self.validate_read_strategy()
+            .expect("Failed to validate database read strategy configuration");
+    }
+
+    fn validate_read_strategy(&self) -> CustomResult<(), errors::ParsingError> {
+        error_stack::ensure!(
+            self.database.read_strategy == ReadStrategy::Primary || self.replica_database.is_some(),
+            errors::ParsingError::DecodingFailed(
+                "database.read_strategy is non-primary but no [replica_database] is configured"
+                    .to_string(),
+            )
+        );
+
+        Ok(())
     }
 }
 
