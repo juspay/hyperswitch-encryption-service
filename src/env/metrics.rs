@@ -220,6 +220,8 @@ pub(crate) enum KeyManagerBackend {
     AwsKms,
     #[cfg(feature = "gcp")]
     GcpKms,
+    #[cfg(feature = "oci")]
+    OciKms,
     #[cfg(feature = "vault")]
     Vault,
     Aes256,

@@ -117,6 +117,7 @@ metrics_export_interval_secs = 15                  # Export interval in seconds
 #   - "aes_local" (no feature flag needed, but unavailable in `release` builds) - a locally-held AES-256 master key
 #   - "aws_kms" (requires the `aws` compile-time feature flag)
 #   - "gcp_kms" (requires the `gcp` compile-time feature flag)
+#   - "oci_kms" (requires the `oci` compile-time feature flag)
 #   - "hashicorp_vault" (requires the `vault` compile-time feature flag)
 # The corresponding sub-table below (e.g. [secrets.aws_kms]) must be present for
 # whichever manager is selected.
@@ -141,6 +142,13 @@ master_key = "6d761d32f1b14ef34cf016d726b29b02b5cfce92a8959f1bfb65995c8100925e"
 # location_id = "us-east1"             # GCP location ID of the KMS key ring (e.g. "global", "us-east1")
 # key_ring_id = "cripta-keyring"       # GCP KMS key ring ID
 # key_id = "cripta-master-key"         # GCP KMS key ID
+
+# OCI Vault KMS configuration - required when manager = "oci_kms". Holds no credentials: inside
+# Kubernetes they come from OKE Workload Identity, outside it from the `oci` CLI's ~/.oci/config.
+# Encrypt bootstrap secrets with `oci kms crypto encrypt --key-id <key_id> --endpoint <vault_crypto_endpoint>`.
+# [secrets.oci_kms]
+# vault_crypto_endpoint = "https://<vault>-crypto.kms.<region>.oci.oraclecloud.com" # The vault's crypto endpoint
+# key_id = "ocid1.key.oc1..."                                                        # OCID of the AES-256 master key
 
 # HashiCorp Vault configuration - required when manager = "hashicorp_vault"
 # [secrets.hashicorp_vault]
