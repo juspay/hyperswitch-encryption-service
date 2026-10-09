@@ -3,6 +3,8 @@ pub(crate) mod aes256;
 pub(crate) mod aws;
 #[cfg(feature = "gcp")]
 pub(crate) mod gcp;
+#[cfg(feature = "oci")]
+pub(crate) mod oci;
 #[cfg(feature = "vault")]
 pub(crate) mod vault;
 
@@ -17,6 +19,8 @@ use crate::crypto::vault::Vault;
 use crate::services::aws::AwsKmsClient;
 #[cfg(feature = "gcp")]
 use crate::services::gcp::GcpKmsClient;
+#[cfg(feature = "oci")]
+use crate::services::oci::OciKmsClient;
 use crate::{
     crypto::aes256::GcmAes256,
     env::metrics,
@@ -29,6 +33,7 @@ pub enum Source {
     AESLocal,
     HashicorpVault,
     GcpKms,
+    OciKms,
 }
 
 #[async_trait::async_trait]
@@ -207,6 +212,45 @@ impl KeyManagement for GcpKmsClient {
         record_key_manager_call(
             <Self as Crypto>::decrypt(self, input),
             metrics::KeyManagerBackend::GcpKms,
+            metrics::KeyManagerOperation::Decrypt,
+        )
+        .await
+    }
+}
+
+#[cfg(feature = "oci")]
+#[async_trait::async_trait]
+impl KeyManagement for OciKmsClient {
+    async fn generate_key(
+        &self,
+    ) -> CustomResult<(Source, StrongSecret<[u8; 32]>), errors::CryptoError> {
+        record_key_manager_call(
+            <Self as Crypto>::generate_key(self),
+            metrics::KeyManagerBackend::OciKms,
+            metrics::KeyManagerOperation::GenerateKey,
+        )
+        .await
+    }
+
+    async fn encrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+        record_key_manager_call(
+            <Self as Crypto>::encrypt(self, input),
+            metrics::KeyManagerBackend::OciKms,
+            metrics::KeyManagerOperation::Encrypt,
+        )
+        .await
+    }
+
+    async fn decrypt_key(
+        &self,
+        input: StrongSecret<Vec<u8>>,
+    ) -> CustomResult<StrongSecret<Vec<u8>>, errors::CryptoError> {
+        record_key_manager_call(
+            <Self as Crypto>::decrypt(self, input),
+            metrics::KeyManagerBackend::OciKms,
             metrics::KeyManagerOperation::Decrypt,
         )
         .await

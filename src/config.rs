@@ -5,7 +5,7 @@ use std::{
 };
 
 use config::File;
-#[cfg(any(feature = "aws", feature = "gcp", feature = "vault"))]
+#[cfg(any(feature = "aws", feature = "gcp", feature = "oci", feature = "vault"))]
 use hyperswitch_masking::PeekInterface;
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
@@ -18,6 +18,8 @@ use crate::crypto::vault::{Vault, VaultSettings};
 use crate::services::aws::{AwsKmsClient, AwsKmsConfig};
 #[cfg(feature = "gcp")]
 use crate::services::gcp::{GcpKmsClient, GcpKmsConfig};
+#[cfg(feature = "oci")]
+use crate::services::oci::{OciKmsClient, OciKmsConfig};
 use crate::{
     crypto::KeyManagerClient,
     env::observability::LogConfig,
@@ -79,6 +81,15 @@ impl SecretContainer {
                     .decrypt_secret(self.0.peek())
                     .await
                     .expect("Unable to decrypt GCP KMS encrypted secret");
+                hyperswitch_masking::Secret::new(secret)
+            }
+            #[cfg(feature = "oci")]
+            Secrets::OciKms { oci_kms } => {
+                let secret = OciKmsClient::new(oci_kms)
+                    .expect("Unable to build OCI KMS client")
+                    .decrypt_secret(self.0.peek())
+                    .await
+                    .expect("Unable to decrypt OCI KMS encrypted secret");
                 hyperswitch_masking::Secret::new(secret)
             }
             #[cfg(feature = "vault")]
@@ -252,6 +263,8 @@ pub enum Secrets {
     AwsKms { aws_kms: AwsKmsConfig },
     #[cfg(feature = "gcp")]
     GcpKms { gcp_kms: GcpKmsConfig },
+    #[cfg(feature = "oci")]
+    OciKms { oci_kms: OciKmsConfig },
     #[cfg(feature = "vault")]
     HashicorpVault { hashicorp_vault: VaultSettings },
     #[cfg(not(feature = "release"))]
@@ -379,6 +392,10 @@ impl Secrets {
             }),
             #[cfg(feature = "gcp")]
             Self::GcpKms { gcp_kms } => gcp_kms.validate().map_err(|message| {
+                error_stack::Report::new(errors::ParsingError::DecodingFailed(message.to_string()))
+            }),
+            #[cfg(feature = "oci")]
+            Self::OciKms { oci_kms } => oci_kms.validate().map_err(|message| {
                 error_stack::Report::new(errors::ParsingError::DecodingFailed(message.to_string()))
             }),
             #[cfg(feature = "vault")]
@@ -533,6 +550,11 @@ impl Secrets {
             #[cfg(feature = "gcp")]
             Self::GcpKms { gcp_kms } => {
                 let client = GcpKmsClient::new(&gcp_kms).await?;
+                KeyManagerClient::new(Arc::new(client))
+            }
+            #[cfg(feature = "oci")]
+            Self::OciKms { oci_kms } => {
+                let client = OciKmsClient::new(&oci_kms)?;
                 KeyManagerClient::new(Arc::new(client))
             }
             #[cfg(feature = "vault")]
