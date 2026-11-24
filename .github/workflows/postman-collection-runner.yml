@@ -47,6 +47,8 @@ jobs:
     steps:
       - name: Repository checkout
         uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Skip tests for PRs from forks
         shell: bash
