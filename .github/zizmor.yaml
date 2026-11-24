@@ -1,0 +1,17 @@
+rules:
+  adhoc-packages:
+    ignore:
+      # newman is installed from a fork (`knutties/newman`) that adds the `dir-run` subcommand.
+      # The fork is not published to the npm registry, so it cannot be pinned via `npx --yes pkg@version`.
+      # The git ref is pinned to a commit SHA instead.
+      - postman-collection-runner.yml:84
+
+  cache-poisoning:
+    ignore:
+      # The workflow runs on both `push` and `pull_request` events and uses `Swatinem/rust-cache` action.
+      # `zizmor` flags this as cache-poisoning because a PR could theoretically poison the cache consumed by `main` builds.
+      # GitHub's cache scope isolation makes that direction unlikely: caches written by `pull_request` runs are scoped to the merge ref (`refs/pull/N/merge`)
+      # and cannot be restored by the base branch or other pull requests.
+      # Branch caches flow down from the default branch to feature branches, never the other way around.
+      # Reference: https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching
+      - postman-collection-runner.yml:3
