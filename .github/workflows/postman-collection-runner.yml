@@ -46,7 +46,9 @@ jobs:
           - 5432:5432
     steps:
       - name: Repository checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Skip tests for PRs from forks
         shell: bash
@@ -81,7 +83,7 @@ jobs:
 
       - name: Install newman from fork
         if: ${{ env.RUN_TESTS == 'true' }}
-        run: npm install -g 'git+ssh://git@github.com:knutties/newman.git#feature/newman-dir'
+        run: npm install -g 'git+ssh://git@github.com:knutties/newman.git#1befa08299e6f69c28bd6fae05de467785d69af3'
 
       - name: Build project
         if: ${{ env.RUN_TESTS == 'true' }}
